@@ -34,6 +34,13 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // ThèseFacile — product-level profile, independent of the admin `role`
+  // above. Null until the user completes "Choix du profil" onboarding.
+  // Fixed at onboarding time (one account = one profile) per product decision.
+  profileType   String? // "ENCADRANT" | "ETUDIANT"
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+
   verificationCodes VerificationCode[]
   uploads           FileUpload[]
   notifications     Notification[]
@@ -43,10 +50,17 @@ model User {
   oauthAccounts     OAuthAccount[]
   adminActions      AdminAction[]
 
+  // ThèseFacile domain relations — a User can appear as either side
+  // depending on `profileType`, never both (see IMPLEMENTATION-PLAN.md §6).
+  thesesAsStudent   Thesis[]  @relation("ThesisStudent")
+  thesesAsEncadrant Thesis[]  @relation("ThesisEncadrant")
+  authoredComments  Comment[]
+  sentMessages      Message[]
+
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
   // on their domain models.
-  ownedOrganizations Organization[]      @relation("OrgOwner")
+  ownedOrganizations Organization[]       @relation("OrgOwner")
   memberships        OrganizationMember[] @relation("OrgMembership")
 
   @@index([email])
@@ -95,14 +109,14 @@ model AdminAction {
 // used as a stable URL segment.
 // ───────────────────────────────────────────────────────────────────────
 model Organization {
-  id        String   @id @default(cuid())
-  slug      String   @unique
+  id        String               @id @default(cuid())
+  slug      String               @unique
   name      String
   ownerId   String
-  owner     User     @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner     User                 @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members   OrganizationMember[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 
   @@index([ownerId])
 }
@@ -273,21 +287,26 @@ model WebhookLog {
 // at the call site — the schema is currency-agnostic.
 // ───────────────────────────────────────────────────────────────────────
 model Order {
-  id              String    @id @default(cuid())
-  userId          String? // nullable — guest checkout supported
-  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  amount          Int // gross amount, smallest unit
-  currency        String    @default("XOF") // ISO 4217
-  status          String    @default("PENDING") // PENDING | PAID | EXPIRED | FAILED | REFUNDED
-  customerEmail   String?
-  customerPhone   String?
-  customerName    String?
-  metadata        Json? // app-specific fields
+  id             String       @id @default(cuid())
+  userId         String? // nullable — guest checkout supported
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // ThèseFacile — set when this Order is an institution subscription charge
+  // rather than a generic e-commerce purchase. Null for non-subscription
+  // orders (keeps Order generic per CLAUDE.md "fair to modify" guidance).
+  institutionId  String?
+  institutionRef Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  amount         Int // gross amount, smallest unit
+  currency       String       @default("XOF") // ISO 4217
+  status         String       @default("PENDING") // PENDING | PAID | EXPIRED | FAILED | REFUNDED
+  customerEmail  String?
+  customerPhone  String?
+  customerName   String?
+  metadata       Json? // app-specific fields
 
   // Stripe-grade idempotency. Required header on POST /api/orders; replay
   // with same value returns the original Order row instead of double-charging.
   // Nullable so existing rows pre-migration don't break the @unique constraint.
-  idempotencyKey  String?   @unique
+  idempotencyKey String? @unique
 
   // Provider reference
   provider         String // e.g. "bictorys"
@@ -311,12 +330,12 @@ model Order {
 }
 
 model Withdrawal {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Restrict)
   amount      Int // requested amount, smallest unit
-  currency    String   @default("XOF")
-  status      String   @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED | CANCELLED
+  currency    String @default("XOF")
+  status      String @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED | CANCELLED
   destination Json // { method: "WAVE" | "ORANGE_MONEY" | ..., phone: "+221...", accountName?: "..." }
 
   // Provider reference
@@ -331,4 +350,97 @@ model Withdrawal {
   @@index([userId, requestedAt])
   @@index([status, requestedAt])
   @@index([provider, providerPayoutId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// ThèseFacile domain models — thesis/mémoire supervision.
+// See .planning/banani/IMPLEMENTATION-PLAN.md for the Banani → schema
+// mapping and the confirmed product decisions (§6).
+// ───────────────────────────────────────────────────────────────────────
+
+// One per university/école — encadrants belong to an Institution; a future
+// subscription (Order.institutionId) bills at this level.
+model Institution {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  encadrants User[]
+  orders     Order[]
+}
+
+model Thesis {
+  id          String   @id @default(cuid())
+  topic       String
+  // "En attente" | "Rédaction" | "Révision" | "Bloqué" | "Soutenance"
+  stage       String   @default("En attente")
+  progress    Int      @default(0) // 0-100
+  studentId   String
+  student     User     @relation("ThesisStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  encadrantId String
+  encadrant   User     @relation("ThesisEncadrant", fields: [encadrantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documents Document[]
+  comments  Comment[]
+  deadlines Deadline[]
+  messages  Message[]
+
+  @@index([encadrantId, createdAt])
+  @@index([studentId])
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  thesisId   String
+  thesis     Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  chapter    String? // e.g. "Chapitre 3"
+  // Cloudinary URL — produced by the existing /api/upload flow, not a new
+  // storage path. See CLAUDE.md "Files Claude SHOULD modify" — upload/sniff.ts.
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+
+  @@index([thesisId, uploadedAt])
+}
+
+model Comment {
+  id         String    @id @default(cuid())
+  thesisId   String
+  thesis     Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  documentId String?
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[] @relation("CommentThread")
+  body       String
+  createdAt  DateTime  @default(now())
+
+  @@index([thesisId, createdAt])
+  @@index([parentId])
+}
+
+model Deadline {
+  id        String   @id @default(cuid())
+  thesisId  String
+  thesis    Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  title     String
+  dueAt     DateTime
+  urgency   String   @default("medium") // "low" | "medium" | "high"
+  createdAt DateTime @default(now())
+
+  @@index([thesisId, dueAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  thesisId  String
+  thesis    Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([thesisId, createdAt])
 }
