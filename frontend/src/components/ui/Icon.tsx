@@ -1,0 +1,113 @@
+// Maps the Banani design source's `<Icon i="kebab-name" />` convention onto
+// real lucide-react components. Named imports only (not the full icon map)
+// so unused icons don't ship in the bundle — extend ICONS as new Banani
+// screens introduce new icon names.
+import {
+  AlertTriangle,
+  ArrowRight,
+  BarChart2,
+  Bell,
+  BookOpen,
+  Calendar,
+  CalendarX,
+  Check,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Database,
+  Download,
+  ExternalLink,
+  EyeOff,
+  FileText,
+  FileUp,
+  Globe,
+  GraduationCap,
+  Info,
+  LayoutDashboard,
+  Lock,
+  LogIn,
+  LogOut,
+  Mail,
+  MapPin,
+  MessageCircle,
+  MessageSquare,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Search,
+  Send,
+  Settings,
+  ShieldCheck,
+  Sliders,
+  Smartphone,
+  Star,
+  Upload,
+  User,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+
+const ICONS: Record<string, LucideIcon> = {
+  'alert-triangle': AlertTriangle,
+  'arrow-right': ArrowRight,
+  'bar-chart-2': BarChart2,
+  bell: Bell,
+  'book-open': BookOpen,
+  calendar: Calendar,
+  'calendar-x': CalendarX,
+  check: Check,
+  'check-circle': CheckCircle,
+  'chevron-down': ChevronDown,
+  'chevron-right': ChevronRight,
+  // lucide-react dropped brand icons (Chrome, Facebook, …) — Banani's
+  // "Continuer avec Google" button used i="chrome"; Globe is the closest
+  // neutral stand-in until a real Google "G" mark is wired.
+  chrome: Globe,
+  clock: Clock,
+  'credit-card': CreditCard,
+  database: Database,
+  download: Download,
+  'external-link': ExternalLink,
+  'eye-off': EyeOff,
+  'file-text': FileText,
+  'file-up': FileUp,
+  'graduation-cap': GraduationCap,
+  info: Info,
+  'layout-dashboard': LayoutDashboard,
+  lock: Lock,
+  'log-in': LogIn,
+  'log-out': LogOut,
+  mail: Mail,
+  'map-pin': MapPin,
+  'message-circle': MessageCircle,
+  'message-square': MessageSquare,
+  'more-vertical': MoreVertical,
+  pencil: Pencil,
+  plus: Plus,
+  search: Search,
+  send: Send,
+  settings: Settings,
+  'shield-check': ShieldCheck,
+  sliders: Sliders,
+  smartphone: Smartphone,
+  star: Star,
+  upload: Upload,
+  user: User,
+  users: Users,
+  x: X,
+};
+
+interface IconProps {
+  i: string;
+  size?: number;
+  className?: string;
+}
+
+export function Icon({ i, size = 16, className }: IconProps) {
+  const LucideComponent = ICONS[i];
+  if (!LucideComponent) return null;
+  return <LucideComponent size={size} className={className} aria-hidden="true" />;
+}

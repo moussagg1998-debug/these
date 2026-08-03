@@ -1,1 +1,46 @@
 @import 'tailwindcss';
+
+/* ThèseFacile design tokens — mirrored verbatim from the Banani flow
+   (YQWElzV_9JrI, /style.css) so components using bg-background,
+   text-primary, etc. match the fetched screens pixel-for-pixel.
+   See .planning/banani/IMPLEMENTATION-PLAN.md § Design tokens. */
+@theme {
+  --color-background: #f5f3ee;
+  --color-foreground: #1a1a18;
+  --color-border: #ddd9d0;
+  --color-input: #edeae3;
+  --color-primary: #1b4332;
+  --color-primary-foreground: #f5f3ee;
+  --color-secondary: #d8f3dc;
+  --color-secondary-foreground: #1b4332;
+  --color-muted: #ddd9d0;
+  --color-muted-foreground: #7a7569;
+  --color-accent: #c9782a;
+  --color-accent-foreground: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-foreground: #1a1a18;
+  --color-warning: #f5a623;
+  --color-warning-foreground: #1a1a18;
+  --color-success: #2e7d52;
+  --color-success-foreground: #ffffff;
+  --color-danger: #c0392b;
+  --color-danger-foreground: #ffffff;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius: var(--radius-sm);
+
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-headings: 'IBM Plex Sans', sans-serif;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-3xl: 32px;
+  --text-4xl: 42px;
+}
