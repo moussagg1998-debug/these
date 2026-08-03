@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 4)
+Last updated: 2026-08-04 (Phase 5)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -54,14 +54,23 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-4-documents-comments.md` (documents the "resolved is a boolean not a real read-receipt", "Non lus" inert, and Document metadata simplifications)
 
+### Phase 5 — Échéances & Jalons (2026-08-04)
+- [x] `deadline-calendar` — "Échéances — Calendrier" — `frontend/src/app/deadlines/page.tsx`
+- [x] `add-deadline` — "Ajouter une échéance" (modal) — `frontend/src/components/dashboard/AddDeadlineForm.tsx`, reuses existing `POST /api/theses/[id]/deadlines`
+- [x] Shared: `DeadlineCard` under `frontend/src/components/dashboard/`; `deadlineUrgencyBucket`/`daysUntil` helpers in `frontend/src/lib/theses.ts`
+- [x] Schema: `Deadline.description` (optional) — migration `20260803233622_thesefacile_deadline_description`
+- [x] Backend: new cross-thesis aggregate `GET /api/deadlines` (encadrant-only, `take: 200`, not cursor-paginated — see plan doc); extended `POST /api/theses/[id]/deadlines` (`description`) — all with test coverage (657/657 green)
+- [x] Dashboard's "Prochaines échéances" panel gets a "Voir tout" link to `/deadlines` (parity with the students table's link)
+- [x] format/lint/typecheck/test(657/657)/build all green; dev-server smoke check (curl 200 + content match) on `/deadlines`, 401 on unauthenticated `/api/deadlines`
+- [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
+- Plan: `.planning/banani/phase-5-deadlines.md` (documents the days-until-due bucket vs. stored `urgency` priority distinction, the new `description` field, and the inert reminder checkbox)
+
 ## In progress
-_(none yet — next up: Phase 5, échéances/calendrier)_
+_(none yet — next up: `encadrant-settings`)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
 
 ### Encadrant (supervisor) side
-- [ ] `deadline-calendar` — "Échéances — Calendrier"
-- [ ] `add-deadline` — "Ajouter une échéance" (modal)
 - [ ] `encadrant-settings` — "Paramètres — Compte & Préférences"
 
 ### Étudiant (student) side

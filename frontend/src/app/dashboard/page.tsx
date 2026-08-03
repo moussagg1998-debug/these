@@ -270,9 +270,14 @@ export default function DashboardEncadrantPage() {
           </div>
 
           <div className="mt-2">
-            <h3 className="text-sm font-semibold font-headings text-foreground mb-3">
-              Prochaines échéances
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold font-headings text-foreground">
+                Prochaines échéances
+              </h3>
+              <Link href="/deadlines" className="text-xs font-medium text-primary">
+                Voir tout
+              </Link>
+            </div>
             <div className="flex flex-col gap-2">
               {upcomingDeadlines.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Aucune échéance à venir.</p>

@@ -108,4 +108,18 @@ describe('POST /api/theses/[id]/deadlines', () => {
     const notifArg = prismaMock.notification.create.mock.calls[0]?.[0];
     expect(notifArg?.data?.userId).toBe('stu-1');
   });
+
+  it('passes optional description through to the create call', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.deadline.create.mockResolvedValue({ id: 'd-2' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    await POST(
+      makePost({ title: 'Dépôt final', description: 'Chapitre 3 complet', dueAt: '2026-06-01' }),
+      { params },
+    );
+    const createArg = prismaMock.deadline.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.description).toBe('Chapitre 3 complet');
+  });
 });

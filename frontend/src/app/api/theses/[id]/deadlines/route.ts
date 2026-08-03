@@ -17,6 +17,7 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 
 const CreateBody = z.object({
   title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).optional(),
   dueAt: z.coerce.date(),
   urgency: z.enum(['low', 'medium', 'high']).default('medium'),
 });
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         title: parsed.data.title,
         dueAt: parsed.data.dueAt,
         urgency: parsed.data.urgency,
+        ...(parsed.data.description ? { description: parsed.data.description } : {}),
       },
     });
 

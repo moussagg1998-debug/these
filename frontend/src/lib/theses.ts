@@ -49,8 +49,19 @@ export interface CommentListItem {
 export interface ThesisDeadline {
   id: string;
   title: string;
+  description: string | null;
   dueAt: string;
   urgency: string;
+}
+
+/** Cross-thesis row from GET /api/deadlines ("Échéances — Calendrier"). */
+export interface DeadlineListItem extends ThesisDeadline {
+  thesis: {
+    id: string;
+    topic: string;
+    stage: string;
+    student: ThesisPerson;
+  };
 }
 
 export interface ThesisListItem {
@@ -87,6 +98,27 @@ export function urgencyFromDueDate(dueAt: string): 'low' | 'medium' | 'high' {
   if (days < 3) return 'high';
   if (days < 14) return 'medium';
   return 'low';
+}
+
+/**
+ * Days-until-due bucket for `DeadlineCard`'s timeline grouping ("En retard" /
+ * "Urgent" / "À venir"). Distinct from the stored `Deadline.urgency` field
+ * (an encadrant-set priority) — a "low priority" deadline that's overdue
+ * still needs to render as critical. Boundaries match Banani's own example
+ * data (-15/-8/-2 critical, 3/5/7 urgent, 32/42 upcoming, 195 future).
+ */
+export type DeadlineBucket = 'critical' | 'urgent' | 'upcoming' | 'future';
+
+export function daysUntil(dueAt: string): number {
+  return Math.ceil((new Date(dueAt).getTime() - Date.now()) / 86_400_000);
+}
+
+export function deadlineUrgencyBucket(dueAt: string): DeadlineBucket {
+  const days = daysUntil(dueAt);
+  if (days < 0) return 'critical';
+  if (days <= 7) return 'urgent';
+  if (days <= 60) return 'upcoming';
+  return 'future';
 }
 
 export function formatDate(iso: string): string {

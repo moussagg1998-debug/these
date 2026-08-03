@@ -431,13 +431,14 @@ model Comment {
 }
 
 model Deadline {
-  id        String   @id @default(cuid())
-  thesisId  String
-  thesis    Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
-  title     String
-  dueAt     DateTime
-  urgency   String   @default("medium") // "low" | "medium" | "high"
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  thesisId    String
+  thesis      Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  dueAt       DateTime
+  urgency     String   @default("medium") // "low" | "medium" | "high"
+  createdAt   DateTime @default(now())
 
   @@index([thesisId, dueAt])
 }
