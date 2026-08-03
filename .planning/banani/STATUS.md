@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-03 (Phase 3)
+Last updated: 2026-08-04 (Phase 4)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -43,14 +43,23 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as Phase 2, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-3-encadrant-core.md` (includes the deliberate simplifications: "pending comments" = total count not resolved/unresolved, "submissions this week" approximated from latest-doc-per-thesis)
 
+### Phase 4 — Documents & Commentaires (2026-08-04)
+- [x] `documents-library` — "Bibliothèque de documents" — `frontend/src/app/documents/page.tsx`
+- [x] `comments-overview` — "Commentaires — Vue d'ensemble" — `frontend/src/app/comments/page.tsx`
+- [x] Shared: `DocumentRow`, `CommentThread` (resolve-toggle wired to real PATCH) under `frontend/src/components/dashboard/`
+- [x] Schema: `Document.fileName`/`sizeBytes` (optional — Phase 6 upload will populate), `Comment.resolved`/`priority` — migration `20260803225956_thesefacile_documents_comments_triage`
+- [x] Backend: new cross-thesis aggregates `GET /api/documents`, `GET /api/comments`, `PATCH /api/comments/[id]` (encadrant-only resolve toggle); extended `POST /api/theses/[id]/documents` (`fileName`/`sizeBytes`) and `.../comments` (`priority`) — all with test coverage (650/650 green)
+- [x] StudentDetail's "Documents"/"Commentaires" tabs (inert since Phase 3) now link to `/documents?studentId=`/`/comments?studentId=` — "Historique" stays inert (no Banani source for it)
+- [x] format/lint/typecheck/test(650/650)/build all green; dev-server smoke check (curl 200 + content match) on `/documents`, `/comments`
+- [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
+- Plan: `.planning/banani/phase-4-documents-comments.md` (documents the "resolved is a boolean not a real read-receipt", "Non lus" inert, and Document metadata simplifications)
+
 ## In progress
-_(none yet — next up: Phase 4, documents/comments)_
+_(none yet — next up: Phase 5, échéances/calendrier)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
 
 ### Encadrant (supervisor) side
-- [ ] `documents-library` — "Bibliothèque de documents"
-- [ ] `comments-overview` — "Commentaires — Vue d'ensemble"
 - [ ] `deadline-calendar` — "Échéances — Calendrier"
 - [ ] `add-deadline` — "Ajouter une échéance" (modal)
 - [ ] `encadrant-settings` — "Paramètres — Compte & Préférences"

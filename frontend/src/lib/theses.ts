@@ -14,7 +14,36 @@ export interface ThesisDocument {
   id: string;
   chapter: string | null;
   fileUrl: string;
+  fileName: string | null;
+  sizeBytes: number | null;
   uploadedAt: string;
+}
+
+/** Cross-thesis row from GET /api/documents ("Bibliothèque de documents"). */
+export interface DocumentListItem extends ThesisDocument {
+  thesis: {
+    id: string;
+    topic: string;
+    stage: string;
+    student: ThesisPerson;
+  };
+}
+
+/** Cross-thesis row from GET /api/comments ("Commentaires — Vue d'ensemble"). */
+export interface CommentListItem {
+  id: string;
+  body: string;
+  resolved: boolean;
+  priority: string;
+  createdAt: string;
+  author: { id: string; name: string | null; avatarUrl: string | null };
+  document: { id: string; chapter: string | null; fileName: string | null; fileUrl: string } | null;
+  thesis: {
+    id: string;
+    topic: string;
+    student: ThesisPerson;
+  };
+  _count: { replies: number };
 }
 
 export interface ThesisDeadline {
@@ -85,4 +114,40 @@ export function relativeTime(iso: string): string {
 
 export function displayName(person: ThesisPerson): string {
   return person.name || person.email.split('@')[0] || person.email;
+}
+
+/**
+ * Best-effort display name for a document — real uploads (Phase 6) will
+ * carry `fileName`; anything created before that falls back to `chapter`
+ * or the `fileUrl` basename.
+ */
+export function documentDisplayName(
+  doc: Pick<ThesisDocument, 'fileName' | 'chapter' | 'fileUrl'>,
+): string {
+  if (doc.fileName) return doc.fileName;
+  if (doc.chapter) return doc.chapter;
+  try {
+    const path = new URL(doc.fileUrl).pathname;
+    return path.split('/').pop() || doc.fileUrl;
+  } catch {
+    return doc.fileUrl;
+  }
+}
+
+/** File extension derived from the display name, uppercased (e.g. "PDF"). */
+export function documentFormat(
+  doc: Pick<ThesisDocument, 'fileName' | 'chapter' | 'fileUrl'>,
+): string {
+  const name = documentDisplayName(doc);
+  const ext = name.split('.').pop();
+  return ext && ext !== name ? ext.toUpperCase() : '—';
+}
+
+export function formatFileSize(bytes: number | null): string {
+  if (bytes === null) return '—';
+  if (bytes < 1024) return `${bytes} o`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} Ko`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb < 10 ? 1 : 0)} Mo`;
 }

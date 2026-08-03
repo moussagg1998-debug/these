@@ -21,6 +21,7 @@ const CreateBody = z.object({
   body: z.string().trim().min(1).max(5000),
   documentId: z.string().min(1).optional(),
   parentId: z.string().min(1).optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
 });
 
 interface RouteParams {
@@ -89,6 +90,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         body: parsed.data.body,
         ...(parsed.data.documentId !== undefined ? { documentId: parsed.data.documentId } : {}),
         ...(parsed.data.parentId !== undefined ? { parentId: parsed.data.parentId } : {}),
+        ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
       },
     });
 

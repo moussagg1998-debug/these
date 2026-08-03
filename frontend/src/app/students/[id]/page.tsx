@@ -1,11 +1,10 @@
 // Détail Étudiant — Profil — Banani `StudentDetail.jsx`.
 //
-// Only the "Aperçu" tab is built this phase — Documents/Commentaires/
-// Historique need the full Phase 4 UI (thread view, replies, per-chapter
-// browsing) and are rendered as inert tab labels rather than fake-clickable
-// links to nothing. "Activité récente" merges the two endpoints that
-// already exist (documents + comments) instead of adding new server-side
-// aggregation — see .planning/banani/phase-3-encadrant-core.md.
+// Only "Aperçu" has inline content — its own overview panels + activity
+// feed, merged client-side from the documents/comments endpoints (see
+// phase-3-encadrant-core.md). "Documents"/"Commentaires" link out to the
+// Phase 4 aggregate pages (/documents, /comments) pre-filtered by student;
+// "Historique" stays inert — no Banani source exists for its content.
 'use client';
 
 import { use, useMemo } from 'react';
@@ -62,6 +61,13 @@ interface CommentsResponse {
 }
 
 const TABS = ['Aperçu', 'Documents', 'Commentaires', 'Historique'] as const;
+
+// "Documents"/"Commentaires" now have real destinations as of Phase 4;
+// "Historique" stays inert — no Banani source exists for its content.
+const TAB_LINKS: Partial<Record<(typeof TABS)[number], string>> = {
+  Documents: '/documents',
+  Commentaires: '/comments',
+};
 
 export default function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -172,15 +178,30 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       <div className="flex-1 flex flex-col lg:flex-row gap-0 min-w-0">
         <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
           <div className="flex items-center gap-6 pb-4 border-b border-border mb-6 overflow-x-auto">
-            {TABS.map((tab) =>
-              tab === 'Aperçu' ? (
-                <span
-                  key={tab}
-                  className="shrink-0 px-3 py-2 text-sm font-medium text-primary border-b-2 border-primary"
-                >
-                  {tab}
-                </span>
-              ) : (
+            {TABS.map((tab) => {
+              if (tab === 'Aperçu') {
+                return (
+                  <span
+                    key={tab}
+                    className="shrink-0 px-3 py-2 text-sm font-medium text-primary border-b-2 border-primary"
+                  >
+                    {tab}
+                  </span>
+                );
+              }
+              const href = TAB_LINKS[tab];
+              if (href) {
+                return (
+                  <Link
+                    key={tab}
+                    href={`${href}?studentId=${thesis.student.id}`}
+                    className="shrink-0 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    {tab}
+                  </Link>
+                );
+              }
+              return (
                 <button
                   key={tab}
                   type="button"
@@ -190,8 +211,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 >
                   {tab}
                 </button>
-              ),
-            )}
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

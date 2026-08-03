@@ -399,6 +399,12 @@ model Document {
   // Cloudinary URL — produced by the existing /api/upload flow, not a new
   // storage path. See CLAUDE.md "Files Claude SHOULD modify" — upload/sniff.ts.
   fileUrl    String
+  // Both optional: Cloudinary's upload response carries `original_filename`/
+  // `bytes`, but no flow populates these yet (student upload is Phase 6) —
+  // the documents library falls back to deriving a display name from
+  // `chapter`/`fileUrl` and omitting size when these are null.
+  fileName   String?
+  sizeBytes  Int?
   uploadedAt DateTime @default(now())
 
   @@index([thesisId, uploadedAt])
@@ -415,6 +421,9 @@ model Comment {
   parent     Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
   replies    Comment[] @relation("CommentThread")
   body       String
+  // Encadrant-only triage fields for "Commentaires — Vue d'ensemble".
+  resolved   Boolean   @default(false)
+  priority   String    @default("medium") // "low" | "medium" | "high"
   createdAt  DateTime  @default(now())
 
   @@index([thesisId, createdAt])

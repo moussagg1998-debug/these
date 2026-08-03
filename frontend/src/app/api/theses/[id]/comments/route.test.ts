@@ -112,4 +112,22 @@ describe('POST /api/theses/[id]/comments', () => {
     const notifArg = prismaMock.notification.create.mock.calls[0]?.[0];
     expect(notifArg?.data?.userId).toBe('enc-1');
   });
+
+  it('accepts optional priority', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.comment.create.mockResolvedValue({ id: 'c-3', thesisId: 'thesis-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost({ body: 'Attention urgente', priority: 'high' }), { params });
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.comment.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.priority).toBe('high');
+  });
+
+  it('rejects an unknown priority value → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    const res = await POST(makePost({ body: 'x', priority: 'urgent' }), { params });
+    expect(res.status).toBe(400);
+  });
 });

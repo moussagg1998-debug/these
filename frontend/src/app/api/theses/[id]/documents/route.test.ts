@@ -107,4 +107,24 @@ describe('POST /api/theses/[id]/documents', () => {
     const notifArg = prismaMock.notification.create.mock.calls[0]?.[0];
     expect(notifArg?.data?.userId).toBe('enc-1');
   });
+
+  it('accepts optional fileName + sizeBytes', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    prismaMock.document.create.mockResolvedValue({ id: 'doc-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(
+      makePost({
+        fileUrl: 'https://x.com/a.pdf',
+        fileName: 'Memoire_v4.docx',
+        sizeBytes: 204800,
+      }),
+      { params },
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.document.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.fileName).toBe('Memoire_v4.docx');
+    expect(createArg?.data?.sizeBytes).toBe(204800);
+  });
 });

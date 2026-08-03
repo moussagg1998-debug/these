@@ -21,6 +21,10 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 const CreateBody = z.object({
   fileUrl: z.string().url(),
   chapter: z.string().trim().max(200).optional(),
+  // Optional: Cloudinary's upload response carries `original_filename`/
+  // `bytes` — pass them through here once a real upload UI exists (Phase 6).
+  fileName: z.string().trim().max(255).optional(),
+  sizeBytes: z.number().int().positive().optional(),
 });
 
 interface RouteParams {
@@ -82,6 +86,8 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         thesisId: id,
         fileUrl: parsed.data.fileUrl,
         ...(parsed.data.chapter !== undefined ? { chapter: parsed.data.chapter } : {}),
+        ...(parsed.data.fileName !== undefined ? { fileName: parsed.data.fileName } : {}),
+        ...(parsed.data.sizeBytes !== undefined ? { sizeBytes: parsed.data.sizeBytes } : {}),
       },
     });
 

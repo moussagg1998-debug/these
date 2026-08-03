@@ -14,6 +14,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  Circle,
   Clock,
   CreditCard,
   Database,
@@ -62,6 +63,7 @@ const ICONS: Record<string, LucideIcon> = {
   'check-circle': CheckCircle,
   'chevron-down': ChevronDown,
   'chevron-right': ChevronRight,
+  circle: Circle,
   // lucide-react dropped brand icons (Chrome, Facebook, …) — Banani's
   // "Continuer avec Google" button used i="chrome"; Globe is the closest
   // neutral stand-in until a real Google "G" mark is wired.
