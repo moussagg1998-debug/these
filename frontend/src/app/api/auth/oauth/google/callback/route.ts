@@ -113,66 +113,77 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return redirectToAuthError('GOOGLE_EMAIL_NOT_VERIFIED', redirectOpts);
     }
 
-    // ───── Find-or-create ─────────────────────────────────────────────────
+    // ───── Find-or-create + issue session ──────────────────────────────────
+    // Wrapped in try/catch: a transient DB error here (e.g. a Neon connection
+    // blip) must redirect to /auth/error like every other failure branch
+    // above, not crash into an unhandled framework error page with no
+    // redirect at all.
     let userId: string;
     let isNewUser = false;
-    const existingByProvider = await prisma.oAuthAccount.findUnique({
-      where: {
-        provider_providerAccountId: { provider: 'google', providerAccountId: claims.sub },
-      },
-      select: { userId: true },
-    });
-    if (existingByProvider) {
-      userId = existingByProvider.userId;
-    } else {
-      const normalizedEmail = claims.email.toLowerCase();
-      const existingByEmail = await prisma.user.findUnique({
-        where: { email: normalizedEmail },
-        select: { id: true },
+    let u: { id: string; email: string; tokenVersion: number } | null;
+    try {
+      const existingByProvider = await prisma.oAuthAccount.findUnique({
+        where: {
+          provider_providerAccountId: { provider: 'google', providerAccountId: claims.sub },
+        },
+        select: { userId: true },
       });
-      if (existingByEmail) {
-        // D-01 silent linking — leave User.name/avatarUrl untouched
-        // (T-02-OAUTH-NAME-OVERWRITE mitigation).
-        await prisma.oAuthAccount.create({
-          data: {
-            userId: existingByEmail.id,
-            provider: 'google',
-            providerAccountId: claims.sub,
-          },
-        });
-        userId = existingByEmail.id;
+      if (existingByProvider) {
+        userId = existingByProvider.userId;
       } else {
-        // D-02 create path — User + OAuthAccount in a single $transaction
-        const created = await prisma.$transaction(async (tx) => {
-          const newUser = await tx.user.create({
+        const normalizedEmail = claims.email.toLowerCase();
+        const existingByEmail = await prisma.user.findUnique({
+          where: { email: normalizedEmail },
+          select: { id: true },
+        });
+        if (existingByEmail) {
+          // D-01 silent linking — leave User.name/avatarUrl untouched
+          // (T-02-OAUTH-NAME-OVERWRITE mitigation).
+          await prisma.oAuthAccount.create({
             data: {
-              email: normalizedEmail,
-              emailVerifiedAt: new Date(),
-              name: claims.name ?? null,
-              avatarUrl: claims.picture ?? null,
-              passwordHash: null,
-            },
-            select: { id: true },
-          });
-          await tx.oAuthAccount.create({
-            data: {
-              userId: newUser.id,
+              userId: existingByEmail.id,
               provider: 'google',
               providerAccountId: claims.sub,
             },
           });
-          return newUser;
-        });
-        userId = created.id;
-        isNewUser = true;
+          userId = existingByEmail.id;
+        } else {
+          // D-02 create path — User + OAuthAccount in a single $transaction
+          const created = await prisma.$transaction(async (tx) => {
+            const newUser = await tx.user.create({
+              data: {
+                email: normalizedEmail,
+                emailVerifiedAt: new Date(),
+                name: claims.name ?? null,
+                avatarUrl: claims.picture ?? null,
+                passwordHash: null,
+              },
+              select: { id: true },
+            });
+            await tx.oAuthAccount.create({
+              data: {
+                userId: newUser.id,
+                provider: 'google',
+                providerAccountId: claims.sub,
+              },
+            });
+            return newUser;
+          });
+          userId = created.id;
+          isNewUser = true;
+        }
       }
-    }
 
-    // ───── Issue session cookies (mirrors verify-email/route.ts) ──────────
-    const u = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, tokenVersion: true },
-    });
+      // ───── Issue session cookies (mirrors verify-email/route.ts) ────────
+      u = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, tokenVersion: true },
+      });
+    } catch (err) {
+      await clearEphemeralCookies();
+      log.error('oauth.callback: find-or-create/session failed', { err: String(err) });
+      return redirectToAuthError('OAUTH_GENERIC', redirectOpts);
+    }
     if (!u) {
       // Defensive — should never happen since we just created/linked.
       await clearEphemeralCookies();

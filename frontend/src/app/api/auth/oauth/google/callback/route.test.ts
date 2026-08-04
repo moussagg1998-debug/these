@@ -187,6 +187,21 @@ describe('GET /api/auth/oauth/google/callback', () => {
     expect(mockCreateNotification).not.toHaveBeenCalled();
   });
 
+  it('OAUTH_GENERIC: DB error during find-or-create redirects to /auth/error instead of throwing', async () => {
+    await seedCookie('app-oauth-state', STATE);
+    await seedCookie('app-oauth-pkce', PKCE);
+    prismaMock.oAuthAccount.findUnique.mockRejectedValue(new Error("Can't reach database server"));
+
+    const res = await GET(makeReq({ code: 'c', state: STATE }));
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('/auth/error?code=OAUTH_GENERIC');
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
+    expect(mockCreateNotification).not.toHaveBeenCalled();
+    // Ephemeral cookies still cleared on this failure branch.
+    const stateAfter = __cookieStore.get('app-oauth-state');
+    expect((stateAfter!.options as { maxAge?: number }).maxAge).toBe(0);
+  });
+
   it('D-01 link path: existing email user gets OAuthAccount row; User.update NOT called for name/avatar; 3 cookies issued; no welcome notif', async () => {
     await seedCookie('app-oauth-state', STATE);
     await seedCookie('app-oauth-pkce', PKCE);
