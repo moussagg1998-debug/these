@@ -31,7 +31,15 @@ const VERIFICATION_TTL_MS = Number(process.env.AUTH_VERIFICATION_TTL_MIN ?? 15) 
 const Body = z.object({
   email: zEmail,
   password: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
+  institution: z.string().trim().min(1).max(200),
+  termsAccepted: z.literal(true),
 });
+
+// Phase 13 — ThèseFacile "Création de compte" (Banani `SignUp.jsx`) advertises
+// "Au moins 8 caractères, avec majuscules et chiffres"; make that copy real
+// rather than decorative.
+const PASSWORD_COMPLEXITY = /(?=.*[A-Z])(?=.*[0-9])/;
 
 const limiter = createEmailLimiter(redis ? { redis } : {}, {
   bucket: 'auth:signup',
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       res.headers.set('x-request-id', ctx.requestId);
       return res;
     }
-    const { email, password } = parsed.data;
+    const { email, password, name, institution } = parsed.data;
 
     // 2. Password policy gates BEFORE looking up user (D-22 — keep the no-user
     //    and existing-user branches symmetric below).
@@ -78,6 +86,17 @@ export async function POST(req: NextRequest): Promise<Response> {
         {
           error: 'PASSWORD_TOO_SHORT',
           message: `Password must be at least ${PASSWORD_MIN} characters`,
+        },
+        { status: 400 },
+      );
+      res.headers.set('x-request-id', ctx.requestId);
+      return res;
+    }
+    if (!PASSWORD_COMPLEXITY.test(password)) {
+      const res = NextResponse.json(
+        {
+          error: 'PASSWORD_TOO_WEAK',
+          message: 'Password must contain at least one uppercase letter and one digit.',
         },
         { status: 400 },
       );
@@ -119,8 +138,30 @@ export async function POST(req: NextRequest): Promise<Response> {
     const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MS);
 
     await prisma.$transaction(async (tx) => {
+      // Find-or-create the Institution by name (case-insensitive). No unique
+      // constraint on `Institution.name` — a theoretical race between two
+      // concurrent signups for the exact same brand-new institution could
+      // create two rows; harmless (no security/data-loss impact), accepted
+      // simplification rather than adding search/dedup infrastructure for it.
+      let institutionRow = await tx.institution.findFirst({
+        where: { name: { equals: institution, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (!institutionRow) {
+        institutionRow = await tx.institution.create({
+          data: { name: institution },
+          select: { id: true },
+        });
+      }
+
       const user = await tx.user.create({
-        data: { email, passwordHash },
+        data: {
+          email,
+          passwordHash,
+          name,
+          institutionId: institutionRow.id,
+          termsAcceptedAt: new Date(),
+        },
         select: { id: true },
       });
       await tx.verificationCode.create({

@@ -95,7 +95,13 @@ export async function main(): Promise<number> {
     const signupRes = await fetch(`${BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
+      body: JSON.stringify({
+        email: TEST_EMAIL,
+        password: TEST_PASSWORD,
+        name: 'Smoke Test',
+        institution: 'Smoke Test University',
+        termsAccepted: true,
+      }),
     });
     await assertStatus('signup', signupRes, 201);
 

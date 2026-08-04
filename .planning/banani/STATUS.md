@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 12)
+Last updated: 2026-08-04 (Phase 13)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 20 screens fetched (`new_screen7.jsx` "Messagerie — Côté Encadrant" added to the Banani project after the initial 19-screen fetch; retrieved once the Banani MCP was reconnected mid-Phase-10).
 
@@ -136,6 +136,18 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [x] Both fixes verified with real re-navigation in the browser (not just code review): `/messages` and `/documents/new` now stay on their own URL and render correctly for a real étudiant account with a real thesis, at the cost of this dev environment's slow Neon round-trips (~3-8s/query from this machine — a local network/environment characteristic, not a code defect; harmless in production where Vercel↔Neon-pooler latency is far lower and React StrictMode's dev-only double-effect-invoke doesn't run at all).
 - [x] format/lint/typecheck/test(686/686)/build all green after the fixes
 - No plan file — this was a verification + bugfix pass on already-shipped phases (2–11), not a new screen.
+
+### Phase 13 — Création de compte (Signup redesign) (2026-08-04)
+- [x] `signup` — "Création de compte" (`SignUp.jsx`) — `frontend/src/app/signup/page.tsx` fully rebuilt, replacing the Phase-2 non-Banani "glue" page
+- [x] Shared: **NEW** `frontend/src/components/marketing/AuthBrandingPanel.tsx`, extracted from `/login`'s inline branding panel (second occurrence → rule-of-three extraction); `/login` refactored to consume it, zero visual change
+- [x] Schema: `User.termsAcceptedAt DateTime?` — migration `20260804052011_thesefacile_signup_terms`
+- [x] Backend: `POST /api/auth/signup` — `Body` gains `name` (required), `institution` (required, free-text find-or-create against `Institution`, no unique constraint — accepted low-probability race duplicate), `termsAccepted: z.literal(true)`; new password-complexity gate (`PASSWORD_TOO_WEAK` — uppercase + digit) makes the Banani copy real instead of decorative; existing-email enumeration-resistant branch untouched. `institutionId`/`Institution` model were dead infrastructure since Phase 1 (nothing ever wrote to them) — now genuinely wired
+- [x] `Icon.tsx`: added `user-plus`
+- [x] `frontend/scripts/smoke-auth.ts` updated for the new required signup fields
+- [x] 5 new/updated tests in `route.test.ts` (institution reuse vs create, `PASSWORD_TOO_WEAK`, required `name`/`institution`/`termsAccepted`) — 691/691 total
+- [x] format/lint/typecheck/test(691/691)/build all green
+- [x] **Real browser QA** (Playwright + system Chrome, per Phase 12's method): 0/3 overflow checks at 375/768/1280px; full real signup submission verified end-to-end (redirects to `/verify-email?email=…`); submit button confirmed disabled until CGU checked; password-mismatch inline error confirmed; `/login` screenshotted post-refactor to confirm the shared `AuthBrandingPanel` extraction is pixel-identical. Test data cleaned up after.
+- Plan: `.planning/banani/phase-13-signup-redesign.md` (documents the 4 user-confirmed decisions — free-text institution find-or-create, real password complexity, persisted CGU consent, role selection staying on `/onboarding/profile` — plus the `name`/`institution`-required judgment calls)
 
 ## In progress
 _(none — every fetched Banani screen for both sides is now built)_

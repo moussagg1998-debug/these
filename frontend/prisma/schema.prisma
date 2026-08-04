@@ -50,6 +50,11 @@ model User {
   specialties   String[] @default([])
   bio           String?
 
+  // Phase 13 — real consent record for the signup CGU checkbox. Null for
+  // accounts created before this field existed (OAuth first-sign-ins, or
+  // rows from before this migration).
+  termsAcceptedAt DateTime?
+
   verificationCodes VerificationCode[]
   uploads           FileUpload[]
   notifications     Notification[]

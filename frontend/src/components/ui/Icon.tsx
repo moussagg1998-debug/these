@@ -55,6 +55,7 @@ import {
   Star,
   Upload,
   User,
+  UserPlus,
   Users,
   X,
   type LucideIcon,
@@ -116,6 +117,7 @@ const ICONS: Record<string, LucideIcon> = {
   star: Star,
   upload: Upload,
   user: User,
+  'user-plus': UserPlus,
   users: Users,
   x: X,
 };
