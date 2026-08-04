@@ -27,7 +27,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const user = await prisma.user.findUnique({
       where: { id: auth.user.sub },
-      select: { profileType: true, institutionId: true, name: true, email: true },
+      select: {
+        profileType: true,
+        institutionId: true,
+        name: true,
+        email: true,
+        institution: { select: { id: true, name: true } },
+      },
     });
 
     return NextResponse.json(
@@ -36,6 +42,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         institutionId: user?.institutionId ?? null,
         name: user?.name ?? null,
         email: user?.email ?? null,
+        institution: user?.institution ?? null,
       },
       { headers: { 'x-request-id': ctx.requestId } },
     );

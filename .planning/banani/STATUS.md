@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 5)
+Last updated: 2026-08-04 (Phase 6)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -65,13 +65,19 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-5-deadlines.md` (documents the days-until-due bucket vs. stored `urgency` priority distinction, the new `description` field, and the inert reminder checkbox)
 
+### Phase 6 — Paramètres & Préférences (2026-08-04)
+- [x] `encadrant-settings` — "Paramètres — Compte & Préférences" — `frontend/src/app/settings/page.tsx` (branches on `profileType`; non-ENCADRANT accounts keep the pre-existing generic password/Google-linking page verbatim)
+- [x] Shared: `SettingSection` (real toggle + collapse), `PasswordSettingsModal` (ported from the generic page) under `frontend/src/components/dashboard/`
+- [x] Backend: `GET /api/profile` now also returns `institution: {id, name} | null`; reuses existing `PATCH /api/notifications/prefs`, `PUT /api/auth/change-password`, `POST /api/auth/set-password`, `GET /api/auth/oauth/google/start` — no new routes — all with test coverage (658/658 green)
+- [x] `Icon.tsx`: added `chevron-up`
+- [x] format/lint/typecheck/test(658/658)/build all green; dev-server smoke check (curl 200 + content match) on `/settings`, 401 on unauthenticated `/api/profile`, `/dashboard` unaffected
+- [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
+- Plan: `.planning/banani/phase-6-encadrant-settings.md` (documents which Notifications/Sécurité/Général items are real vs. inert, the pre-existing gap where notification prefs aren't yet enforced in the creation pipeline, and the Google-linking addition beyond Banani's mock)
+
 ## In progress
-_(none yet — next up: `encadrant-settings`)_
+_(none yet — next up: Étudiant-side screens)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
-
-### Encadrant (supervisor) side
-- [ ] `encadrant-settings` — "Paramètres — Compte & Préférences"
 
 ### Étudiant (student) side
 - [ ] `dashboard-etudiant` — "Dashboard Étudiant"

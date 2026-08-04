@@ -55,6 +55,7 @@ describe('GET /api/profile', () => {
       institutionId: null,
       name: null,
       email: 'me@example.com',
+      institution: null,
     } as never);
     const res = await GET(makeGet());
     const body = await res.json();
@@ -63,7 +64,21 @@ describe('GET /api/profile', () => {
       institutionId: null,
       name: null,
       email: 'me@example.com',
+      institution: null,
     });
+  });
+
+  it('returns institution {id, name} when the user belongs to one', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      profileType: 'ENCADRANT',
+      institutionId: 'inst-1',
+      name: 'Amadou Diallo',
+      email: 'amadou@ucad.sn',
+      institution: { id: 'inst-1', name: 'Université Cheikh Anta Diop' },
+    } as never);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.institution).toEqual({ id: 'inst-1', name: 'Université Cheikh Anta Diop' });
   });
 });
 
