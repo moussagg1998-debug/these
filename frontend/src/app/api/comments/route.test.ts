@@ -67,4 +67,16 @@ describe('GET /api/comments', () => {
     const count = args?.include?._count as { select?: { replies?: boolean } } | undefined;
     expect(count?.select?.replies).toBe(true);
   });
+
+  it('returns a real total count independent of the page-limited items array', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.comment.findMany.mockResolvedValue([] as never);
+    prismaMock.comment.count.mockResolvedValue(29);
+    const res = await GET(makeGet('http://test/api/comments?resolved=false'));
+    const body = await res.json();
+    expect(body.total).toBe(29);
+    const countArgs = prismaMock.comment.count.mock.calls[0]?.[0];
+    expect(countArgs?.where?.thesis?.encadrantId).toBe('user-1');
+    expect(countArgs?.where?.resolved).toBe(false);
+  });
 });

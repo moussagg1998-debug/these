@@ -71,4 +71,15 @@ describe('GET /api/documents', () => {
     expect(body.items).toHaveLength(20);
     expect(body.nextCursor).not.toBeNull();
   });
+
+  it('returns a real total count independent of the page-limited items array', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    prismaMock.document.count.mockResolvedValue(63);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.total).toBe(63);
+    const countArgs = prismaMock.document.count.mock.calls[0]?.[0];
+    expect(countArgs?.where?.thesis?.encadrantId).toBe('user-1');
+  });
 });

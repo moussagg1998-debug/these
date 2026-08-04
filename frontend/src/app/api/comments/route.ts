@@ -33,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const resolvedParam = url.searchParams.get('resolved');
     const priority = url.searchParams.get('priority');
 
-    const where: Prisma.CommentWhereInput = {
+    const baseWhere: Prisma.CommentWhereInput = {
       parentId: null,
       thesis: {
         encadrantId: auth.user.sub,
@@ -41,9 +41,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
       ...(resolvedParam !== null ? { resolved: resolvedParam === 'true' } : {}),
       ...(priority ? { priority } : {}),
-      ...cursorWhere(cursor),
     };
+    const where: Prisma.CommentWhereInput = { ...baseWhere, ...cursorWhere(cursor) };
 
+    // Sequential, not Promise.all: DATABASE_URL pins connection_limit=1 for
+    // serverless (see .env.local) — two concurrent queries on one request
+    // would fight over the single pooled connection and can exceed
+    // pool_timeout under load.
     const rows = await prisma.comment.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -61,9 +65,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         _count: { select: { replies: true } },
       },
     });
+    const total = await prisma.comment.count({ where: baseWhere });
 
-    return NextResponse.json(buildPage(rows, limit), {
-      headers: { 'x-request-id': ctx.requestId },
-    });
+    return NextResponse.json(
+      { ...buildPage(rows, limit), total },
+      { headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }

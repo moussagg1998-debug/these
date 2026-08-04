@@ -85,6 +85,18 @@ describe('GET /api/theses', () => {
     const count = args?.include?._count as { select?: { comments?: boolean } } | undefined;
     expect(count?.select?.comments).toBe(true);
   });
+
+  it('returns a real total count independent of the page-limited items array', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.thesis.findMany.mockResolvedValue([{ id: 't1' }] as never);
+    prismaMock.thesis.count.mockResolvedValue(47);
+    const res = await GET(makeGet('http://test/api/theses'));
+    const body = await res.json();
+    expect(body.total).toBe(47);
+    expect(body.items).toHaveLength(1);
+    const countArgs = prismaMock.thesis.count.mock.calls[0]?.[0];
+    expect(countArgs?.where?.encadrantId).toBe('user-1');
+  });
 });
 
 describe('POST /api/theses', () => {

@@ -34,11 +34,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const cursor = decodeCursor(url.searchParams.get('cursor'));
     const studentId = url.searchParams.get('studentId');
 
-    const where: Prisma.DocumentWhereInput = {
+    const baseWhere: Prisma.DocumentWhereInput = {
       thesis: {
         encadrantId: auth.user.sub,
         ...(studentId ? { studentId } : {}),
       },
+    };
+    const where: Prisma.DocumentWhereInput = {
+      ...baseWhere,
       ...(cursor
         ? {
             OR: [
@@ -49,6 +52,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         : {}),
     };
 
+    // Sequential, not Promise.all: DATABASE_URL pins connection_limit=1 for
+    // serverless (see .env.local) — two concurrent queries on one request
+    // would fight over the single pooled connection and can exceed
+    // pool_timeout under load.
     const rows = await prisma.document.findMany({
       where,
       orderBy: [{ uploadedAt: 'desc' }, { id: 'desc' }],
@@ -64,6 +71,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         },
       },
     });
+    const total = await prisma.document.count({ where: baseWhere });
 
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
@@ -71,6 +79,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const nextCursor =
       hasMore && last ? encodeCursor({ createdAt: last.uploadedAt, id: last.id }) : null;
 
-    return NextResponse.json({ items, nextCursor }, { headers: { 'x-request-id': ctx.requestId } });
+    return NextResponse.json(
+      { items, nextCursor, total },
+      { headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }
