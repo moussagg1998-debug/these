@@ -15,6 +15,7 @@
 // very first one.
 
 import { PrismaClient } from '@prisma/client';
+import { pathToFileURL } from 'node:url';
 import { logAdminAction } from '../src/lib/server/admin/audit';
 
 // Lazy-construct the client so tests can substitute the prisma module via
@@ -82,7 +83,7 @@ export async function main(
 
 // CLI entrypoint guard — only run when invoked as a script, not when
 // imported by tests.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main()
     .then((code) => process.exit(code))
     .catch((err) => {
