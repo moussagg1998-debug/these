@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 11)
+Last updated: 2026-08-04 (Phase 12)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 20 screens fetched (`new_screen7.jsx` "Messagerie — Côté Encadrant" added to the Banani project after the initial 19-screen fetch; retrieved once the Banani MCP was reconnected mid-Phase-10).
 
@@ -126,6 +126,16 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [x] format/lint/typecheck/test(686/686)/build all green; dev-server smoke check (curl 200 on `/messages`, `/dashboard`, `/settings`, `/students`; 401 on unauthenticated `/api/messages` + `/api/theses`)
 - [x] **Responsive**: code-based audit only (no browser tool this session) — traced the new mobile/desktop JS-driven pane toggle plus the standard grid/flex-row checks from Phase 10; no issues found. Not a substitute for real visual verification.
 - Plan: `.planning/banani/phase-11-encadrant-messaging.md` (documents the new cross-thesis aggregate, the notification-derived unread count, and the meeting/calendar reuse from Phase 9)
+
+### Phase 12 — Real browser responsive QA + 2 race-condition fixes (2026-08-04)
+- [x] First **real** (non-code-audit) browser verification of the port, closing the "Not verified: actual browser rendering" caveat carried since Phase 2. Method: Playwright driving the machine's existing Chrome (no download needed) against `pnpm dev`, seeded with realistic ThèseFacile data (1 encadrant + 2 étudiants, theses/documents/comments/deadlines/messages) via a temporary seed script (created, used, then deleted — not part of the shipped starter).
+- [x] Automated horizontal-overflow check (`scrollWidth` vs `clientWidth`) across every encadrant + étudiant screen at 375/768/1280px — **0 overflows** found across 48 checks.
+- [x] Visual screenshot review at all 3 breakpoints for the newest screens (Phase 10's Profil tab, Phase 11's encadrant messaging) plus spot-checks across the rest — layouts hold up correctly at every breakpoint (mobile single-column, tablet 2-column, desktop full sidebar/3-column); the `/students` filter tabs intentionally horizontal-scroll on narrow viewports (`overflow-x-auto`, pre-existing, correct).
+- [x] **Bug found & fixed** — `frontend/src/app/messages/page.tsx` crashed (`Cannot read properties of null (reading 'name')`) for both profile types. Root cause: `stillResolving` only checked `profileLoading`, not `!profile` — on the render where `user` resolves one tick before the `/api/profile` fetch's `loading` flag catches up, the guard fell through while `profile` was still `null`, hitting `profile!.name`. Fixed by adding `!profile` to the guard, matching the safer pattern already used in `dashboard/page.tsx`.
+- [x] **Second bug found & fixed** (same file + `frontend/src/app/documents/new/page.tsx`) — a **wrongful redirect to `/dashboard`** for a valid étudiant with an assigned thesis. Root cause: the same class of stale-flag race, one level down — `isStudent` flips `true` the instant `profile` loads, but the dependent `useApi('/api/theses', {skip: !isStudent})` call's `loading` flag hadn't caught up yet, so `thesesLoading && !thesesRes` read `false && true`, letting `studentWithoutThesis`/`shouldRedirect` fire on the still-null `thesesRes`. Fixed in both files by dropping reliance on the loading flag entirely: `isStudent && !thesesRes` (loading-flag-independent — correct regardless of timing).
+- [x] Both fixes verified with real re-navigation in the browser (not just code review): `/messages` and `/documents/new` now stay on their own URL and render correctly for a real étudiant account with a real thesis, at the cost of this dev environment's slow Neon round-trips (~3-8s/query from this machine — a local network/environment characteristic, not a code defect; harmless in production where Vercel↔Neon-pooler latency is far lower and React StrictMode's dev-only double-effect-invoke doesn't run at all).
+- [x] format/lint/typecheck/test(686/686)/build all green after the fixes
+- No plan file — this was a verification + bugfix pass on already-shipped phases (2–11), not a new screen.
 
 ## In progress
 _(none — every fetched Banani screen for both sides is now built)_

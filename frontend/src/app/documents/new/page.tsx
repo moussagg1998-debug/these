@@ -30,12 +30,12 @@ export default function NewDocumentPage() {
     skip: !user,
   });
   const isStudent = profile?.profileType === 'ETUDIANT';
-  const { data: thesesRes, loading: thesesLoading } = useApi<ThesesResponse>('/api/theses', {
+  const { data: thesesRes } = useApi<ThesesResponse>('/api/theses', {
     skip: !user || !isStudent,
   });
   const thesis = thesesRes?.items[0] ?? null;
 
-  const stillResolving = !user || profileLoading || (isStudent && thesesLoading && !thesesRes);
+  const stillResolving = !user || profileLoading || !profile || (isStudent && !thesesRes);
   const shouldRedirect = !stillResolving && (!isStudent || !thesis);
 
   useEffect(() => {

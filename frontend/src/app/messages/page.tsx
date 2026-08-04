@@ -34,12 +34,12 @@ export default function MessagesPage() {
   });
   const isStudent = profile?.profileType === 'ETUDIANT';
   const isEncadrant = profile?.profileType === 'ENCADRANT';
-  const { data: thesesRes, loading: thesesLoading } = useApi<ThesesResponse>('/api/theses', {
+  const { data: thesesRes } = useApi<ThesesResponse>('/api/theses', {
     skip: !user || !isStudent,
   });
   const thesis = thesesRes?.items[0] ?? null;
 
-  const stillResolving = !user || profileLoading || (isStudent && thesesLoading && !thesesRes);
+  const stillResolving = !user || profileLoading || !profile || (isStudent && !thesesRes);
   const needsOnboarding = !stillResolving && profile?.profileType === null;
   const studentWithoutThesis = !stillResolving && isStudent && !thesis;
 
