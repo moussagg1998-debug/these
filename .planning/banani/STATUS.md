@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 13)
+Last updated: 2026-08-04 (Phase 14)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 20 screens fetched (`new_screen7.jsx` "Messagerie — Côté Encadrant" added to the Banani project after the initial 19-screen fetch; retrieved once the Banani MCP was reconnected mid-Phase-10).
 
@@ -148,6 +148,18 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [x] format/lint/typecheck/test(691/691)/build all green
 - [x] **Real browser QA** (Playwright + system Chrome, per Phase 12's method): 0/3 overflow checks at 375/768/1280px; full real signup submission verified end-to-end (redirects to `/verify-email?email=…`); submit button confirmed disabled until CGU checked; password-mismatch inline error confirmed; `/login` screenshotted post-refactor to confirm the shared `AuthBrandingPanel` extraction is pixel-identical. Test data cleaned up after.
 - Plan: `.planning/banani/phase-13-signup-redesign.md` (documents the 4 user-confirmed decisions — free-text institution find-or-create, real password complexity, persisted CGU consent, role selection staying on `/onboarding/profile` — plus the `name`/`institution`-required judgment calls)
+
+### Phase 14 — Audit complet de l'application (2026-08-04)
+- [x] Audit de code des 16 pages (via 3 sous-agents en parallèle) : appels API, liens internes, formulaires/modales, états loading/error/empty, race conditions, responsive.
+- [x] **Bug critique corrigé** — `login/page.tsx` et `onboarding/profile/page.tsx` redirigeaient tout utilisateur non-ENCADRANT (donc tout ÉTUDIANT) vers `/` au lieu de `/dashboard`, un reliquat de commentaire Phase-2 jamais mis à jour après la Phase 7 (dashboard étudiant). Rendait le dashboard/messagerie/upload étudiant inaccessibles via l'UI normale.
+- [x] **Lien mort corrigé** — `/forgot-password` n'existait pas (seule l'API existait). Pages `/forgot-password` et `/reset-password` construites à partir des exemples, restylées aux tokens ThèseFacile, `/login` affiche une confirmation post-reset.
+- [x] **3 bugs Windows corrigés** — `smoke-auth.ts`, `seed-dev.ts`, `make-superadmin.ts` avaient un garde d'entrée ESM (`import.meta.url === file://${argv[1]}`) qui échoue toujours sur Windows (backslashes vs slashes) : les 3 scripts s'exécutaient silencieusement sans rien faire. Corrigé avec `pathToFileURL`.
+- [x] **Lacune de pagination systémique corrigée** — `/api/theses`, `/api/documents`, `/api/comments` plafonnaient à 20 résultats sans moyen d'en charger plus ni total réel. Ajout d'un champ `total` (compte réel) + bouton "Charger plus" sur `/students`, `/documents`, `/comments` ; KPI "Étudiants suivis" du dashboard maintenant exact.
+- [x] **Bug de fiabilité découvert et corrigé pendant la QA** — le premier correctif de pagination utilisait `Promise.all([findMany, count])`, qui sature le pool de connexions Neon (`connection_limit=1`, requis en serverless) et provoque des 500 sous charge. Corrigé en exécutant les requêtes séquentiellement.
+- [x] Incohérences corrigées : "Pas reçu de code ?" sur `/verify-email` appelle maintenant réellement `POST /api/auth/resend-verification` (au lieu de renvoyer vers `/signup`) ; `/auth/error` restylée aux tokens du design system (elle utilisait encore le gabarit `examples/` brut) ; l'ajout d'un commentaire sur la fiche étudiant rafraîchit maintenant le compteur "Retours" ; `uploadFile.ts` retente désormais une fois après un refresh de token 401 (comme `api()`), corrigeant un échec silencieux si le token expire pendant le remplissage du formulaire d'upload.
+- [x] QA navigateur réelle (Playwright + Chrome système) : 25 thèses de test créées pour valider concrètement la pagination, parcours complet encadrant + étudiant + cas limite (étudiant sans thèse) aux 3 breakpoints, 0 dépassement horizontal, `pnpm build` propre (18 pages, 54 routes API).
+- [x] format/lint/typecheck/test(694/694)/build tous verts.
+- Points restants documentés dans le rapport d'audit final (favicon manquant, liens marketing `#` décoratifs, pied de page `/terms` inerte, KPIs secondaires du dashboard toujours approximatifs au-delà de 20 thèses).
 
 ## In progress
 _(none — every fetched Banani screen for both sides is now built)_
