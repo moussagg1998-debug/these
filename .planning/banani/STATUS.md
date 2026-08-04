@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 7)
+Last updated: 2026-08-04 (Phase 8)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -84,13 +84,22 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-7-dashboard-etudiant.md` (documents the dropped 8-step milestone curriculum, the 2-state document status derivation, and why student-side comment resolution stays disabled)
 
+### Phase 8 — Dépôt de fichier étudiant (2026-08-04)
+- [x] `student-file-upload` — "Dépôt de fichier étudiant" — `frontend/src/app/documents/new/page.tsx` (new nested route, sibling of Phase 4's ENCADRANT-only `/documents`, not a branch of it)
+- [x] Shared: `StudentFileUploadForm` under `frontend/src/components/student/`; `frontend/src/lib/uploadFile.ts` (multipart upload helper — `api()` can't do FormData, see plan doc)
+- [x] Backend: no new routes/schema. Reuses `POST /api/upload` → `POST /api/theses/[id]/documents` → optionally `POST /api/theses/[id]/comments` (student's "notes" become a comment linked to the new document, reusing Phase 7's bug-fixed relation instead of a new schema field)
+- [x] `frontend/src/lib/server/upload/sniff.ts` — added DOCX/ODT magic-byte sniffers (ZIP signature + format fingerprint scan) + new `sniff.test.ts` (7 tests, first direct coverage of this file)
+- [x] `frontend/.env.local` (untracked, local-only) — `UPLOAD_ALLOWED_MIME` widened to include PDF/DOCX/ODT; the shared `.env.example` starter default is untouched (still image-only, pinned by `env-shape.test.ts`) — real deployments of this fork must set this themselves
+- [x] format/lint/typecheck/test(666/666)/build all green; dev-server smoke check (curl 200 on `/documents/new`, `/dashboard`, `/settings`, `/deadlines`; 401 on unauthenticated `/api/theses`; 403 on unauthenticated `POST /api/upload`)
+- [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
+- Plan: `.planning/banani/phase-8-student-file-upload.md` (documents the dropped version field/chapter-position box, notes-as-comment reuse, and why the MIME allowlist was widened locally rather than in the shared starter contract)
+
 ## In progress
-_(none yet — next up: Phase 8, dépôt de fichier étudiant)_
+_(none yet — next up: Phase 9, messagerie étudiant-encadrant + modal calendrier)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
 
 ### Étudiant (student) side
-- [ ] Phase 8 — `student-file-upload` — "Dépôt de fichier étudiant"
 - [ ] Phase 9 — `student-messaging` + `add-to-calendar-modal` — "Messagerie étudiant-encadrant" (one route, modal overlay — same relationship as AddDeadline/DeadlineCalendar)
 
 ### Re-scoped out of Étudiant side

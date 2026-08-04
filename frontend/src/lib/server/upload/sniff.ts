@@ -60,12 +60,35 @@ const SNIFFERS: Record<string, (buf: Buffer) => boolean> = {
       'hevm',
       'hevs',
     ]),
+
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': (buf) =>
+    hasZipSignature(buf) && buf.subarray(0, ZIP_SNIFF_WINDOW).includes('[Content_Types].xml'),
+
+  'application/vnd.oasis.opendocument.text': (buf) =>
+    hasZipSignature(buf) &&
+    buf.subarray(0, ZIP_SNIFF_WINDOW).includes('mimetypeapplication/vnd.oasis.opendocument.text'),
 };
 
 function isFtypBrand(buf: Buffer, brands: string[]): boolean {
   if (buf.length < 12) return false;
   if (buf.toString('ascii', 4, 8) !== 'ftyp') return false;
   return brands.includes(buf.toString('ascii', 8, 12));
+}
+
+// DOCX and ODT are both ZIP containers (local-file-header signature
+// PK\x03\x04) — indistinguishable from each other or from a bare ZIP by
+// magic bytes alone. We additionally scan the first few KB for each format's
+// near-universal fingerprint rather than parsing the zip central directory:
+// OOXML (.docx) writes "[Content_Types].xml" as an early entry name; ODF
+// (.odt) mandates "mimetype" be the *first*, uncompressed entry, whose
+// content is the literal string below immediately following the entry name.
+// Same threat model as the sniffers above — catches a renamed extension,
+// not a crafted zip from a determined attacker.
+const ZIP_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const ZIP_SNIFF_WINDOW = 4096;
+
+function hasZipSignature(buf: Buffer): boolean {
+  return buf.length >= 4 && buf.subarray(0, 4).equals(ZIP_SIGNATURE);
 }
 
 /** Returns true when sniffer for this mime exists. */

@@ -400,8 +400,8 @@ model Document {
   // storage path. See CLAUDE.md "Files Claude SHOULD modify" — upload/sniff.ts.
   fileUrl    String
   // Both optional: Cloudinary's upload response carries `original_filename`/
-  // `bytes`, but no flow populates these yet (student upload is Phase 6) —
-  // the documents library falls back to deriving a display name from
+  // `bytes`, populated by the student upload flow (Phase 8) — older rows
+  // (or any created another way) fall back to deriving a display name from
   // `chapter`/`fileUrl` and omitting size when these are null.
   fileName   String?
   sizeBytes  Int?
