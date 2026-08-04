@@ -9,9 +9,11 @@
 // phase-4-documents-comments.md); the other 3 tabs map to real fields.
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { CommentThread } from '@/components/dashboard/CommentThread';
@@ -26,6 +28,7 @@ interface ProfileResponse {
 interface CommentsResponse {
   items: CommentListItem[];
   nextCursor: string | null;
+  total: number;
 }
 
 interface ThesesResponse {
@@ -44,10 +47,14 @@ const FILTERS: { id: FilterId; label: string; disabled?: boolean }[] = [
 function CommentsOverviewContent() {
   const user = useUser();
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const studentIdFilter = searchParams.get('studentId');
   const [activeFilter, setActiveFilter] = useState<FilterId>('open');
   const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, boolean>>({});
+  const [extraItems, setExtraItems] = useState<CommentListItem[]>([]);
+  const [extraCursor, setExtraCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
@@ -62,12 +69,36 @@ function CommentsOverviewContent() {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
 
+  useEffect(() => {
+    setExtraItems([]);
+    setExtraCursor(null);
+  }, [apiPath]);
+
+  const cursor = extraCursor !== null ? extraCursor : (commentsRes?.nextCursor ?? null);
+
+  async function loadMore() {
+    if (!cursor) return;
+    setLoadingMore(true);
+    try {
+      const sep = apiPath.includes('?') ? '&' : '?';
+      const page = await api<CommentsResponse>(
+        `${apiPath}${sep}cursor=${encodeURIComponent(cursor)}`,
+      );
+      setExtraItems((prev) => [...prev, ...page.items]);
+      setExtraCursor(page.nextCursor);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const allItems = useMemo(
     () =>
-      (commentsRes?.items ?? []).map((c) =>
+      [...(commentsRes?.items ?? []), ...extraItems].map((c) =>
         resolvedOverrides[c.id] !== undefined ? { ...c, resolved: resolvedOverrides[c.id]! } : c,
       ),
-    [commentsRes, resolvedOverrides],
+    [commentsRes, extraItems, resolvedOverrides],
   );
 
   const counts = useMemo(() => {
@@ -192,6 +223,18 @@ function CommentsOverviewContent() {
                 onResolvedChange={onResolvedChange}
               />
             ))}
+          </div>
+        )}
+        {cursor && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50"
+            >
+              {loadingMore ? 'Chargement…' : 'Charger plus'}
+            </button>
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
@@ -22,6 +23,7 @@ interface ProfileResponse {
 interface ThesesResponse {
   items: ThesisListItem[];
   nextCursor: string | null;
+  total: number;
 }
 
 export default function StudentListPage() {
@@ -30,6 +32,9 @@ export default function StudentListPage() {
   const { toast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StageFilterId>('all');
+  const [extraItems, setExtraItems] = useState<ThesisListItem[]>([]);
+  const [extraCursor, setExtraCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
@@ -37,12 +42,33 @@ export default function StudentListPage() {
   const {
     data: theses,
     loading: thesesLoading,
-    refresh: refreshTheses,
+    refresh: baseRefreshTheses,
   } = useApi<ThesesResponse>('/api/theses', {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
 
-  const items = useMemo(() => theses?.items ?? [], [theses]);
+  async function refreshTheses() {
+    setExtraItems([]);
+    setExtraCursor(null);
+    await baseRefreshTheses();
+  }
+
+  const items = useMemo(() => [...(theses?.items ?? []), ...extraItems], [theses, extraItems]);
+  const cursor = extraCursor !== null ? extraCursor : (theses?.nextCursor ?? null);
+
+  async function loadMore() {
+    if (!cursor) return;
+    setLoadingMore(true);
+    try {
+      const page = await api<ThesesResponse>(`/api/theses?cursor=${encodeURIComponent(cursor)}`);
+      setExtraItems((prev) => [...prev, ...page.items]);
+      setExtraCursor(page.nextCursor);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const counts = useMemo(() => {
     const result: Record<StageFilterId, number> = {
@@ -114,7 +140,8 @@ export default function StudentListPage() {
               Liste complète
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              {items.length} étudiant{items.length > 1 ? 's' : ''} en encadrement
+              {theses?.total ?? items.length} étudiant
+              {(theses?.total ?? items.length) > 1 ? 's' : ''} en encadrement
             </p>
           </div>
           <button
@@ -162,6 +189,18 @@ export default function StudentListPage() {
               {filtered.map((thesis) => (
                 <StudentRow key={thesis.id} thesis={thesis} />
               ))}
+            </div>
+          )}
+          {cursor && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void loadMore()}
+                disabled={loadingMore}
+                className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50"
+              >
+                {loadingMore ? 'Chargement…' : 'Charger plus'}
+              </button>
             </div>
           )}
         </div>

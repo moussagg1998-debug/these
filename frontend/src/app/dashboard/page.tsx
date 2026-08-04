@@ -36,6 +36,7 @@ interface ProfileResponse {
 interface ThesesResponse {
   items: ThesisListItem[];
   nextCursor: string | null;
+  total: number;
 }
 
 export default function DashboardEncadrantPage() {
@@ -152,7 +153,7 @@ export default function DashboardEncadrantPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Étudiants suivis"
-              value={String(items.length)}
+              value={String(theses?.total ?? items.length)}
               sub={`${stats.soutenance} en soutenance`}
               icon="users"
               highlight

@@ -9,9 +9,11 @@
 // decorative, same treatment as the dashboard/students search boxes.
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
@@ -32,6 +34,7 @@ interface ProfileResponse {
 interface DocumentsResponse {
   items: DocumentListItem[];
   nextCursor: string | null;
+  total: number;
 }
 
 interface ThesesResponse {
@@ -41,10 +44,14 @@ interface ThesesResponse {
 function DocumentsLibraryContent() {
   const user = useUser();
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const studentIdFilter = searchParams.get('studentId');
   const [typeFilter, setTypeFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState('all');
+  const [extraItems, setExtraItems] = useState<DocumentListItem[]>([]);
+  const [extraCursor, setExtraCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
@@ -59,7 +66,30 @@ function DocumentsLibraryContent() {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
 
-  const items = useMemo(() => docsRes?.items ?? [], [docsRes]);
+  useEffect(() => {
+    setExtraItems([]);
+    setExtraCursor(null);
+  }, [apiPath]);
+
+  const items = useMemo(() => [...(docsRes?.items ?? []), ...extraItems], [docsRes, extraItems]);
+  const cursor = extraCursor !== null ? extraCursor : (docsRes?.nextCursor ?? null);
+
+  async function loadMore() {
+    if (!cursor) return;
+    setLoadingMore(true);
+    try {
+      const sep = apiPath.includes('?') ? '&' : '?';
+      const page = await api<DocumentsResponse>(
+        `${apiPath}${sep}cursor=${encodeURIComponent(cursor)}`,
+      );
+      setExtraItems((prev) => [...prev, ...page.items]);
+      setExtraCursor(page.nextCursor);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const months = useMemo(() => {
     const set = new Set(
@@ -198,6 +228,18 @@ function DocumentsLibraryContent() {
             {filtered.map((doc) => (
               <DocumentRow key={doc.id} doc={doc} />
             ))}
+          </div>
+        )}
+        {cursor && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50"
+            >
+              {loadingMore ? 'Chargement…' : 'Charger plus'}
+            </button>
           </div>
         )}
 
