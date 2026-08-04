@@ -41,7 +41,7 @@ const CARDS: Array<{
 export default function ProfileSelectionPage() {
   const user = useUser(); // redirects to /login if logged out
   const router = useRouter();
-  const [selected, setSelected] = useState<ProfileType>('ENCADRANT');
+  const [selected, setSelected] = useState<ProfileType | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +54,7 @@ export default function ProfileSelectionPage() {
   }
 
   async function onContinue() {
+    if (!selected) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -73,7 +74,11 @@ export default function ProfileSelectionPage() {
   }
 
   const ctaLabel =
-    selected === 'ENCADRANT' ? 'Continuer en tant que Professeur' : 'Continuer en tant qu’Étudiant';
+    selected === 'ENCADRANT'
+      ? 'Continuer en tant que Professeur'
+      : selected === 'ETUDIANT'
+        ? 'Continuer en tant qu’Étudiant'
+        : 'Sélectionnez un profil pour continuer';
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-body">
@@ -185,7 +190,7 @@ export default function ProfileSelectionPage() {
           <button
             type="button"
             onClick={onContinue}
-            disabled={submitting}
+            disabled={submitting || !selected}
             className="flex items-center gap-2 rounded-sm bg-primary px-10 py-3.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {submitting ? 'Enregistrement…' : ctaLabel}
