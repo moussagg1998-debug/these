@@ -41,6 +41,15 @@ model User {
   institutionId String?
   institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
 
+  // Phase 10 — encadrant "Profil" tab (Settings). Generic on User (matching
+  // the flat profileType/institutionId convention above) rather than a
+  // separate EncadrantProfile table, even though only the encadrant UI
+  // edits them today. All optional — no onboarding step requires them.
+  department    String?
+  academicGrade String?
+  specialties   String[] @default([])
+  bio           String?
+
   verificationCodes VerificationCode[]
   uploads           FileUpload[]
   notifications     Notification[]

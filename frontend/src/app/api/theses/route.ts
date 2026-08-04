@@ -62,7 +62,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       take: limit + 1,
       include: {
         student: { select: { id: true, name: true, email: true, avatarUrl: true } },
-        encadrant: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        // bio: Phase 10's encadrant "Profil" tab — surfaced to students via
+        // the "Mon encadrant" cards (StudentDashboardContent, StudentMessagingContent).
+        encadrant: { select: { id: true, name: true, email: true, avatarUrl: true, bio: true } },
         // "Mes étudiants" table (Banani StudentRow) needs a last-submission
         // timestamp and a next-deadline chip — both are derived from real
         // rows rather than modeled as columns on Thesis itself.

@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 9)
+Last updated: 2026-08-04 (Phase 10)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -104,17 +104,27 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-9-student-messaging.md` (documents the meeting→deadline re-scoping, the dropped fake calendar-app selector, and why "Fichiers récents" was made real instead of dropped)
 
+### Phase 10 — Onglet Profil encadrant (2026-08-04)
+- [x] `encadrant-profile-tab` — folds `new_screen1.jsx` (previously mislabeled "Paramètres Utilisateur" / re-scoped out of the student side in Phase 7) into `/settings` as a new "Profil" tab (default), alongside the existing 5 `SettingSection`s now under a "Paramètres" tab
+- [x] Shared: `ProfileTab` under `frontend/src/components/dashboard/`
+- [x] Schema: `User.department`/`academicGrade`/`specialties String[]`/`bio` (all optional) — migration `20260804023635_thesefacile_encadrant_profile_fields`
+- [x] Backend: `PATCH /api/profile` widened from a strict one-shot `profileType`-only route to also accept the new fields unconditionally (the one-shot 409 lock now only fires when `profileType` is actually part of the request); `GET /api/profile` now also returns `emailVerified` (derived from `emailVerifiedAt`, not a new field) + the new fields
+- [x] "Encadrant vérifié" badge derived from real `emailVerifiedAt`, not a new manual-verification field
+- [x] `GET /api/theses` + `ThesisPerson` extended with `bio`; surfaced in Phase 7's dashboard and Phase 9's messaging "Mon encadrant" cards (so the tab's "visible par vos étudiants" label is actually true)
+- [x] `Icon.tsx`: added `camera`
+- [x] format/lint/typecheck/test(678/678)/build all green; dev-server smoke check (curl 200 on `/settings`, `/dashboard`, `/messages`; 401 on unauthenticated `/api/profile` + `/api/theses`)
+- [x] **Responsive**: code-based audit only (no browser tool this session) — grepped for non-stacking grids/flex-rows/fixed-width sidebars across the whole app; none found. Not a substitute for real visual verification.
+- Plan: `.planning/banani/phase-10-encadrant-profile-tab.md` (documents the dropped phone/plan-tier/max-students fields, why avatar photo upload was left inert despite cheap infra, and the free-text-with-suggestions grade field)
+
 ## In progress
-_(none — student side (Phases 7-9) complete; encadrant-side messaging UI remains unbuilt, see Deliberate simplifications in the Phase 9 plan)_
+- [ ] `student-messaging` (encadrant side) — user selected a Banani screen for the encadrant's mirror of Phase 9's messaging UI; **blocked** — the Banani MCP was disconnected when this was requested (2026-08-04). Pick up once reconnected.
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
-
-### Re-scoped out of Étudiant side
-- [ ] `user-settings` ("Paramètres Utilisateur", `new_screen1.jsx`) — **mislabeled in this list**: the actual JSX is an ENCADRANT profile-editing screen (renders the encadrant `Sidebar`, "Encadrant vérifié" badge, academic institution/department/grade/specialties fields) — not a student screen at all. Likely a second, richer design draft for the same feature area as Phase 6's `SettingsPage.jsx`. Not built; needs a user decision (fold into Phase 6 settings as a "Profil" tab, or treat as a superseded draft) before any work happens here.
+_(none)_
 
 ## Open design questions
 Resolved 2026-08-03 — see `IMPLEMENTATION-PLAN.md` §6 for the 7 confirmed decisions (profileType field, cardinality, monetization kept, back-office kept, messaging = periodic refetch, calendar sync = decorative for MVP, profile choice fixed at signup).
-- **New (2026-08-04)**: `new_screen1.jsx` ("Paramètres Utilisateur") mislabeling — see "Re-scoped out of Étudiant side" above. Not blocking Phase 7.
+- **Resolved 2026-08-04**: `new_screen1.jsx` ("Paramètres Utilisateur") mislabeling — user chose to fold it into `/settings` as a "Profil" tab. Built in Phase 10.
 
 ## Shared component inventory (from Banani `sharedFiles`)
 - `/style.css` — theme tokens (see IMPLEMENTATION-PLAN.md § Design tokens)

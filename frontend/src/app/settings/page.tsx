@@ -33,14 +33,21 @@ import { useAuth, useUser, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
 import { Avatar } from '@/components/ui/Avatar';
+import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { SettingSection, type SettingItem } from '@/components/dashboard/SettingSection';
 import { PasswordSettingsModal } from '@/components/dashboard/PasswordSettingsModal';
+import { ProfileTab } from '@/components/dashboard/ProfileTab';
 
 interface ProfileResponse {
   profileType: 'ENCADRANT' | 'ETUDIANT' | null;
   name: string | null;
   email: string;
+  emailVerified: boolean;
+  department: string | null;
+  academicGrade: string | null;
+  specialties: string[];
+  bio: string | null;
   institution: { id: string; name: string } | null;
 }
 
@@ -67,15 +74,18 @@ function EncadrantSettingsContent({
   name,
   user,
   profile,
+  refreshProfile,
 }: {
   name: string;
   user: User;
   profile: ProfileResponse;
+  refreshProfile: () => Promise<void>;
 }) {
   const { refresh } = useAuth();
   const { toast } = useToast();
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [overrides, setOverrides] = useState<NotificationPrefs>({});
+  const [activeTab, setActiveTab] = useState<'profil' | 'parametres'>('profil');
 
   const { data: prefsRes, refresh: refreshPrefs } = useApi<NotificationPrefsResponse>(
     '/api/notifications/prefs',
@@ -284,11 +294,26 @@ function EncadrantSettingsContent({
 
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
         <div className="flex flex-col sm:flex-row items-start gap-6 pb-8 border-b border-border mb-8">
-          <Avatar name={name} className="h-24 w-24 text-2xl" />
+          <div className="relative">
+            <Avatar name={name} className="h-24 w-24 text-2xl" />
+            <button
+              type="button"
+              disabled
+              title="Bientôt disponible"
+              className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background opacity-70 cursor-not-allowed"
+            >
+              <Icon i="camera" size={12} />
+            </button>
+          </div>
           <div>
             <h2 className="text-xl font-semibold font-headings text-foreground">{name}</h2>
             <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
             <div className="flex flex-wrap items-center gap-3 mt-3">
+              {profile.emailVerified && (
+                <div className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded-sm font-medium">
+                  Encadrant vérifié
+                </div>
+              )}
               {profile.institution && (
                 <div className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded-sm font-medium">
                   {profile.institution.name}
@@ -301,18 +326,47 @@ function EncadrantSettingsContent({
           </div>
         </div>
 
-        <div className="space-y-6">
-          <SettingSection title="Général" icon="sliders" items={generalItems} />
-          <SettingSection title="Notifications" icon="bell" items={notificationItems} />
-          <SettingSection title="Confidentialité & Sécurité" icon="lock" items={securityItems} />
-          <SettingSection
-            title="Données & Intégrations"
-            icon="database"
-            items={dataItems}
-            defaultOpen={false}
-          />
-          <SettingSection title="Compte" icon="user" items={accountItems} defaultOpen={false} />
+        <div className="flex items-center gap-1 border-b border-border mb-8">
+          <button
+            type="button"
+            onClick={() => setActiveTab('profil')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+              activeTab === 'profil'
+                ? 'text-primary border-primary'
+                : 'text-muted-foreground border-transparent'
+            }`}
+          >
+            Profil
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('parametres')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+              activeTab === 'parametres'
+                ? 'text-primary border-primary'
+                : 'text-muted-foreground border-transparent'
+            }`}
+          >
+            Paramètres
+          </button>
         </div>
+
+        {activeTab === 'profil' ? (
+          <ProfileTab profile={profile} onSaved={() => void refreshProfile()} />
+        ) : (
+          <div className="space-y-6">
+            <SettingSection title="Général" icon="sliders" items={generalItems} />
+            <SettingSection title="Notifications" icon="bell" items={notificationItems} />
+            <SettingSection title="Confidentialité & Sécurité" icon="lock" items={securityItems} />
+            <SettingSection
+              title="Données & Intégrations"
+              icon="database"
+              items={dataItems}
+              defaultOpen={false}
+            />
+            <SettingSection title="Compte" icon="user" items={accountItems} defaultOpen={false} />
+          </div>
+        )}
       </div>
 
       {passwordModalOpen && (
@@ -338,7 +392,11 @@ export default function SettingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
+  const {
+    data: profile,
+    loading: profileLoading,
+    refresh: refreshProfile,
+  } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
   });
 
@@ -352,7 +410,14 @@ export default function SettingsPage() {
 
   if (profile?.profileType === 'ENCADRANT') {
     const name = profile.name || user.email.split('@')[0] || user.email;
-    return <EncadrantSettingsContent name={name} user={user} profile={profile} />;
+    return (
+      <EncadrantSettingsContent
+        name={name}
+        user={user}
+        profile={profile}
+        refreshProfile={refreshProfile}
+      />
+    );
   }
 
   const hasPassword = user.hasPassword;

@@ -216,6 +216,11 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
                 {displayName(thesis.encadrant)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">{thesis.encadrant.email}</div>
+              {thesis.encadrant.bio && (
+                <p className="text-xs text-muted-foreground leading-relaxed mt-3">
+                  {thesis.encadrant.bio}
+                </p>
+              )}
             </div>
           </div>
 

@@ -2,8 +2,14 @@
 //
 // "Choix du profil" onboarding step. Per the confirmed product decision
 // (IMPLEMENTATION-PLAN.md §6): fixed at onboarding, one account = one
-// profile. PATCH is therefore a one-shot — once `profileType` is set it
-// can't be changed through this route (409 PROFILE_ALREADY_SET).
+// profile. `profileType` is therefore a one-shot — once set it can't be
+// changed through this route (409 PROFILE_ALREADY_SET).
+//
+// Phase 10 widened PATCH to also accept the encadrant "Profil" tab's fields
+// (name/department/academicGrade/specialties/bio) — these are NOT onboarding-
+// gated and update unconditionally regardless of profileType state. Only a
+// request that actually includes `profileType` is subject to the one-shot
+// check below.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -15,9 +21,16 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const PatchBody = z.object({
-  profileType: z.enum(['ENCADRANT', 'ETUDIANT']),
-});
+const PatchBody = z
+  .object({
+    profileType: z.enum(['ENCADRANT', 'ETUDIANT']).optional(),
+    name: z.string().trim().min(1).max(200).optional(),
+    department: z.string().trim().max(200).optional(),
+    academicGrade: z.string().trim().max(200).optional(),
+    specialties: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+    bio: z.string().trim().max(1000).optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -32,6 +45,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         institutionId: true,
         name: true,
         email: true,
+        emailVerifiedAt: true,
+        department: true,
+        academicGrade: true,
+        specialties: true,
+        bio: true,
         institution: { select: { id: true, name: true } },
       },
     });
@@ -42,6 +60,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         institutionId: user?.institutionId ?? null,
         name: user?.name ?? null,
         email: user?.email ?? null,
+        emailVerified: user?.emailVerifiedAt != null,
+        department: user?.department ?? null,
+        academicGrade: user?.academicGrade ?? null,
+        specialties: user?.specialties ?? [],
+        bio: user?.bio ?? null,
         institution: user?.institution ?? null,
       },
       { headers: { 'x-request-id': ctx.requestId } },
@@ -70,21 +93,38 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { id: auth.user.sub },
-      select: { profileType: true },
-    });
-    if (existing?.profileType) {
-      return NextResponse.json(
-        { error: 'PROFILE_ALREADY_SET', message: 'Profile type is fixed once chosen' },
-        { status: 409, headers: { 'x-request-id': ctx.requestId } },
-      );
+    if (parsed.data.profileType !== undefined) {
+      const existing = await prisma.user.findUnique({
+        where: { id: auth.user.sub },
+        select: { profileType: true },
+      });
+      if (existing?.profileType) {
+        return NextResponse.json(
+          { error: 'PROFILE_ALREADY_SET', message: 'Profile type is fixed once chosen' },
+          { status: 409, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
     }
 
+    const { profileType, name, department, academicGrade, specialties, bio } = parsed.data;
     const user = await prisma.user.update({
       where: { id: auth.user.sub },
-      data: { profileType: parsed.data.profileType },
-      select: { profileType: true },
+      data: {
+        ...(profileType !== undefined ? { profileType } : {}),
+        ...(name !== undefined ? { name } : {}),
+        ...(department !== undefined ? { department } : {}),
+        ...(academicGrade !== undefined ? { academicGrade } : {}),
+        ...(specialties !== undefined ? { specialties } : {}),
+        ...(bio !== undefined ? { bio } : {}),
+      },
+      select: {
+        profileType: true,
+        name: true,
+        department: true,
+        academicGrade: true,
+        specialties: true,
+        bio: true,
+      },
     });
 
     return NextResponse.json(user, { status: 200, headers: { 'x-request-id': ctx.requestId } });

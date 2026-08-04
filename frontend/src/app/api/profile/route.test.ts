@@ -55,6 +55,11 @@ describe('GET /api/profile', () => {
       institutionId: null,
       name: null,
       email: 'me@example.com',
+      emailVerifiedAt: null,
+      department: null,
+      academicGrade: null,
+      specialties: [],
+      bio: null,
       institution: null,
     } as never);
     const res = await GET(makeGet());
@@ -64,6 +69,11 @@ describe('GET /api/profile', () => {
       institutionId: null,
       name: null,
       email: 'me@example.com',
+      emailVerified: false,
+      department: null,
+      academicGrade: null,
+      specialties: [],
+      bio: null,
       institution: null,
     });
   });
@@ -74,11 +84,38 @@ describe('GET /api/profile', () => {
       institutionId: 'inst-1',
       name: 'Amadou Diallo',
       email: 'amadou@ucad.sn',
+      emailVerifiedAt: null,
+      department: null,
+      academicGrade: null,
+      specialties: [],
+      bio: null,
       institution: { id: 'inst-1', name: 'Université Cheikh Anta Diop' },
     } as never);
     const res = await GET(makeGet());
     const body = await res.json();
     expect(body.institution).toEqual({ id: 'inst-1', name: 'Université Cheikh Anta Diop' });
+  });
+
+  it('returns emailVerified: true and the Phase 10 profile fields when set', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      profileType: 'ENCADRANT',
+      institutionId: null,
+      name: 'Amadou Diallo',
+      email: 'amadou@ucad.sn',
+      emailVerifiedAt: new Date('2026-01-01'),
+      department: 'Sciences Économiques',
+      academicGrade: 'Maître de Conférences',
+      specialties: ['Microfinance', 'Développement rural'],
+      bio: 'Chercheur en économie du développement.',
+      institution: null,
+    } as never);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.emailVerified).toBe(true);
+    expect(body.department).toBe('Sciences Économiques');
+    expect(body.academicGrade).toBe('Maître de Conférences');
+    expect(body.specialties).toEqual(['Microfinance', 'Développement rural']);
+    expect(body.bio).toBe('Chercheur en économie du développement.');
   });
 });
 
@@ -109,5 +146,56 @@ describe('PATCH /api/profile', () => {
     const updateArg = prismaMock.user.update.mock.calls[0]?.[0];
     expect(updateArg?.where?.id).toBe('user-1');
     expect(updateArg?.data?.profileType).toBe('ETUDIANT');
+  });
+
+  it('empty body → 400 VALIDATION_FAILED', async () => {
+    const res = await PATCH(makePatch({}));
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('updates Profil-tab fields without profileType and without checking the one-shot lock', async () => {
+    prismaMock.user.update.mockResolvedValue({
+      profileType: 'ENCADRANT',
+      name: 'Amadou Diallo',
+      department: 'Sciences Économiques',
+      academicGrade: 'Maître de Conférences',
+      specialties: ['Microfinance'],
+      bio: 'Bio courte.',
+    } as never);
+    const res = await PATCH(
+      makePatch({
+        name: 'Amadou Diallo',
+        department: 'Sciences Économiques',
+        academicGrade: 'Maître de Conférences',
+        specialties: ['Microfinance'],
+        bio: 'Bio courte.',
+      }),
+    );
+    expect(res.status).toBe(200);
+    // profileType absent from the body ⇒ the one-shot lock check must not run.
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    const updateArg = prismaMock.user.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({
+      name: 'Amadou Diallo',
+      department: 'Sciences Économiques',
+      academicGrade: 'Maître de Conférences',
+      specialties: ['Microfinance'],
+      bio: 'Bio courte.',
+    });
+  });
+
+  it('updating Profil-tab fields still works after profileType is already set (no 409)', async () => {
+    prismaMock.user.update.mockResolvedValue({ department: 'Nouveau département' } as never);
+    const res = await PATCH(makePatch({ department: 'Nouveau département' }));
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('changing an already-set profileType still 409s even alongside other fields', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    const res = await PATCH(makePatch({ profileType: 'ETUDIANT', department: 'X' }));
+    expect(res.status).toBe(409);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });

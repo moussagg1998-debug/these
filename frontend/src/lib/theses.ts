@@ -8,6 +8,8 @@ export interface ThesisPerson {
   name: string | null;
   email: string;
   avatarUrl: string | null;
+  /** Phase 10 — encadrant "Profil" tab bio, shown to students when set. */
+  bio?: string | null;
 }
 
 export interface ThesisDocument {

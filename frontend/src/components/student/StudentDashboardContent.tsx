@@ -272,6 +272,11 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
               </div>
             </div>
             <div className="text-xs text-muted-foreground mb-3">{thesis.encadrant.email}</div>
+            {thesis.encadrant.bio && (
+              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                {thesis.encadrant.bio}
+              </p>
+            )}
             <Link
               href="/messages"
               className="w-full flex items-center justify-center gap-1.5 text-xs font-medium bg-input border border-border text-foreground py-2 rounded-sm"
