@@ -58,12 +58,12 @@ export default function ProfileSelectionPage() {
     setError(null);
     try {
       await api('/api/profile', { method: 'PATCH', body: { profileType: selected } });
-      // ENCADRANT has a real dashboard as of Phase 3; ETUDIANT doesn't yet
-      // (Phase 6), so it still lands on the homepage for now.
-      router.push(selected === 'ENCADRANT' ? '/dashboard' : '/');
+      // /dashboard branches internally on profileType (ENCADRANT since
+      // Phase 3, ETUDIANT since Phase 7).
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'PROFILE_ALREADY_SET') {
-        router.push(selected === 'ENCADRANT' ? '/dashboard' : '/');
+        router.push('/dashboard');
         return;
       }
       setError(err instanceof ApiError ? err.message : 'Une erreur est survenue');

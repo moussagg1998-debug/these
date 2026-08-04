@@ -6,9 +6,9 @@
 // bearing for the login task itself).
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError, storeCsrfToken } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/Icon';
@@ -16,8 +16,10 @@ import { AuthBrandingPanel } from '@/components/marketing/AuthBrandingPanel';
 
 const googleSignInHref = '/api/auth/oauth/google/start?next=/onboarding/profile';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const justReset = params.get('reset') === 'ok';
   const { refresh } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,14 +38,13 @@ export default function LoginPage() {
       if (res.csrfToken) storeCsrfToken(res.csrfToken);
       await refresh();
 
-      // Route based on onboarding + profile status. ENCADRANT has a real
-      // dashboard as of Phase 3; ETUDIANT doesn't yet (Phase 6), so it
-      // still lands on the homepage for now.
+      // Route based on onboarding + profile status. /dashboard branches
+      // internally on profileType (ENCADRANT since Phase 3, ETUDIANT since
+      // Phase 7), so any resolved profile lands there.
       try {
         const profile = await api<{ profileType: string | null }>('/api/profile');
         if (!profile.profileType) router.push('/onboarding/profile');
-        else if (profile.profileType === 'ENCADRANT') router.push('/dashboard');
-        else router.push('/');
+        else router.push('/dashboard');
       } catch {
         router.push('/onboarding/profile');
       }
@@ -74,6 +75,15 @@ export default function LoginPage() {
             <h1 className="mb-1 font-headings text-2xl font-semibold text-foreground">Bienvenue</h1>
             <p className="text-sm text-muted-foreground">Connectez-vous à ThèseFacile</p>
           </div>
+
+          {justReset && (
+            <p
+              role="status"
+              className="mb-4 rounded-sm border border-border bg-input px-3 py-2 text-sm text-foreground"
+            >
+              Mot de passe réinitialisé. Vous pouvez vous connecter.
+            </p>
+          )}
 
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
@@ -163,5 +173,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
