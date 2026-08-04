@@ -16,6 +16,7 @@ export const NAV_ITEMS = [
   { href: '/documents', icon: 'file-text', label: 'Documents' },
   { href: '/comments', icon: 'message-square', label: 'Commentaires' },
   { href: '/deadlines', icon: 'calendar', label: 'Échéances' },
+  { href: '/messages', icon: 'message-circle', label: 'Messages' },
   { href: '/settings', icon: 'settings', label: 'Paramètres' },
 ];
 

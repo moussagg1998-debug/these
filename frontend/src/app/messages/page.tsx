@@ -1,9 +1,10 @@
-// Messagerie étudiant-encadrant — Banani `StudentMessaging.jsx`.
+// Messagerie — Banani `StudentMessaging.jsx` (ETUDIANT) + `new_screen7.jsx`
+// "Messagerie — Côté Encadrant" (ENCADRANT, Phase 11).
 //
-// New top-level route (ETUDIANT-only), already referenced as a real Link
-// from Phase 7's StudentDashboardContent ("Envoyer un message"). Same
-// auth/thesis gating pattern as Phase 8's /documents/new — see
-// .planning/banani/phase-9-student-messaging.md.
+// Same profileType-branch pattern as /settings (Phase 6) and /dashboard
+// (Phase 7) — one route, one page, branching on profile.profileType rather
+// than two separate URLs. Already referenced as a real Link from Phase 7's
+// StudentDashboardContent ("Envoyer un message").
 'use client';
 
 import { useEffect } from 'react';
@@ -11,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { StudentMessagingContent } from '@/components/student/StudentMessagingContent';
+import { EncadrantMessagingContent } from '@/components/dashboard/EncadrantMessagingContent';
 import type { ThesisListItem } from '@/lib/theses';
 
 interface ProfileResponse {
@@ -31,19 +33,22 @@ export default function MessagesPage() {
     skip: !user,
   });
   const isStudent = profile?.profileType === 'ETUDIANT';
+  const isEncadrant = profile?.profileType === 'ENCADRANT';
   const { data: thesesRes, loading: thesesLoading } = useApi<ThesesResponse>('/api/theses', {
     skip: !user || !isStudent,
   });
   const thesis = thesesRes?.items[0] ?? null;
 
   const stillResolving = !user || profileLoading || (isStudent && thesesLoading && !thesesRes);
-  const shouldRedirect = !stillResolving && (!isStudent || !thesis);
+  const needsOnboarding = !stillResolving && profile?.profileType === null;
+  const studentWithoutThesis = !stillResolving && isStudent && !thesis;
 
   useEffect(() => {
-    if (shouldRedirect) router.replace('/dashboard');
-  }, [shouldRedirect, router]);
+    if (needsOnboarding) router.replace('/onboarding/profile');
+    else if (studentWithoutThesis) router.replace('/dashboard');
+  }, [needsOnboarding, studentWithoutThesis, router]);
 
-  if (stillResolving || shouldRedirect) {
+  if (stillResolving || needsOnboarding || studentWithoutThesis) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">Chargement…</p>
@@ -52,6 +57,10 @@ export default function MessagesPage() {
   }
 
   const name = profile!.name || profile!.email.split('@')[0] || profile!.email;
+
+  if (isEncadrant) {
+    return <EncadrantMessagingContent name={name} />;
+  }
 
   return <StudentMessagingContent name={name} thesis={thesis!} />;
 }

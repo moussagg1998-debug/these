@@ -1,8 +1,8 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 10)
+Last updated: 2026-08-04 (Phase 11)
 
-Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
+Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 20 screens fetched (`new_screen7.jsx` "Messagerie — Côté Encadrant" added to the Banani project after the initial 19-screen fetch; retrieved once the Banani MCP was reconnected mid-Phase-10).
 
 ## Done
 
@@ -116,8 +116,19 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [x] **Responsive**: code-based audit only (no browser tool this session) — grepped for non-stacking grids/flex-rows/fixed-width sidebars across the whole app; none found. Not a substitute for real visual verification.
 - Plan: `.planning/banani/phase-10-encadrant-profile-tab.md` (documents the dropped phone/plan-tier/max-students fields, why avatar photo upload was left inert despite cheap infra, and the free-text-with-suggestions grade field)
 
+### Phase 11 — Messagerie côté encadrant (2026-08-04)
+- [x] `encadrant-messaging` — "Messagerie — Côté Encadrant" (`new_screen7.jsx`) — `/messages` ENCADRANT branch (same profileType-branch pattern as `/settings`/`/dashboard`), wrapped in the existing `DashboardShell`/`Sidebar` chrome rather than Banani's one-off top nav for this screen
+- [x] Shared: `EncadrantMessagingContent` under `frontend/src/components/dashboard/`; reuses `AddToCalendarModal` (Phase 9) unchanged for both "Planifier une réunion" entry points
+- [x] Backend: **new** `GET /api/messages` — the cross-thesis inbox aggregate messaging never got when Phases 4-5 built the same shape for documents/comments/deadlines. Per-thesis unread count derived from existing `MESSAGE_RECEIVED` notifications (grouped by `data.thesisId`, no new schema); opening a conversation marks those notifications read via the existing `PATCH /api/notifications`
+- [x] `Sidebar.tsx`: added a real "Messages" nav item (`NAV_ITEMS`)
+- [x] `Icon.tsx`: added `more-horizontal`
+- [x] Composer quick-actions ("Proposer un rendez-vous"/"Valider un chapitre") are real text-template inserts into the message draft, not new backend concepts; "chapitre actif" is a derived proxy (latest document's chapter)
+- [x] format/lint/typecheck/test(686/686)/build all green; dev-server smoke check (curl 200 on `/messages`, `/dashboard`, `/settings`, `/students`; 401 on unauthenticated `/api/messages` + `/api/theses`)
+- [x] **Responsive**: code-based audit only (no browser tool this session) — traced the new mobile/desktop JS-driven pane toggle plus the standard grid/flex-row checks from Phase 10; no issues found. Not a substitute for real visual verification.
+- Plan: `.planning/banani/phase-11-encadrant-messaging.md` (documents the new cross-thesis aggregate, the notification-derived unread count, and the meeting/calendar reuse from Phase 9)
+
 ## In progress
-- [ ] `student-messaging` (encadrant side) — user selected a Banani screen for the encadrant's mirror of Phase 9's messaging UI; **blocked** — the Banani MCP was disconnected when this was requested (2026-08-04). Pick up once reconnected.
+_(none — every fetched Banani screen for both sides is now built)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
 _(none)_
