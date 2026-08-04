@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 8)
+Last updated: 2026-08-04 (Phase 9)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -94,13 +94,20 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-8-student-file-upload.md` (documents the dropped version field/chapter-position box, notes-as-comment reuse, and why the MIME allowlist was widened locally rather than in the shared starter contract)
 
+### Phase 9 — Messagerie étudiant-encadrant + calendrier (2026-08-04)
+- [x] `student-messaging` + `add-to-calendar-modal` — "Messagerie étudiant-encadrant" + "Ajout au calendrier — Modal" — `frontend/src/app/messages/page.tsx` (new top-level route, ETUDIANT-only, already linked from Phase 7's dashboard)
+- [x] Shared: `StudentMessagingContent`, `AddToCalendarModal` under `frontend/src/components/student/`; `frontend/src/lib/ics.ts` (hand-rolled RFC 5545 `.ics` generator, no library)
+- [x] Backend: no new routes/schema. Reuses `GET/POST /api/theses/[id]/messages` (Phase 1, already dual-sided, already notifies), `GET /api/theses/[id]/deadlines`, `GET /api/theses/[id]/documents` — chat polls every 5s (periodic refetch, per the already-resolved "no Ably for MVP" decision)
+- [x] **Re-scoped "add to calendar"**: no `Meeting` model exists, so the feature exports the thesis's real next `Deadline` as a downloadable `.ics` file (with a working reminder + notes) instead of fabricating a scheduled meeting with a fake office location
+- [x] `Icon.tsx`: added `paperclip`, `phone`, `calendar-plus`, `bell-off`, `flag`
+- [x] format/lint/typecheck/test(673/673)/build all green; dev-server smoke check (curl 200 on `/messages`, `/documents/new`, `/dashboard`; 401 on unauthenticated `/api/theses`)
+- [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
+- Plan: `.planning/banani/phase-9-student-messaging.md` (documents the meeting→deadline re-scoping, the dropped fake calendar-app selector, and why "Fichiers récents" was made real instead of dropped)
+
 ## In progress
-_(none yet — next up: Phase 9, messagerie étudiant-encadrant + modal calendrier)_
+_(none — student side (Phases 7-9) complete; encadrant-side messaging UI remains unbuilt, see Deliberate simplifications in the Phase 9 plan)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
-
-### Étudiant (student) side
-- [ ] Phase 9 — `student-messaging` + `add-to-calendar-modal` — "Messagerie étudiant-encadrant" (one route, modal overlay — same relationship as AddDeadline/DeadlineCalendar)
 
 ### Re-scoped out of Étudiant side
 - [ ] `user-settings` ("Paramètres Utilisateur", `new_screen1.jsx`) — **mislabeled in this list**: the actual JSX is an ENCADRANT profile-editing screen (renders the encadrant `Sidebar`, "Encadrant vérifié" badge, academic institution/department/grade/specialties fields) — not a student screen at all. Likely a second, richer design draft for the same feature area as Phase 6's `SettingsPage.jsx`. Not built; needs a user decision (fold into Phase 6 settings as a "Profil" tab, or treat as a superseded draft) before any work happens here.
