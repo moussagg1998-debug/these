@@ -41,7 +41,10 @@ export async function GET(req: NextRequest, { params }: RouteParams): Promise<Ne
     const comments = await prisma.comment.findMany({
       where: { thesisId: id },
       orderBy: [{ createdAt: 'asc' }],
-      include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+      include: {
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        document: { select: { id: true, chapter: true } },
+      },
     });
 
     return NextResponse.json({ items: comments }, { headers: { 'x-request-id': ctx.requestId } });

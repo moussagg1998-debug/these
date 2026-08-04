@@ -3,6 +3,7 @@
 // so unused icons don't ship in the bundle — extend ICONS as new Banani
 // screens introduce new icon names.
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowRight,
   BarChart2,
@@ -53,6 +54,7 @@ import {
 } from 'lucide-react';
 
 const ICONS: Record<string, LucideIcon> = {
+  'alert-circle': AlertCircle,
   'alert-triangle': AlertTriangle,
   'arrow-right': ArrowRight,
   'bar-chart-2': BarChart2,

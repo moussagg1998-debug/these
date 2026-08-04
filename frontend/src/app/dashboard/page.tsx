@@ -18,6 +18,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { StudentRow } from '@/components/dashboard/StudentRow';
 import { ActivityItem } from '@/components/dashboard/ActivityItem';
 import { AddStudentForm } from '@/components/dashboard/AddStudentForm';
+import { StudentDashboardContent } from '@/components/student/StudentDashboardContent';
 import {
   displayName,
   formatDate,
@@ -118,16 +119,8 @@ export default function DashboardEncadrantPage() {
   }
 
   if (profile.profileType === 'ETUDIANT') {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          Ce tableau de bord est réservé aux encadrants.
-        </p>
-        <Link href="/" className="text-sm font-medium text-primary underline">
-          Retour à l&apos;accueil
-        </Link>
-      </main>
-    );
+    const studentName = profile.name || user.email.split('@')[0] || user.email;
+    return <StudentDashboardContent name={studentName} />;
   }
 
   const name = profile.name || user.email.split('@')[0] || user.email;

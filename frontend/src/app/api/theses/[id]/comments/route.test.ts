@@ -62,6 +62,20 @@ describe('GET /api/theses/[id]/comments', () => {
     const res = await GET(makeGet(), { params });
     expect(res.status).toBe(200);
   });
+
+  it('includes author email and linked document chapter (student dashboard needs both)', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    prismaMock.comment.findMany.mockResolvedValue([] as never);
+    await GET(makeGet(), { params });
+    const args = prismaMock.comment.findMany.mock.calls[0]?.[0];
+    const author = args?.include?.author as { select?: { email?: boolean } } | boolean | undefined;
+    const document = args?.include?.document as
+      | { select?: { chapter?: boolean } }
+      | boolean
+      | undefined;
+    expect(typeof author === 'object' && author?.select?.email).toBe(true);
+    expect(typeof document === 'object' && document?.select?.chapter).toBe(true);
+  });
 });
 
 describe('POST /api/theses/[id]/comments', () => {

@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 6)
+Last updated: 2026-08-04 (Phase 7)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 19 screens fetched.
 
@@ -74,20 +74,31 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
 - Plan: `.planning/banani/phase-6-encadrant-settings.md` (documents which Notifications/Sécurité/Général items are real vs. inert, the pre-existing gap where notification prefs aren't yet enforced in the creation pipeline, and the Google-linking addition beyond Banani's mock)
 
+### Phase 7 — Dashboard Étudiant (2026-08-04)
+- [x] `dashboard-etudiant` — "Dashboard Étudiant" — `/dashboard` ETUDIANT branch (same reuse pattern as Phase 6's `/settings`), replacing the old "réservé aux encadrants" placeholder
+- [x] Shared: `StudentNav`, `StudentDocumentRow`, `StudentCommentItem`, `StudentDashboardContent` under `frontend/src/components/student/` (new directory)
+- [x] Backend: `GET /api/theses/[id]/comments` extended (`author.email`, `document.chapter`) — no new routes, everything else reuses Phase 1's already-dual-sided per-thesis routes for the first time
+- [x] **Bug fix**: `Comment.documentId` had no real Prisma relation since Phase 1 — `GET /api/comments` (Phase 4) already tried to `include: {document}`, which would throw at runtime against a real DB (fully-mocked tests never caught it). Fixed with a proper `Comment.document`/`Document.comments` relation — migration `20260804004938_thesefacile_comment_document_relation`
+- [x] `Icon.tsx`: added `alert-circle`
+- [x] format/lint/typecheck/test(659/659)/build all green; dev-server smoke check (curl 200 + content match) on `/dashboard`, 401 on unauthenticated `/api/theses` + `/api/notifications/count`, `/settings` + `/deadlines` unaffected
+- [ ] **Not verified**: actual browser rendering at 375/768/1280px — same caveat as every prior phase, no browser/screenshot tool available in this session
+- Plan: `.planning/banani/phase-7-dashboard-etudiant.md` (documents the dropped 8-step milestone curriculum, the 2-state document status derivation, and why student-side comment resolution stays disabled)
+
 ## In progress
-_(none yet — next up: Étudiant-side screens)_
+_(none yet — next up: Phase 8, dépôt de fichier étudiant)_
 
 ## Pending (fetched, planned at a high level in IMPLEMENTATION-PLAN.md, not yet detailed/built)
 
 ### Étudiant (student) side
-- [ ] `dashboard-etudiant` — "Dashboard Étudiant"
-- [ ] `student-file-upload` — "Dépôt de fichier étudiant"
-- [ ] `student-messaging` — "Messagerie étudiant-encadrant"
-- [ ] `add-to-calendar-modal` — "Ajout au calendrier — Modal"
-- [ ] `user-settings` — "Paramètres Utilisateur"
+- [ ] Phase 8 — `student-file-upload` — "Dépôt de fichier étudiant"
+- [ ] Phase 9 — `student-messaging` + `add-to-calendar-modal` — "Messagerie étudiant-encadrant" (one route, modal overlay — same relationship as AddDeadline/DeadlineCalendar)
+
+### Re-scoped out of Étudiant side
+- [ ] `user-settings` ("Paramètres Utilisateur", `new_screen1.jsx`) — **mislabeled in this list**: the actual JSX is an ENCADRANT profile-editing screen (renders the encadrant `Sidebar`, "Encadrant vérifié" badge, academic institution/department/grade/specialties fields) — not a student screen at all. Likely a second, richer design draft for the same feature area as Phase 6's `SettingsPage.jsx`. Not built; needs a user decision (fold into Phase 6 settings as a "Profil" tab, or treat as a superseded draft) before any work happens here.
 
 ## Open design questions
 Resolved 2026-08-03 — see `IMPLEMENTATION-PLAN.md` §6 for the 7 confirmed decisions (profileType field, cardinality, monetization kept, back-office kept, messaging = periodic refetch, calendar sync = decorative for MVP, profile choice fixed at signup).
+- **New (2026-08-04)**: `new_screen1.jsx` ("Paramètres Utilisateur") mislabeling — see "Re-scoped out of Étudiant side" above. Not blocking Phase 7.
 
 ## Shared component inventory (from Banani `sharedFiles`)
 - `/style.css` — theme tokens (see IMPLEMENTATION-PLAN.md § Design tokens)
