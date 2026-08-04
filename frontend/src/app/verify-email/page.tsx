@@ -11,6 +11,11 @@ import { api, ApiError, storeCsrfToken } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/Icon';
 
+const RESEND_ERROR_MESSAGES: Record<string, string> = {
+  TOO_MANY_RESEND_ATTEMPTS: 'Trop de tentatives. Réessayez dans quelques minutes.',
+  RATE_LIMIT_UNAVAILABLE: 'Service de renvoi indisponible pour le moment. Réessayez plus tard.',
+};
+
 function VerifyEmailForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -19,6 +24,8 @@ function VerifyEmailForm() {
   const [code, setCode] = useState(params.get('code') ?? '');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const qEmail = params.get('email');
@@ -50,6 +57,24 @@ function VerifyEmailForm() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     void verify(email, code);
+  }
+
+  async function onResend() {
+    setResending(true);
+    setResendMessage(null);
+    setError(null);
+    try {
+      await api('/api/auth/resend-verification', { method: 'POST', body: { email } });
+      setResendMessage('Si ce compte existe, un nouveau code a été envoyé.');
+    } catch (err) {
+      setResendMessage(
+        err instanceof ApiError
+          ? (RESEND_ERROR_MESSAGES[err.code] ?? err.message)
+          : 'Une erreur est survenue',
+      );
+    } finally {
+      setResending(false);
+    }
   }
 
   return (
@@ -121,11 +146,22 @@ function VerifyEmailForm() {
           </button>
         </form>
 
+        {resendMessage && (
+          <p role="status" className="mt-4 text-center text-sm text-muted-foreground">
+            {resendMessage}
+          </p>
+        )}
+
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Pas reçu de code ?{' '}
-          <Link href="/signup" className="font-medium text-primary">
-            Réessayer l&apos;inscription
-          </Link>
+          <button
+            type="button"
+            onClick={onResend}
+            disabled={resending || !email}
+            className="font-medium text-primary disabled:opacity-50"
+          >
+            {resending ? 'Envoi…' : 'Renvoyer le code'}
+          </button>
         </p>
       </div>
     </div>

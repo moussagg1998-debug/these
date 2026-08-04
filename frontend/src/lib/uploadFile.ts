@@ -4,7 +4,12 @@
 // caller in the app (see .planning/banani/phase-8-student-file-upload.md),
 // so rather than modify the protected wrapper this duplicates the small
 // CSRF-token lookup it doesn't export and does a raw `fetch` instead.
-import { ApiError, BACKEND_URL } from './api';
+//
+// Same reasoning for the 401-refresh-retry below: `api.ts`'s refresh lock is
+// module-private, so this mirrors its one-retry behavior locally rather than
+// importing from the protected file. The 15min access token can plausibly
+// expire while a student fills out this form before submitting.
+import { ApiError, BACKEND_URL, storeCsrfToken } from './api';
 import { COOKIE_PREFIX } from './constants';
 
 const CSRF_COOKIE_NAME = `${COOKIE_PREFIX}-csrf`;
@@ -29,7 +34,23 @@ export interface UploadedFile {
   url: string;
 }
 
-export async function uploadFile(file: File): Promise<UploadedFile> {
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { csrfToken?: string };
+    if (data.csrfToken) storeCsrfToken(data.csrfToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function uploadFile(file: File, isRetryAfterRefresh = false): Promise<UploadedFile> {
   const form = new FormData();
   form.append('file', file);
 
@@ -40,6 +61,11 @@ export async function uploadFile(file: File): Promise<UploadedFile> {
     headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
     body: form,
   });
+
+  if (res.status === 401 && !isRetryAfterRefresh) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) return uploadFile(file, true);
+  }
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;

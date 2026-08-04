@@ -81,15 +81,17 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     data: thesis,
     loading: thesisLoading,
     error: thesisError,
+    refresh: refreshThesis,
   } = useApi<ThesisDetail>(`/api/theses/${id}`, {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
   const { data: documents } = useApi<DocumentsResponse>(`/api/theses/${id}/documents`, {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
-  const { data: comments } = useApi<CommentsResponse>(`/api/theses/${id}/comments`, {
-    skip: !user || profile?.profileType !== 'ENCADRANT',
-  });
+  const { data: comments, refresh: refreshComments } = useApi<CommentsResponse>(
+    `/api/theses/${id}/comments`,
+    { skip: !user || profile?.profileType !== 'ENCADRANT' },
+  );
 
   const activity = useMemo(() => {
     const docItems = (documents?.items ?? []).map((d) => ({
@@ -287,6 +289,10 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           deadline={deadline}
           pendingComments={thesis._count.comments}
           recentDocuments={(documents?.items ?? []).slice(0, 2)}
+          onCommentSent={() => {
+            void refreshComments();
+            void refreshThesis();
+          }}
         />
       </div>
     </DashboardShell>

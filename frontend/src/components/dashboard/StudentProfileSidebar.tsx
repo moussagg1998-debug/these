@@ -27,6 +27,7 @@ interface StudentProfileSidebarProps {
   deadline?: ThesisDeadline | undefined;
   pendingComments: number;
   recentDocuments: ThesisDocument[];
+  onCommentSent?: () => void;
 }
 
 export function StudentProfileSidebar({
@@ -37,6 +38,7 @@ export function StudentProfileSidebar({
   deadline,
   pendingComments,
   recentDocuments,
+  onCommentSent,
 }: StudentProfileSidebarProps) {
   const { toast } = useToast();
   const [composerOpen, setComposerOpen] = useState(false);
@@ -53,6 +55,7 @@ export function StudentProfileSidebar({
       toast('Retour envoyé.', 'success');
       setBody('');
       setComposerOpen(false);
+      onCommentSent?.();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
     } finally {
