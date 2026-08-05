@@ -82,8 +82,8 @@ export interface ThesisListItem {
 
 /**
  * The 5 valid `Thesis.stage` values, in the order shown in stage pickers.
- * Single source of truth — consumed by the PATCH /api/theses/[id] Zod
- * validator and by the encadrant's stage-change `<select>`.
+ * Shared by the POST /api/theses and PATCH /api/theses/[id] Zod validators,
+ * plus the encadrant's stage-change `<select>`.
  */
 export const THESIS_STAGES = [
   'En attente',

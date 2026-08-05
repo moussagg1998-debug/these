@@ -25,6 +25,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { requireProfileType } from '@/lib/server/theses/guards';
+import { THESIS_STAGES } from '@/lib/theses';
 import { createNotification } from '@/lib/server/notifications';
 import { zEmail } from '@/lib/server/zod-helpers';
 import { clampLimit, cursorWhere, buildPage, decodeCursor } from '@/lib/server/pagination/paginate';
@@ -33,7 +34,7 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 const CreateBody = z.object({
   studentEmail: zEmail,
   topic: z.string().trim().min(1).max(500),
-  stage: z.enum(['En attente', 'Rédaction', 'Révision', 'Bloqué', 'Soutenance']).optional(),
+  stage: z.enum(THESIS_STAGES).optional(),
   deadlineAt: z.coerce.date().optional(),
 });
 
