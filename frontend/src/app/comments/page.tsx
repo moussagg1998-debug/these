@@ -17,6 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { CommentThread } from '@/components/dashboard/CommentThread';
+import { StudentCommentsContent } from '@/components/student/StudentCommentsContent';
 import { displayName, type CommentListItem, type ThesisListItem } from '@/lib/theses';
 
 interface ProfileResponse {
@@ -137,8 +138,8 @@ function CommentsOverviewContent() {
   }
 
   if (profile.profileType === 'ETUDIANT') {
-    router.replace('/dashboard');
-    return null;
+    const studentName = profile.name || user.email.split('@')[0] || user.email;
+    return <StudentCommentsContent name={studentName} />;
   }
 
   const name = profile.name || user.email.split('@')[0] || user.email;
