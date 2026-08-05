@@ -14,6 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import {
   displayName,
   formatDate,
+  THESIS_STAGES,
   type ThesisDeadline,
   type ThesisDocument,
   type ThesisPerson,
@@ -28,6 +29,7 @@ interface StudentProfileSidebarProps {
   pendingComments: number;
   recentDocuments: ThesisDocument[];
   onCommentSent?: () => void;
+  onStageChanged?: () => void;
 }
 
 export function StudentProfileSidebar({
@@ -39,11 +41,15 @@ export function StudentProfileSidebar({
   pendingComments,
   recentDocuments,
   onCommentSent,
+  onStageChanged,
 }: StudentProfileSidebarProps) {
   const { toast } = useToast();
   const [composerOpen, setComposerOpen] = useState(false);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const [stageEditorOpen, setStageEditorOpen] = useState(false);
+  const [pendingStage, setPendingStage] = useState(stage);
+  const [savingStage, setSavingStage] = useState(false);
   const name = displayName(student);
 
   async function onSend(e: FormEvent) {
@@ -63,6 +69,21 @@ export function StudentProfileSidebar({
     }
   }
 
+  async function onSaveStage(e: FormEvent) {
+    e.preventDefault();
+    setSavingStage(true);
+    try {
+      await api(`/api/theses/${thesisId}`, { method: 'PATCH', body: { stage: pendingStage } });
+      toast('Étape mise à jour.', 'success');
+      setStageEditorOpen(false);
+      onStageChanged?.();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+    } finally {
+      setSavingStage(false);
+    }
+  }
+
   return (
     <div className="w-full lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface flex flex-col px-5 py-6 gap-6">
       <div className="flex items-start gap-4 pb-4 border-b border-border">
@@ -70,9 +91,53 @@ export function StudentProfileSidebar({
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-sm text-foreground">{name}</div>
           <div className="text-xs text-muted-foreground mt-0.5 truncate">{student.email}</div>
-          <div className="text-xs font-medium text-secondary-foreground bg-secondary px-1.5 py-0.5 rounded-sm mt-1.5 inline-block">
-            {stage}
-          </div>
+          {stageEditorOpen ? (
+            <form onSubmit={onSaveStage} className="flex flex-col gap-2 mt-2">
+              <select
+                value={pendingStage}
+                onChange={(e) => setPendingStage(e.target.value)}
+                className="border border-border rounded-sm px-2 py-1.5 text-xs text-foreground bg-input outline-none"
+              >
+                {THESIS_STAGES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={savingStage}
+                  className="flex-1 px-2 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50"
+                >
+                  {savingStage ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStageEditorOpen(false)}
+                  className="px-2 py-1.5 border border-border text-foreground text-xs font-medium rounded-sm"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="text-xs font-medium text-secondary-foreground bg-secondary px-1.5 py-0.5 rounded-sm inline-block">
+                {stage}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingStage(stage);
+                  setStageEditorOpen(true);
+                }}
+                className="text-xs font-medium text-primary underline"
+              >
+                Changer d&apos;étape
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -293,6 +293,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             void refreshComments();
             void refreshThesis();
           }}
+          onStageChanged={() => void refreshThesis()}
         />
       </div>
     </DashboardShell>
