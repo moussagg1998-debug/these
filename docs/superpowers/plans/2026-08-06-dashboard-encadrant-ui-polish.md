@@ -2029,7 +2029,17 @@ Same method as the project's own Phase 12 (`.planning/banani/STATUS.md`): Playwr
 **Files:**
 - No specific files up front — fixes depend on what the audit finds. Likely candidates given the components touched by this plan: `DashboardHeader.tsx` (new search bar at narrow widths), `StudentNav.tsx` (new drawer button spacing).
 
-- [ ] **Step 1: Write the audit script**
+- [ ] **Step 1: Install Playwright as a temporary devDependency**
+
+Playwright is not currently installed in this repo (confirmed: no `playwright` entry in `frontend/package.json`, not present in `node_modules`). Install it scoped to the frontend workspace for this task only — it gets removed in Step 7, so it never appears in the committed `package.json`:
+
+Run: `pnpm --filter frontend add -D playwright`
+Expected: install succeeds, `frontend/package.json`'s `devDependencies` gains a `playwright` line (temporary — do not commit this yet).
+
+Run: `pnpm --filter frontend exec playwright install chromium`
+Expected: downloads a Chromium build for Playwright to drive (this repo's prior QA passes used the machine's existing system Chrome via a different invocation; installing Playwright's own Chromium here is simpler and self-contained — either works, this is the lower-friction default).
+
+- [ ] **Step 2: Write the audit script**
 
 Create a throwaway script (not committed — matches the project's own precedent of temporary Playwright scripts for QA passes) at `frontend/scratch-responsive-audit.mjs`:
 
@@ -2080,14 +2090,14 @@ console.log(JSON.stringify(overflows, null, 2));
 await browser.close();
 ```
 
-- [ ] **Step 2: Run it against a live dev server**
+- [ ] **Step 3: Run it against a live dev server**
 
 In one terminal: `pnpm dev`
 In another: `node frontend/scratch-responsive-audit.mjs`
 
-Expected output: `[]` (empty array = no horizontal overflow found). If any entries print, each `{ path, viewport }` pair needs a fix — go to Step 3.
+Expected output: `[]` (empty array = no horizontal overflow found). If any entries print, each `{ path, viewport }` pair needs a fix — go to Step 4.
 
-- [ ] **Step 3: Fix any overflow found, using the project's existing idioms**
+- [ ] **Step 4: Fix any overflow found, using the project's existing idioms**
 
 For each `{ path, viewport }` reported, open that page/component in a real browser at that exact viewport width and find the overflowing element (devtools → toggle-device-toolbar → inspect). Apply whichever of the codebase's own already-established patterns fits:
 - Wrap a wide row/table in `overflow-x-auto` (already used in `StudentRow`'s table wrapper, `documents/page.tsx`'s table).
@@ -2097,22 +2107,26 @@ For each `{ path, viewport }` reported, open that page/component in a real brows
 
 Do not invent a new responsive strategy — every page in this app already follows one of these 4 patterns; matching them keeps the codebase consistent.
 
-- [ ] **Step 4: Re-run the audit until it returns `[]`**
+- [ ] **Step 5: Re-run the audit until it returns `[]`**
 
 Run: `node frontend/scratch-responsive-audit.mjs`
 Expected: `[]`.
 
-- [ ] **Step 5: Visual pass on the pages this plan touched**
+- [ ] **Step 6: Visual pass on the pages this plan touched**
 
 With the dev server running, manually resize the browser (or devtools device toolbar) through 375 → 768 → 1280 on: `/dashboard` (search bar + stage filter + rappels button), `/students` (search bar), `/students/[id]` (breadcrumb header), the 4 modals from Task 14, the Étudiant mobile drawer from Task 15. Confirm nothing clips, no text overlaps, no button becomes unreachable.
 
-- [ ] **Step 6: Delete the throwaway script**
+- [ ] **Step 7: Delete the throwaway script and remove the temporary Playwright dependency**
 
 ```bash
 rm frontend/scratch-responsive-audit.mjs
+pnpm --filter frontend remove playwright
 ```
 
-- [ ] **Step 7: Commit any fixes from Step 3**
+Run: `git status`
+Expected: `frontend/package.json` and `pnpm-lock.yaml` show playwright removed (back to their state before Step 1); `frontend/scratch-responsive-audit.mjs` is gone and does not appear as untracked. Confirm neither `playwright` nor the script path appears anywhere in `git diff` before committing anything from this task.
+
+- [ ] **Step 8: Commit any fixes from Step 4**
 
 ```bash
 git add -A
@@ -2125,7 +2139,7 @@ Review the diff — commit only the actual page/component fixes (the audit scrip
 git commit -m "fix(responsive): resolve horizontal overflow found in app-wide 375/768/1280 audit"
 ```
 
-(Skip this step entirely if Step 2's first run already returned `[]` — nothing to commit.)
+(Skip this step entirely if Step 3's first run already returned `[]` — nothing to commit.)
 
 ---
 
