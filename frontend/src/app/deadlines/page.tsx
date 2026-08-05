@@ -19,6 +19,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DeadlineCard } from '@/components/dashboard/DeadlineCard';
 import { AddDeadlineForm } from '@/components/dashboard/AddDeadlineForm';
+import { StudentCalendarContent } from '@/components/student/StudentCalendarContent';
 import {
   daysUntil,
   deadlineUrgencyBucket,
@@ -166,8 +167,8 @@ function DeadlineCalendarContent() {
   }
 
   if (profile.profileType === 'ETUDIANT') {
-    router.replace('/dashboard');
-    return null;
+    const studentName = profile.name || user.email.split('@')[0] || user.email;
+    return <StudentCalendarContent name={studentName} />;
   }
 
   const name = profile.name || user.email.split('@')[0] || user.email;
