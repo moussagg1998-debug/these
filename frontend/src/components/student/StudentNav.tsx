@@ -1,32 +1,29 @@
 // Banani student screens (`Dashboard Étudiant`, `Dépôt de fichier étudiant`,
-// `Messagerie étudiant-encadrant`) all share this exact top nav — extracted
-// here for reuse across Phases 7-9. "Mon mémoire" is the only real
-// destination (→ /dashboard); Banani's own source renders "Documents" /
-// "Commentaires" / "Calendrier" as plain `<a>` with no href/onClick in every
-// screen that has this nav, and no dedicated student-side routes for those
-// exist in the committed scope — kept as inert text rather than fake links.
-// The notification bell is wired to the real (pre-existing, previously
-// unused anywhere) GET /api/notifications/count.
+// `Messagerie étudiant-encadrant`, `Documents`, `Commentaires`,
+// `Calendrier`) all share this exact top nav. "Documents"/"Commentaires"/
+// "Calendrier" now link to real per-thesis pages (previously inert
+// `Bientôt disponible` spans — see the 2026-08-05 student-dashboard-pages
+// spec). The notification bell now opens a real dropdown via
+// NotificationBell instead of only showing a static count badge.
 'use client';
 
 import Link from 'next/link';
-import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
-
-interface NotificationCountResponse {
-  count: number;
-}
+import { NotificationBell } from './NotificationBell';
 
 interface StudentNavProps {
   name: string;
-  active?: 'dashboard';
+  active?: 'dashboard' | 'documents' | 'comments' | 'deadlines';
 }
 
-export function StudentNav({ name, active }: StudentNavProps) {
-  const { data } = useApi<NotificationCountResponse>('/api/notifications/count');
-  const count = data?.count ?? 0;
+const NAV_LINKS: { id: 'documents' | 'comments' | 'deadlines'; href: string; label: string }[] = [
+  { id: 'documents', href: '/documents', label: 'Documents' },
+  { id: 'comments', href: '/comments', label: 'Commentaires' },
+  { id: 'deadlines', href: '/deadlines', label: 'Calendrier' },
+];
 
+export function StudentNav({ name, active }: StudentNavProps) {
   return (
     <nav className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
       <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
@@ -49,37 +46,23 @@ export function StudentNav({ name, active }: StudentNavProps) {
         >
           Mon mémoire
         </Link>
-        <span
-          className="text-muted-foreground opacity-50 cursor-not-allowed"
-          title="Bientôt disponible"
-        >
-          Documents
-        </span>
-        <span
-          className="text-muted-foreground opacity-50 cursor-not-allowed"
-          title="Bientôt disponible"
-        >
-          Commentaires
-        </span>
-        <span
-          className="text-muted-foreground opacity-50 cursor-not-allowed"
-          title="Bientôt disponible"
-        >
-          Calendrier
-        </span>
+        {NAV_LINKS.map((link) => (
+          <Link
+            key={link.id}
+            href={link.href}
+            className={
+              active === link.id
+                ? 'text-primary border-b-2 border-primary pb-0.5'
+                : 'text-muted-foreground'
+            }
+          >
+            {link.label}
+          </Link>
+        ))}
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="w-8 h-8 rounded-sm border border-border bg-surface flex items-center justify-center">
-            <Icon i="bell" size={15} />
-          </div>
-          {count > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
-              {count > 9 ? '9+' : count}
-            </span>
-          )}
-        </div>
+        <NotificationBell />
         <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-border">
           <Avatar name={name} className="h-8 w-8" />
           <div className="text-xs font-semibold text-foreground">{name}</div>
