@@ -18,12 +18,14 @@ const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 const params = Promise.resolve({ id: 'thesis-1' });
 
-function thesisRow(overrides: Partial<{ studentId: string; encadrantId: string }> = {}) {
+function thesisRow(
+  overrides: Partial<{ studentId: string; encadrantId: string; progress: number }> = {},
+) {
   return {
     id: 'thesis-1',
     topic: 'Sujet',
     stage: 'En attente',
-    progress: 0,
+    progress: overrides.progress ?? 0,
     studentId: overrides.studentId ?? 'stu-1',
     encadrantId: overrides.encadrantId ?? 'enc-1',
   };
@@ -101,12 +103,55 @@ describe('PATCH /api/theses/[id]', () => {
     expect(res.status).toBe(400);
   });
 
-  it('encadrant updates stage + progress → 200', async () => {
-    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+  it.each([
+    ['En attente', 0],
+    ['Rédaction', 40],
+    ['Révision', 75],
+    ['Soutenance', 100],
+  ] as const)(
+    'stage → %s derives progress %i, ignoring current progress',
+    async (stage, expected) => {
+      prismaMock.thesis.findUnique.mockResolvedValue(
+        thesisRow({ encadrantId: 'user-1', progress: 10 }) as never,
+      );
+      prismaMock.thesis.update.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+      const res = await PATCH(makePatch({ stage }), { params });
+      expect(res.status).toBe(200);
+      const updateArg = prismaMock.thesis.update.mock.calls[0]?.[0];
+      expect(updateArg?.data).toEqual({ stage, progress: expected });
+    },
+  );
+
+  it("stage → Bloqué preserves the thesis's existing progress value", async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ encadrantId: 'user-1', progress: 40 }) as never,
+    );
     prismaMock.thesis.update.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
-    const res = await PATCH(makePatch({ stage: 'Rédaction', progress: 40 }), { params });
+    const res = await PATCH(makePatch({ stage: 'Bloqué' }), { params });
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.thesis.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ stage: 'Bloqué', progress: 40 });
+  });
+
+  it('a client-supplied progress field is ignored — only stage drives it', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ encadrantId: 'user-1', progress: 10 }) as never,
+    );
+    prismaMock.thesis.update.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    const res = await PATCH(makePatch({ stage: 'Rédaction', progress: 99 }), { params });
     expect(res.status).toBe(200);
     const updateArg = prismaMock.thesis.update.mock.calls[0]?.[0];
     expect(updateArg?.data).toEqual({ stage: 'Rédaction', progress: 40 });
+  });
+
+  it('stage absent (empty body) → no fields updated', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ encadrantId: 'user-1', progress: 40 }) as never,
+    );
+    prismaMock.thesis.update.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    const res = await PATCH(makePatch({}), { params });
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.thesis.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({});
   });
 });

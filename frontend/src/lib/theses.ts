@@ -101,6 +101,26 @@ export const STAGE_COLORS: Record<string, string> = {
   Bloqué: 'bg-danger text-danger-foreground',
 };
 
+/**
+ * Fixed progress percentage per stage — the only place `Thesis.progress` is
+ * computed from `Thesis.stage`. `Bloqué` is deliberately absent: it isn't a
+ * linear progress step (it can happen at any point), so `deriveProgress`
+ * falls back to the current value instead of overwriting it.
+ */
+export const STAGE_PROGRESS: Partial<Record<(typeof THESIS_STAGES)[number], number>> = {
+  'En attente': 0,
+  Rédaction: 40,
+  Révision: 75,
+  Soutenance: 100,
+};
+
+export function deriveProgress(
+  stage: (typeof THESIS_STAGES)[number],
+  currentProgress: number,
+): number {
+  return STAGE_PROGRESS[stage] ?? currentProgress;
+}
+
 export const URGENCY_DOT: Record<string, string> = {
   high: 'bg-danger',
   medium: 'bg-warning',

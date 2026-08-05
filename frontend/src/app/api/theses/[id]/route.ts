@@ -14,12 +14,11 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { resolveThesisAccess } from '@/lib/server/theses/guards';
-import { THESIS_STAGES } from '@/lib/theses';
+import { deriveProgress, THESIS_STAGES } from '@/lib/theses';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const PatchBody = z.object({
   stage: z.enum(THESIS_STAGES).optional(),
-  progress: z.number().int().min(0).max(100).optional(),
 });
 
 interface RouteParams {
@@ -85,10 +84,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams): Promise<
 
     const thesis = await prisma.thesis.update({
       where: { id },
-      data: {
-        ...(parsed.data.stage !== undefined ? { stage: parsed.data.stage } : {}),
-        ...(parsed.data.progress !== undefined ? { progress: parsed.data.progress } : {}),
-      },
+      data:
+        parsed.data.stage !== undefined
+          ? {
+              stage: parsed.data.stage,
+              progress: deriveProgress(parsed.data.stage, access.progress),
+            }
+          : {},
     });
 
     return NextResponse.json(thesis, { headers: { 'x-request-id': ctx.requestId } });
