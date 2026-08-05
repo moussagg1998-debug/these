@@ -80,6 +80,19 @@ export interface ThesisListItem {
   _count: { comments: number };
 }
 
+/**
+ * The 5 valid `Thesis.stage` values, in the order shown in stage pickers.
+ * Single source of truth — consumed by the PATCH /api/theses/[id] Zod
+ * validator and by the encadrant's stage-change `<select>`.
+ */
+export const THESIS_STAGES = [
+  'En attente',
+  'Rédaction',
+  'Révision',
+  'Bloqué',
+  'Soutenance',
+] as const;
+
 export const STAGE_COLORS: Record<string, string> = {
   Rédaction: 'bg-secondary text-secondary-foreground',
   Révision: 'bg-warning text-warning-foreground',

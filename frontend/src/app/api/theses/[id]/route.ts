@@ -14,12 +14,11 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { resolveThesisAccess } from '@/lib/server/theses/guards';
+import { THESIS_STAGES } from '@/lib/theses';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const STAGES = ['En attente', 'Rédaction', 'Révision', 'Bloqué', 'Soutenance'] as const;
-
 const PatchBody = z.object({
-  stage: z.enum(STAGES).optional(),
+  stage: z.enum(THESIS_STAGES).optional(),
   progress: z.number().int().min(0).max(100).optional(),
 });
 
