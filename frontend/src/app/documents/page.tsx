@@ -18,6 +18,7 @@ import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DocumentRow } from '@/components/dashboard/DocumentRow';
+import { StudentDocumentsContent } from '@/components/student/StudentDocumentsContent';
 import {
   displayName,
   documentFormat,
@@ -128,8 +129,8 @@ function DocumentsLibraryContent() {
   }
 
   if (profile.profileType === 'ETUDIANT') {
-    router.replace('/dashboard');
-    return null;
+    const studentName = profile.name || user.email.split('@')[0] || user.email;
+    return <StudentDocumentsContent name={studentName} />;
   }
 
   const name = profile.name || user.email.split('@')[0] || user.email;
