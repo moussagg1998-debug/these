@@ -15,15 +15,16 @@ import { Sidebar, NAV_ITEMS } from '@/components/dashboard/Sidebar';
 interface DashboardShellProps {
   name: string;
   subtitle?: string | undefined;
+  header?: ReactNode;
   children: ReactNode;
 }
 
-export function DashboardShell({ name, subtitle, children }: DashboardShellProps) {
+export function DashboardShell({ name, subtitle, header, children }: DashboardShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen bg-background font-body">
+    <div className="flex h-dvh overflow-hidden bg-background font-body">
       <Sidebar name={name} subtitle={subtitle} />
 
       {drawerOpen && (
@@ -74,8 +75,8 @@ export function DashboardShell({ name, subtitle, children }: DashboardShellProps
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex lg:hidden items-center justify-between px-4 py-3 bg-primary">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex lg:hidden items-center justify-between px-4 py-3 bg-primary shrink-0">
           <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Ouvrir le menu">
             <Icon i="sliders" size={18} className="text-primary-foreground" />
           </button>
@@ -84,7 +85,8 @@ export function DashboardShell({ name, subtitle, children }: DashboardShellProps
           </span>
           <div className="w-[18px]" />
         </div>
-        {children}
+        {header && <div className="shrink-0">{header}</div>}
+        <div className="flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

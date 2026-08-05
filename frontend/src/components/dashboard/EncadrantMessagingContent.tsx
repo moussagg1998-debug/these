@@ -175,16 +175,19 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
   }
 
   return (
-    <DashboardShell name={name}>
-      <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-        <div>
-          <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-            Communication
+    <DashboardShell
+      name={name}
+      header={
+        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
+          <div>
+            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
+              Communication
+            </div>
+            <h1 className="text-xl font-semibold font-headings text-foreground">Messages</h1>
           </div>
-          <h1 className="text-xl font-semibold font-headings text-foreground">Messages</h1>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
         {inboxLoading && items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Chargement…</p>

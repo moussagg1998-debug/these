@@ -29,7 +29,7 @@ export function Sidebar({ name, subtitle = 'Encadrant' }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <div className="hidden lg:flex flex-col w-56 shrink-0 bg-primary min-h-screen">
+    <div className="hidden lg:flex flex-col w-56 shrink-0 bg-primary h-full">
       <div className="px-6 py-5 border-b" style={{ borderColor: 'rgba(245,243,238,0.15)' }}>
         <Link href="/dashboard" className="flex items-center gap-2">
           <div className="w-7 h-7 bg-accent rounded-sm flex items-center justify-center">

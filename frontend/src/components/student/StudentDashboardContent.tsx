@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
-import { StudentNav } from './StudentNav';
+import { StudentShell } from './StudentShell';
 import { StudentDocumentRow } from './StudentDocumentRow';
 import { StudentCommentItem } from './StudentCommentItem';
 import {
@@ -92,35 +92,32 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
   );
 
   const nextDeadline = deadlinesRes?.items[0] ?? null;
+  const laterDeadlines = useMemo(() => (deadlinesRes?.items ?? []).slice(1, 3), [deadlinesRes]);
 
   if (thesesLoading && !thesesRes) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="dashboard" />
+      <StudentShell name={name} active="dashboard">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!thesis) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="dashboard" />
+      <StudentShell name={name} active="dashboard">
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
-      </div>
+      </StudentShell>
     );
   }
 
   const stageClass = STAGE_COLORS[thesis.stage] || 'bg-muted text-muted-foreground';
 
   return (
-    <div className="font-body bg-background min-h-screen">
-      <StudentNav name={name} active="dashboard" />
-
+    <StudentShell name={name} active="dashboard">
       <div className="flex flex-col lg:flex-row px-4 py-6 sm:px-8 gap-6">
         {/* LEFT — main content */}
         <div className="flex-1 flex flex-col gap-6 min-w-0">
@@ -240,6 +237,17 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
             ) : (
               <p className="text-xs text-muted-foreground">Aucune échéance à venir.</p>
             )}
+            {laterDeadlines.map((deadline, i) => (
+              <div
+                key={deadline.id}
+                className={`flex items-center justify-between text-xs text-muted-foreground py-2 ${
+                  i < laterDeadlines.length - 1 ? 'border-b border-border' : ''
+                }`}
+              >
+                <span>{deadline.title}</span>
+                <span className="font-medium text-foreground">{formatDate(deadline.dueAt)}</span>
+              </div>
+            ))}
           </div>
 
           {/* Dernier retour non lu */}
@@ -298,6 +306,6 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
           </div>
         </div>
       </div>
-    </div>
+    </StudentShell>
   );
 }

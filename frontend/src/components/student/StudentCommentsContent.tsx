@@ -11,7 +11,7 @@ import { useApi } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
-import { StudentNav } from './StudentNav';
+import { StudentShell } from './StudentShell';
 import { StudentCommentItem } from './StudentCommentItem';
 import type { ThesisListItem, ThesisPerson } from '@/lib/theses';
 
@@ -71,38 +71,34 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
 
   if (thesesLoading && !thesesRes) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="comments" />
+      <StudentShell name={name} active="comments">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!thesis) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="comments" />
+      <StudentShell name={name} active="comments">
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!commentsRes && !commentsError) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="comments" />
+      <StudentShell name={name} active="comments">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   return (
-    <div className="font-body bg-background min-h-screen">
-      <StudentNav name={name} active="comments" />
+    <StudentShell name={name} active="comments">
       <div className="px-4 py-6 sm:px-8">
         <div className="border border-border rounded-md overflow-hidden">
           <div className="px-5 py-4 border-b border-border bg-surface">
@@ -134,6 +130,6 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
           </form>
         </div>
       </div>
-    </div>
+    </StudentShell>
   );
 }

@@ -12,7 +12,7 @@ import { api, ApiError } from '@/lib/api';
 import { uploadFile } from '@/lib/uploadFile';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
-import { StudentNav } from './StudentNav';
+import { StudentShell } from './StudentShell';
 import type { ThesisDocument } from '@/lib/theses';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.odt'];
@@ -129,9 +129,7 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
   }
 
   return (
-    <div className="font-body bg-background min-h-screen">
-      <StudentNav name={name} />
-
+    <StudentShell name={name} active="documents">
       <div className="max-w-5xl mx-auto px-4 py-6 sm:px-8">
         <h1 className="text-lg font-semibold font-headings text-foreground mb-6">
           Déposer un document
@@ -242,6 +240,6 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
           </div>
         </form>
       </div>
-    </div>
+    </StudentShell>
   );
 }

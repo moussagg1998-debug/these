@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
-import { StudentNav } from './StudentNav';
+import { StudentShell } from './StudentShell';
 import { StudentDocumentRow } from './StudentDocumentRow';
 import type { ThesisDocument, ThesisListItem } from '@/lib/theses';
 
@@ -54,38 +54,34 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
 
   if (thesesLoading && !thesesRes) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="documents" />
+      <StudentShell name={name} active="documents">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!thesis) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="documents" />
+      <StudentShell name={name} active="documents">
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!docsRes && !docsError) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="documents" />
+      <StudentShell name={name} active="documents">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   return (
-    <div className="font-body bg-background min-h-screen">
-      <StudentNav name={name} active="documents" />
+    <StudentShell name={name} active="documents">
       <div className="px-4 py-6 sm:px-8">
         <div className="border border-border rounded-md overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
@@ -109,6 +105,6 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
           )}
         </div>
       </div>
-    </div>
+    </StudentShell>
   );
 }

@@ -12,7 +12,7 @@ import { useApi } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
-import { StudentNav } from './StudentNav';
+import { StudentShell } from './StudentShell';
 import { AddToCalendarModal } from './AddToCalendarModal';
 import {
   displayName,
@@ -98,9 +98,7 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
   }
 
   return (
-    <div className="font-body bg-background min-h-screen">
-      <StudentNav name={name} />
-
+    <StudentShell name={name}>
       <div className="flex flex-col lg:flex-row px-4 py-6 sm:px-8 gap-6">
         {/* LEFT — conversation */}
         <div className="flex-1 flex flex-col min-w-0 border border-border rounded-md bg-background overflow-hidden">
@@ -311,6 +309,6 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
       {calendarOpen && nextDeadline && (
         <AddToCalendarModal deadline={nextDeadline} onClose={() => setCalendarOpen(false)} />
       )}
-    </div>
+    </StudentShell>
   );
 }

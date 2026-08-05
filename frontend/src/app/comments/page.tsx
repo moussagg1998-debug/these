@@ -148,18 +148,21 @@ function CommentsOverviewContent() {
     : null;
 
   return (
-    <DashboardShell name={name}>
-      <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-        <div>
-          <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-            Encadrement · Année 2024–2025
+    <DashboardShell
+      name={name}
+      header={
+        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
+          <div>
+            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
+              Encadrement · Année 2024–2025
+            </div>
+            <h1 className="text-xl font-semibold font-headings text-foreground">
+              Commentaires &amp; Retours
+            </h1>
           </div>
-          <h1 className="text-xl font-semibold font-headings text-foreground">
-            Commentaires &amp; Retours
-          </h1>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
         {studentIdFilter && studentName && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">

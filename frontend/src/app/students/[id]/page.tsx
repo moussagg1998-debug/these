@@ -158,25 +158,28 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const deadline = thesis.deadlines[0];
 
   return (
-    <DashboardShell name={name}>
-      <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-        <div>
-          <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-            Encadrement · Année 2024–2025
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/students"
-              className="text-lg font-semibold font-headings text-primary underline"
-            >
-              Mes étudiants
-            </Link>
-            <Icon i="chevron-right" size={16} className="text-muted-foreground" />
-            <h1 className="text-lg font-semibold font-headings text-foreground">{studentName}</h1>
+    <DashboardShell
+      name={name}
+      header={
+        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
+          <div>
+            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
+              Encadrement · Année 2024–2025
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/students"
+                className="text-lg font-semibold font-headings text-primary underline"
+              >
+                Mes étudiants
+              </Link>
+              <Icon i="chevron-right" size={16} className="text-muted-foreground" />
+              <h1 className="text-lg font-semibold font-headings text-foreground">{studentName}</h1>
+            </div>
           </div>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex-1 flex flex-col lg:flex-row gap-0 min-w-0">
         <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
           <div className="flex items-center gap-6 pb-4 border-b border-border mb-6 overflow-x-auto">

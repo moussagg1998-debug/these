@@ -7,7 +7,7 @@
 import { useMemo } from 'react';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
-import { StudentNav } from './StudentNav';
+import { StudentShell } from './StudentShell';
 import { StudentDeadlineCard } from './StudentDeadlineCard';
 import {
   daysUntil,
@@ -84,38 +84,34 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
 
   if (thesesLoading && !thesesRes) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="deadlines" />
+      <StudentShell name={name} active="deadlines">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!thesis) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="deadlines" />
+      <StudentShell name={name} active="deadlines">
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
-      </div>
+      </StudentShell>
     );
   }
 
   if (!deadlinesRes && !deadlinesError) {
     return (
-      <div className="font-body bg-background min-h-screen">
-        <StudentNav name={name} active="deadlines" />
+      <StudentShell name={name} active="deadlines">
         <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
-      </div>
+      </StudentShell>
     );
   }
 
   return (
-    <div className="font-body bg-background min-h-screen">
-      <StudentNav name={name} active="deadlines" />
+    <StudentShell name={name} active="deadlines">
       <div className="px-4 py-6 sm:px-8">
         {withBucket.length === 0 ? (
           <div className="border border-dashed border-border rounded-md p-8 text-center">
@@ -155,6 +151,6 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
           </div>
         )}
       </div>
-    </div>
+    </StudentShell>
   );
 }
