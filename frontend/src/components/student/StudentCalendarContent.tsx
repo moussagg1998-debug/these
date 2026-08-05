@@ -68,9 +68,12 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
   const thesis = thesesRes?.items[0] ?? null;
   const thesisPath = thesis ? thesis.id : 'pending';
 
-  const { data: deadlinesRes } = useApi<DeadlinesResponse>(`/api/theses/${thesisPath}/deadlines`, {
-    skip: !thesis,
-  });
+  const { data: deadlinesRes, loading: deadlinesLoading } = useApi<DeadlinesResponse>(
+    `/api/theses/${thesisPath}/deadlines`,
+    {
+      skip: !thesis,
+    },
+  );
 
   const withBucket = useMemo(() => {
     const items = deadlinesRes?.items ?? [];
@@ -99,6 +102,15 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (deadlinesLoading && !deadlinesRes) {
+    return (
+      <div className="font-body bg-background min-h-screen">
+        <StudentNav name={name} active="deadlines" />
+        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
       </div>
     );
   }
