@@ -151,13 +151,6 @@ export default function LandingPage() {
               <Icon i="arrow-right" size={14} />
               Commencer gratuitement
             </Link>
-            <a
-              href="#"
-              className="flex items-center justify-center gap-2 rounded-sm border border-border px-6 py-3.5 text-sm font-medium text-foreground"
-            >
-              <Icon i="user" size={14} />
-              Voir la démo
-            </a>
           </div>
           <div className="mt-8 flex items-center gap-4">
             <div className="flex -space-x-2">
