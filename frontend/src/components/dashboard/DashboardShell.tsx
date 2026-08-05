@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Sidebar, NAV_ITEMS } from '@/components/dashboard/Sidebar';
+import { isNavItemActive } from '@/lib/nav-active';
 
 interface DashboardShellProps {
   name: string;
@@ -47,7 +48,7 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
             </div>
             <nav className="flex flex-col gap-1 px-3 py-4">
               {NAV_ITEMS.map((item) => {
-                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                const isActive = isNavItemActive(pathname, item.href);
                 return (
                   <Link
                     key={item.href}

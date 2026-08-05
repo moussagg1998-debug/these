@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { isNavItemActive } from '@/lib/nav-active';
 
 export const NAV_ITEMS = [
   { href: '/dashboard', icon: 'layout-dashboard', label: 'Tableau de bord' },
@@ -43,7 +44,7 @@ export function Sidebar({ name, subtitle = 'Encadrant' }: SidebarProps) {
 
       <nav className="flex flex-col gap-1 px-3 py-4 flex-1">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+          const isActive = isNavItemActive(pathname, item.href);
           return (
             <Link
               key={item.href}
