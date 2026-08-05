@@ -45,10 +45,11 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
   const thesis = thesesRes?.items[0] ?? null;
   const thesisPath = thesis ? thesis.id : 'pending';
 
-  const { data: commentsRes, refresh: refreshComments } = useApi<CommentsResponse>(
-    `/api/theses/${thesisPath}/comments`,
-    { skip: !thesis },
-  );
+  const {
+    data: commentsRes,
+    error: commentsError,
+    refresh: refreshComments,
+  } = useApi<CommentsResponse>(`/api/theses/${thesisPath}/comments`, { skip: !thesis });
 
   const comments = useMemo(() => commentsRes?.items ?? [], [commentsRes]);
 
@@ -86,6 +87,15 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (!commentsRes && !commentsError) {
+    return (
+      <div className="font-body bg-background min-h-screen">
+        <StudentNav name={name} active="comments" />
+        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
       </div>
     );
   }

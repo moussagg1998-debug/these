@@ -37,9 +37,10 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
   const thesis = thesesRes?.items[0] ?? null;
   const thesisPath = thesis ? thesis.id : 'pending';
 
-  const { data: docsRes } = useApi<DocumentsResponse>(`/api/theses/${thesisPath}/documents`, {
-    skip: !thesis,
-  });
+  const { data: docsRes, error: docsError } = useApi<DocumentsResponse>(
+    `/api/theses/${thesisPath}/documents`,
+    { skip: !thesis },
+  );
   const { data: commentsRes } = useApi<CommentsResponse>(`/api/theses/${thesisPath}/comments`, {
     skip: !thesis,
   });
@@ -69,6 +70,15 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (!docsRes && !docsError) {
+    return (
+      <div className="font-body bg-background min-h-screen">
+        <StudentNav name={name} active="documents" />
+        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
       </div>
     );
   }

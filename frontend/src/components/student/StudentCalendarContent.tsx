@@ -68,11 +68,9 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
   const thesis = thesesRes?.items[0] ?? null;
   const thesisPath = thesis ? thesis.id : 'pending';
 
-  const { data: deadlinesRes, loading: deadlinesLoading } = useApi<DeadlinesResponse>(
+  const { data: deadlinesRes, error: deadlinesError } = useApi<DeadlinesResponse>(
     `/api/theses/${thesisPath}/deadlines`,
-    {
-      skip: !thesis,
-    },
+    { skip: !thesis },
   );
 
   const withBucket = useMemo(() => {
@@ -106,7 +104,7 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
     );
   }
 
-  if (deadlinesLoading && !deadlinesRes) {
+  if (!deadlinesRes && !deadlinesError) {
     return (
       <div className="font-body bg-background min-h-screen">
         <StudentNav name={name} active="deadlines" />
