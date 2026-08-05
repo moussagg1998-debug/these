@@ -210,9 +210,9 @@ export default function DashboardEncadrantPage() {
                 </p>
               </div>
             ) : (
-              <div className="border border-border rounded-md overflow-hidden">
-                <div className="hidden lg:flex items-center gap-4 px-5 py-2.5 bg-input border-b border-border">
-                  <div className="w-72 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="border border-border rounded-md overflow-x-auto overflow-y-hidden">
+                <div className="hidden lg:flex items-center gap-4 px-5 py-2.5 bg-input border-b border-border min-w-max">
+                  <div className="w-64 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Étudiant · Sujet
                   </div>
                   <div className="w-28 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -224,17 +224,19 @@ export default function DashboardEncadrantPage() {
                   <div className="w-36 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Dernière soumission
                   </div>
-                  <div className="w-24 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="w-20 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Retours
                   </div>
-                  <div className="flex-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="flex-1 min-w-[160px] text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Échéance
                   </div>
-                  <div className="shrink-0 w-16" />
+                  <div className="shrink-0 w-20" />
                 </div>
-                {items.slice(0, 7).map((thesis) => (
-                  <StudentRow key={thesis.id} thesis={thesis} />
-                ))}
+                <div className="min-w-max">
+                  {items.slice(0, 7).map((thesis) => (
+                    <StudentRow key={thesis.id} thesis={thesis} />
+                  ))}
+                </div>
               </div>
             )}
           </div>

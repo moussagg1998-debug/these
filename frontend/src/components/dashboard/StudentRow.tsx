@@ -24,7 +24,7 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
   return (
     <div className="flex flex-col gap-3 px-5 py-4 border-b border-border bg-surface lg:flex-row lg:items-center lg:gap-4">
       {/* Avatar + name + topic */}
-      <div className="flex items-center gap-3 lg:w-72 lg:shrink-0">
+      <div className="flex items-center gap-3 lg:w-64 lg:shrink-0">
         <Avatar name={name} className="h-9 w-9 shrink-0" />
         <div className="min-w-0">
           <div className="text-sm font-semibold text-foreground">{name}</div>
@@ -61,7 +61,7 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
         </div>
 
         {/* Pending comments */}
-        <div className="lg:w-24 lg:shrink-0 flex items-center gap-1.5">
+        <div className="lg:w-20 lg:shrink-0 flex items-center gap-1.5">
           {pendingComments > 0 ? (
             <>
               <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
@@ -84,10 +84,10 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
       </div>
 
       {/* Action */}
-      <div className="shrink-0">
+      <div className="shrink-0 self-start lg:self-center">
         <Link
           href={`/students/${thesis.id}`}
-          className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm"
+          className="block whitespace-nowrap text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm"
         >
           Ouvrir
         </Link>
