@@ -202,6 +202,29 @@ describe('POST /api/theses', () => {
     expect(deadlines?.create?.title).toBe('Échéance initiale');
   });
 
+  it('creating with an initial stage derives its progress too', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.thesis.create.mockResolvedValue({
+      id: 'thesis-1',
+      topic: 'Impact de X',
+      stage: 'Révision',
+      progress: 75,
+      studentId: 'stu-1',
+      encadrantId: 'user-1',
+    } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(
+      makePost({ studentEmail: 'a@b.com', topic: 'Impact de X', stage: 'Révision' }),
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.thesis.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.stage).toBe('Révision');
+    expect(createArg?.data?.progress).toBe(75);
+  });
+
   it('rejects an unknown stage value → 400 VALIDATION_FAILED', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     const res = await POST(

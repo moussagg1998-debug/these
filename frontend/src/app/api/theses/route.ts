@@ -25,7 +25,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { requireProfileType } from '@/lib/server/theses/guards';
-import { THESIS_STAGES } from '@/lib/theses';
+import { deriveProgress, THESIS_STAGES } from '@/lib/theses';
 import { createNotification } from '@/lib/server/notifications';
 import { zEmail } from '@/lib/server/zod-helpers';
 import { clampLimit, cursorWhere, buildPage, decodeCursor } from '@/lib/server/pagination/paginate';
@@ -142,7 +142,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         topic: parsed.data.topic,
         studentId: student.id,
         encadrantId: auth.user.sub,
-        ...(parsed.data.stage ? { stage: parsed.data.stage } : {}),
+        ...(parsed.data.stage
+          ? { stage: parsed.data.stage, progress: deriveProgress(parsed.data.stage, 0) }
+          : {}),
         ...(parsed.data.deadlineAt
           ? {
               deadlines: {
