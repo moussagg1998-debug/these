@@ -94,7 +94,7 @@ export default function SignupPage() {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Nom et prénom
               </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <Icon i="user" size={14} className="shrink-0 text-muted-foreground" />
                 <input
                   type="text"
@@ -112,7 +112,7 @@ export default function SignupPage() {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Établissement / Université
               </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <input
                   type="text"
                   required
@@ -129,7 +129,7 @@ export default function SignupPage() {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Adresse email
               </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <Icon i="mail" size={14} className="shrink-0 text-muted-foreground" />
                 <input
                   type="email"
@@ -147,7 +147,7 @@ export default function SignupPage() {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Mot de passe
               </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
                 <input
                   type="password"
@@ -168,7 +168,7 @@ export default function SignupPage() {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Confirmer le mot de passe
               </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
                 <input
                   type="password"
@@ -213,7 +213,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={submitting || passwordsMismatch || !termsAccepted}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
             >
               <Icon i="user-plus" size={14} />
               {submitting ? 'Création…' : 'Créer mon compte'}
@@ -228,7 +228,7 @@ export default function SignupPage() {
 
           <a
             href={googleSignInHref}
-            className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground"
+            className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
           >
             <Icon i="chrome" size={16} className="text-muted-foreground" />
             S&apos;inscrire avec Google

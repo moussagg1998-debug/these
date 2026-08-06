@@ -174,7 +174,7 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
               </p>
             )}
             <div className="flex items-end gap-3">
-              <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input">
+              <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input transition-colors duration-150 focus-within:border-primary">
                 <input
                   type="text"
                   value={draft}
@@ -194,7 +194,7 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
               <button
                 type="submit"
                 disabled={sending || !draft.trim()}
-                className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50"
+                className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
               >
                 <Icon i="send" size={16} />
               </button>
@@ -265,7 +265,7 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
                     href={doc.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2.5 border border-border rounded-sm hover:bg-input text-xs"
+                    className="flex items-center gap-2 p-2.5 border border-border rounded-sm hover:bg-input text-xs transition-colors duration-150"
                   >
                     <Icon i="file-text" size={12} className="text-muted-foreground shrink-0" />
                     <span className="truncate text-muted-foreground">

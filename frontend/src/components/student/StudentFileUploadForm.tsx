@@ -182,7 +182,7 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
                 value={chapter}
                 onChange={(e) => setChapter(e.target.value)}
                 placeholder="Ex. Chapitre 4 — Résultats"
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none"
+                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none transition-colors duration-150 focus:border-primary"
               />
               <datalist id="chapter-suggestions">
                 {CHAPTER_SUGGESTIONS.map((c) => (
@@ -200,7 +200,7 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ajoutez un contexte pour votre encadrant…"
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none resize-none"
+                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none resize-none transition-colors duration-150 focus:border-primary"
               />
             </label>
 
@@ -219,7 +219,7 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground py-2.5 rounded-sm disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground py-2.5 rounded-sm disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
               >
                 <Icon i="upload" size={14} />
                 {submitting ? 'Dépôt en cours…' : 'Déposer le document'}

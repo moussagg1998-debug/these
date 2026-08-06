@@ -198,7 +198,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
               }`}
             >
               <div className="px-4 py-3 border-b border-border">
-                <div className="border border-border rounded-sm px-3 py-2 bg-input flex items-center gap-2">
+                <div className="border border-border rounded-sm px-3 py-2 bg-input flex items-center gap-2 transition-colors duration-150 focus-within:border-primary">
                   <Icon i="search" size={14} className="text-muted-foreground shrink-0" />
                   <input
                     type="text"
@@ -295,7 +295,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                   <div className="flex items-center gap-2 shrink-0">
                     <Link
                       href={`/documents?studentId=${activeItem.thesis.student.id}`}
-                      className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border px-3 py-1.5 rounded-sm"
+                      className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border px-3 py-1.5 rounded-sm transition-colors duration-150 hover:bg-input"
                     >
                       <Icon i="file-text" size={12} />
                       Voir les documents
@@ -305,7 +305,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                       onClick={() => setCalendarOpen(true)}
                       disabled={!activeItem.nextDeadline}
                       title={activeItem.nextDeadline ? undefined : 'Aucune échéance à venir'}
-                      className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border px-3 py-1.5 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border px-3 py-1.5 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 hover:bg-input"
                     >
                       <Icon i="calendar" size={12} />
                       Planifier une réunion
@@ -403,7 +403,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                     </p>
                   )}
                   <div className="flex items-end gap-3">
-                    <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input">
+                    <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input transition-colors duration-150 focus-within:border-primary">
                       <input
                         type="text"
                         value={draft}
@@ -423,7 +423,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                     <button
                       type="submit"
                       disabled={sending || !draft.trim()}
-                      className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50"
+                      className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
                     >
                       <Icon i="send" size={16} />
                     </button>
@@ -519,7 +519,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                   <div className="flex flex-col gap-2">
                     <Link
                       href={`/comments?studentId=${activeItem.thesis.student.id}`}
-                      className="flex items-center gap-2 text-xs font-medium text-foreground border border-border rounded-sm px-2.5 py-2"
+                      className="flex items-center gap-2 text-xs font-medium text-foreground border border-border rounded-sm px-2.5 py-2 transition-colors duration-150 hover:bg-input"
                     >
                       <Icon i="message-square" size={12} />
                       Ajouter un commentaire
@@ -528,14 +528,14 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                       type="button"
                       onClick={() => setCalendarOpen(true)}
                       disabled={!activeItem.nextDeadline}
-                      className="flex items-center gap-2 text-xs font-medium text-foreground border border-border rounded-sm px-2.5 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 text-xs font-medium text-foreground border border-border rounded-sm px-2.5 py-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 hover:bg-input"
                     >
                       <Icon i="calendar-plus" size={12} />
                       Planifier une réunion
                     </button>
                     <Link
                       href={`/students/${activeItem.thesis.id}`}
-                      className="flex items-center gap-2 text-xs font-medium text-foreground border border-border rounded-sm px-2.5 py-2"
+                      className="flex items-center gap-2 text-xs font-medium text-foreground border border-border rounded-sm px-2.5 py-2 transition-colors duration-150 hover:bg-input"
                     >
                       <Icon i="user" size={12} />
                       Voir le profil complet

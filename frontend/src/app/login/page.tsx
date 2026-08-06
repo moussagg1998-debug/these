@@ -90,7 +90,7 @@ function LoginForm() {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Adresse email
               </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <Icon i="mail" size={14} className="shrink-0 text-muted-foreground" />
                 <input
                   type="email"
@@ -113,7 +113,7 @@ function LoginForm() {
                   Mot de passe oublié ?
                 </Link>
               </div>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3">
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
                 <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
                 <input
                   type="password"
@@ -135,7 +135,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
             >
               <Icon i="log-in" size={14} />
               {submitting ? 'Connexion…' : 'Se connecter'}
@@ -150,7 +150,7 @@ function LoginForm() {
 
           <a
             href={googleSignInHref}
-            className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground"
+            className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
           >
             <Icon i="chrome" size={16} className="text-muted-foreground" />
             Continuer avec Google
