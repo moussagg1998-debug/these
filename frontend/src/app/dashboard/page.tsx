@@ -14,10 +14,12 @@ import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { StudentRow } from '@/components/dashboard/StudentRow';
 import { ActivityItem } from '@/components/dashboard/ActivityItem';
 import { AddStudentForm } from '@/components/dashboard/AddStudentForm';
+import { FilterBar, STAGE_FILTERS, type StageFilterId } from '@/components/dashboard/FilterBar';
 import { StudentDashboardContent } from '@/components/student/StudentDashboardContent';
 import {
   displayName,
@@ -44,6 +46,8 @@ export default function DashboardEncadrantPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState<StageFilterId>('all');
 
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
@@ -57,6 +61,34 @@ export default function DashboardEncadrantPage() {
   });
 
   const items = useMemo(() => theses?.items ?? [], [theses]);
+
+  const counts = useMemo(() => {
+    const result: Record<StageFilterId, number> = {
+      all: items.length,
+      writing: 0,
+      revision: 0,
+      defense: 0,
+      waiting: 0,
+      blocked: 0,
+    };
+    for (const filter of STAGE_FILTERS) {
+      if (filter.stage) result[filter.id] = items.filter((t) => t.stage === filter.stage).length;
+    }
+    return result;
+  }, [items]);
+
+  const visibleItems = useMemo(() => {
+    const filterDef = STAGE_FILTERS.find((f) => f.id === activeFilter);
+    const byStage = filterDef?.stage ? items.filter((t) => t.stage === filterDef.stage) : items;
+    const q = search.trim().toLowerCase();
+    if (!q) return byStage;
+    return byStage.filter(
+      (t) =>
+        displayName(t.student).toLowerCase().includes(q) ||
+        t.student.email.toLowerCase().includes(q) ||
+        t.topic.toLowerCase().includes(q),
+    );
+  }, [items, activeFilter, search]);
 
   const stats = useMemo(() => {
     const soutenance = items.filter((t) => t.stage === 'Soutenance').length;
@@ -141,14 +173,11 @@ export default function DashboardEncadrantPage() {
     <DashboardShell
       name={name}
       header={
-        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-          <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-              Encadrement · Année 2024–2025
-            </div>
-            <h1 className="text-xl font-semibold font-headings text-foreground">Bonjour, {name}</h1>
-          </div>
-        </div>
+        <DashboardHeader
+          eyebrow="Encadrement"
+          title={`Bonjour, ${name}`}
+          search={{ value: search, onChange: setSearch, placeholder: 'Rechercher un étudiant…' }}
+        />
       }
     >
       <div className="flex flex-1 flex-col xl:flex-row gap-0 min-w-0">
@@ -204,12 +233,18 @@ export default function DashboardEncadrantPage() {
               </div>
             </div>
 
+            <div className="mb-3">
+              <FilterBar active={activeFilter} onChange={setActiveFilter} counts={counts} />
+            </div>
+
             {thesesLoading && !theses ? (
               <p className="text-sm text-muted-foreground">Chargement…</p>
-            ) : items.length === 0 ? (
+            ) : visibleItems.length === 0 ? (
               <div className="border border-dashed border-border rounded-md p-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Aucun étudiant pour l&apos;instant — ajoutez-en un pour commencer le suivi.
+                  {items.length === 0
+                    ? "Aucun étudiant pour l'instant — ajoutez-en un pour commencer le suivi."
+                    : 'Aucun résultat pour ce filtre ou cette recherche.'}
                 </p>
               </div>
             ) : (
@@ -236,7 +271,7 @@ export default function DashboardEncadrantPage() {
                   <div className="shrink-0 w-20" />
                 </div>
                 <div className="min-w-max">
-                  {items.slice(0, 7).map((thesis) => (
+                  {visibleItems.slice(0, 7).map((thesis) => (
                     <StudentRow key={thesis.id} thesis={thesis} />
                   ))}
                 </div>
@@ -314,6 +349,16 @@ export default function DashboardEncadrantPage() {
               )}
             </div>
           </div>
+
+          <button
+            type="button"
+            disabled
+            title="Bientôt disponible"
+            className="mt-auto w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-sm opacity-50 cursor-not-allowed"
+          >
+            <Icon i="send" size={14} />
+            Envoyer des rappels groupés
+          </button>
         </div>
       </div>
 
