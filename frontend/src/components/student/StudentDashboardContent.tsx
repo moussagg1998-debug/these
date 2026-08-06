@@ -136,7 +136,6 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
                 <div className={`text-xs px-2 py-1 rounded-sm font-medium ${stageClass}`}>
                   {thesis.stage}
                 </div>
-                <div className="text-xs text-muted-foreground">Année 2024–2025</div>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

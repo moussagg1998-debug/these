@@ -111,7 +111,7 @@ const PLANS = [
 ];
 
 const STAT_ROWS = [
-  { label: 'Étudiants', value: '12', sub: 'Année 2024-2025' },
+  { label: 'Étudiants', value: '12', sub: '' },
   { label: 'En attente', value: '7', sub: '4 urgents' },
   { label: 'Retards', value: '2', sub: 'Kouakou · Fall' },
 ];
@@ -172,7 +172,6 @@ export default function LandingPage() {
               <Icon i="graduation-cap" size={10} className="text-primary-foreground" />
             </div>
             <span className="font-headings text-xs font-semibold text-foreground">ThèseFacile</span>
-            <span className="ml-auto text-xs text-muted-foreground">Année 2024–2025</span>
           </div>
           <div className="mb-4 grid grid-cols-3 gap-2">
             {STAT_ROWS.map((s) => (
