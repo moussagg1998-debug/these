@@ -23,7 +23,7 @@ interface StudentCommentItemProps {
 export function StudentCommentItem({ comment }: StudentCommentItemProps) {
   return (
     <div
-      className={`px-5 py-4 border-b border-border last:border-0 ${comment.resolved ? 'opacity-60' : ''}`}
+      className={`px-5 py-4 border-b border-border last:border-0 transition-colors duration-150 hover:bg-input/30 ${comment.resolved ? 'opacity-60' : ''}`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2">

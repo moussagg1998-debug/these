@@ -14,7 +14,7 @@ interface StudentDocumentRowProps {
 
 export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) {
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5 border-b border-border last:border-0">
+    <div className="flex items-center gap-4 px-5 py-3.5 border-b border-border last:border-0 transition-colors duration-150 hover:bg-input/40">
       <div className="w-8 h-8 rounded-sm bg-secondary text-secondary-foreground flex items-center justify-center shrink-0">
         <Icon i="file-text" size={14} />
       </div>

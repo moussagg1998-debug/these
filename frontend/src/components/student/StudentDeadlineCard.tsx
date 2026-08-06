@@ -34,7 +34,9 @@ export function StudentDeadlineCard({ deadline, daysLeft, bucket }: StudentDeadl
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   return (
-    <div className={`flex items-start gap-4 p-4 border rounded-md ${URGENCY_CLASS[bucket]}`}>
+    <div
+      className={`flex items-start gap-4 p-4 border rounded-md transition-shadow duration-150 motion-safe:hover:shadow-md ${URGENCY_CLASS[bucket]}`}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
           <div className="min-w-0">
