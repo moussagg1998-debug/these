@@ -12,7 +12,7 @@ interface StatCardProps {
 export function StatCard({ label, value, sub, icon, highlight = false }: StatCardProps) {
   return (
     <div
-      className={`flex flex-col gap-3 px-5 py-4 rounded-md border transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md ${
+      className={`flex flex-col gap-3 px-5 py-4 rounded-md border transition duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md ${
         highlight
           ? 'bg-primary text-primary-foreground border-primary'
           : 'bg-surface text-foreground border-border'
