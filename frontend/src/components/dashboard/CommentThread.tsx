@@ -47,7 +47,9 @@ export function CommentThread({ comment, onResolvedChange }: CommentThreadProps)
   }
 
   return (
-    <div className={`flex gap-4 p-4 border border-border rounded-md bg-surface ${priorityClass}`}>
+    <div
+      className={`flex gap-4 p-4 border border-border rounded-md bg-surface transition-shadow duration-150 motion-safe:hover:shadow-md ${priorityClass}`}
+    >
       <Avatar name={student} className="h-9 w-9 shrink-0" />
 
       <div className="flex-1 min-w-0">
@@ -78,7 +80,7 @@ export function CommentThread({ comment, onResolvedChange }: CommentThreadProps)
             onClick={toggleResolved}
             disabled={busy}
             title={comment.resolved ? 'Marquer non résolu' : 'Marquer résolu'}
-            className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full ${statusBg} disabled:opacity-50`}
+            className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full transition-colors duration-150 motion-safe:active:scale-90 ${statusBg} disabled:opacity-50`}
           >
             <Icon
               i={comment.resolved ? 'check-circle' : 'circle'}

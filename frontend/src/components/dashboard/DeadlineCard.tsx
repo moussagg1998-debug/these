@@ -30,7 +30,9 @@ export function DeadlineCard({ deadline, daysLeft, bucket }: DeadlineCardProps) 
   const name = displayName(deadline.thesis.student);
 
   return (
-    <div className={`flex items-start gap-4 p-4 border rounded-md ${URGENCY_CLASS[bucket]}`}>
+    <div
+      className={`flex items-start gap-4 p-4 border rounded-md transition-shadow duration-150 motion-safe:hover:shadow-md ${URGENCY_CLASS[bucket]}`}
+    >
       <Avatar name={name} className="h-9 w-9" />
 
       <div className="flex-1 min-w-0">

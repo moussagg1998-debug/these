@@ -16,7 +16,7 @@ export function DocumentRow({ doc }: { doc: DocumentListItem }) {
   const stageClass = STAGE_COLORS[doc.thesis.stage] || 'bg-muted text-muted-foreground';
 
   return (
-    <div className="flex flex-col gap-2 px-5 py-3 border-b border-border last:border-0 hover:bg-surface lg:flex-row lg:items-center lg:gap-4">
+    <div className="flex flex-col gap-2 px-5 py-3 border-b border-border last:border-0 transition-colors duration-150 hover:bg-surface lg:flex-row lg:items-center lg:gap-4">
       <div className="flex items-center gap-2 text-sm text-foreground lg:w-40 lg:shrink-0">
         <Icon i="file-text" size={16} className="text-muted-foreground shrink-0" />
         <span className="truncate font-medium">{documentDisplayName(doc)}</span>
@@ -39,7 +39,7 @@ export function DocumentRow({ doc }: { doc: DocumentListItem }) {
           href={doc.fileUrl}
           target="_blank"
           rel="noreferrer"
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
           aria-label="Télécharger"
         >
           <Icon i="download" size={14} />

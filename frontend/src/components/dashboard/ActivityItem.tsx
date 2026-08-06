@@ -27,7 +27,7 @@ interface ActivityItemProps {
 
 export function ActivityItem({ name, action, time, type }: ActivityItemProps) {
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-border last:border-b-0">
+    <div className="flex items-start gap-3 py-3 px-2 -mx-2 border-b border-border last:border-b-0 rounded-sm transition-colors duration-150 hover:bg-input/40">
       <Avatar name={name} className="h-8 w-8 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">

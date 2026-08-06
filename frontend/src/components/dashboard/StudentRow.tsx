@@ -22,7 +22,7 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
   const pendingComments = thesis._count.comments;
 
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 border-b border-border bg-surface lg:flex-row lg:items-center lg:gap-4">
+    <div className="flex flex-col gap-3 px-5 py-4 border-b border-border bg-surface transition-colors duration-150 hover:bg-input/40 lg:flex-row lg:items-center lg:gap-4">
       {/* Avatar + name + topic */}
       <div className="flex items-center gap-3 lg:w-64 lg:shrink-0">
         <Avatar name={name} className="h-9 w-9 shrink-0" />
@@ -87,7 +87,7 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
       <div className="shrink-0 self-start lg:self-center">
         <Link
           href={`/students/${thesis.id}`}
-          className="block whitespace-nowrap text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm"
+          className="block whitespace-nowrap text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm transition-colors duration-150 hover:bg-primary hover:text-primary-foreground"
         >
           Ouvrir
         </Link>
