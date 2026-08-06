@@ -17,6 +17,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DeadlineCard } from '@/components/dashboard/DeadlineCard';
 import { AddDeadlineForm } from '@/components/dashboard/AddDeadlineForm';
 import { StudentCalendarContent } from '@/components/student/StudentCalendarContent';
@@ -179,18 +180,7 @@ function DeadlineCalendarContent() {
   return (
     <DashboardShell
       name={name}
-      header={
-        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-          <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-              Encadrement · Année 2024–2025
-            </div>
-            <h1 className="text-xl font-semibold font-headings text-foreground">
-              Échéances &amp; Jalons
-            </h1>
-          </div>
-        </div>
-      }
+      header={<DashboardHeader eyebrow="Encadrement" title="Échéances & Jalons" />}
     >
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
         {studentIdFilter && studentName && (
