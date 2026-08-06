@@ -14,6 +14,7 @@ import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { StudentProfileSidebar } from '@/components/dashboard/StudentProfileSidebar';
 import {
   relativeTime,
@@ -161,23 +162,18 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     <DashboardShell
       name={name}
       header={
-        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-          <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-              Encadrement · Année 2024–2025
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/students"
-                className="text-lg font-semibold font-headings text-primary underline"
-              >
+        <DashboardHeader
+          eyebrow="Encadrement"
+          title={
+            <span className="flex items-center gap-3">
+              <Link href="/students" className="text-primary underline">
                 Mes étudiants
               </Link>
-              <Icon i="chevron-right" size={16} className="text-muted-foreground" />
-              <h1 className="text-lg font-semibold font-headings text-foreground">{studentName}</h1>
-            </div>
-          </div>
-        </div>
+              <Icon i="chevron-right" size={16} className="text-muted-foreground shrink-0" />
+              <span className="truncate">{studentName}</span>
+            </span>
+          }
+        />
       }
     >
       <div className="flex-1 flex flex-col lg:flex-row gap-0 min-w-0">
