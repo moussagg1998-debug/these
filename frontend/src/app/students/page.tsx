@@ -9,10 +9,11 @@ import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { StudentRow } from '@/components/dashboard/StudentRow';
 import { FilterBar, STAGE_FILTERS, type StageFilterId } from '@/components/dashboard/FilterBar';
 import { AddStudentForm } from '@/components/dashboard/AddStudentForm';
-import type { ThesisListItem } from '@/lib/theses';
+import { displayName, type ThesisListItem } from '@/lib/theses';
 
 interface ProfileResponse {
   profileType: 'ENCADRANT' | 'ETUDIANT' | null;
@@ -32,6 +33,7 @@ export default function StudentListPage() {
   const { toast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StageFilterId>('all');
+  const [search, setSearch] = useState('');
   const [extraItems, setExtraItems] = useState<ThesisListItem[]>([]);
   const [extraCursor, setExtraCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -87,9 +89,16 @@ export default function StudentListPage() {
 
   const filtered = useMemo(() => {
     const filter = STAGE_FILTERS.find((f) => f.id === activeFilter);
-    if (!filter?.stage) return items;
-    return items.filter((t) => t.stage === filter.stage);
-  }, [items, activeFilter]);
+    const byStage = filter?.stage ? items.filter((t) => t.stage === filter.stage) : items;
+    const q = search.trim().toLowerCase();
+    if (!q) return byStage;
+    return byStage.filter(
+      (t) =>
+        displayName(t.student).toLowerCase().includes(q) ||
+        t.student.email.toLowerCase().includes(q) ||
+        t.topic.toLowerCase().includes(q),
+    );
+  }, [items, activeFilter, search]);
 
   if (!user || profileLoading || !profile) {
     return (
@@ -126,14 +135,11 @@ export default function StudentListPage() {
     <DashboardShell
       name={name}
       header={
-        <div className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-          <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
-              Encadrement · Année 2024–2025
-            </div>
-            <h1 className="text-xl font-semibold font-headings text-foreground">Mes étudiants</h1>
-          </div>
-        </div>
+        <DashboardHeader
+          eyebrow="Encadrement"
+          title="Mes étudiants"
+          search={{ value: search, onChange: setSearch, placeholder: 'Rechercher un étudiant…' }}
+        />
       }
     >
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
