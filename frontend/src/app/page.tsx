@@ -224,7 +224,7 @@ export default function LandingPage() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-md border border-border bg-background p-6 transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md"
+              className="rounded-md border border-border bg-background p-6 transition-[transform,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md"
             >
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-sm bg-secondary text-secondary-foreground">
                 <Icon i={f.icon} size={20} />
@@ -255,7 +255,7 @@ export default function LandingPage() {
           {TESTIMONIALS.map((t) => (
             <div
               key={t.name}
-              className="flex flex-col gap-4 rounded-md border border-border bg-surface p-6 transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md"
+              className="flex flex-col gap-4 rounded-md border border-border bg-surface p-6 transition-[transform,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md"
             >
               <div className="flex gap-1">
                 {Array.from({ length: 5 }).map((_, j) => (
@@ -295,7 +295,7 @@ export default function LandingPage() {
           {PLANS.map((p) => (
             <div
               key={p.name}
-              className={`flex flex-col gap-4 rounded-md p-6 transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
+              className={`flex flex-col gap-4 rounded-md p-6 transition-[transform,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
                 p.primary
                   ? 'border-2 border-primary bg-primary text-primary-foreground'
                   : 'border border-border bg-background'
