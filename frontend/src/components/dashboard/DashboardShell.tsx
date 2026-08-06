@@ -54,7 +54,7 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
                     key={item.href}
                     href={item.href}
                     onClick={() => setDrawerOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ${
                       isActive
                         ? 'bg-primary-foreground text-primary'
                         : 'text-primary-foreground opacity-70 hover:opacity-100'

@@ -104,7 +104,7 @@ export function StudentNav({ name, active }: StudentNavProps) {
               <Link
                 href="/dashboard"
                 onClick={() => setDrawerOpen(false)}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                className={`px-3 py-2 rounded-md text-sm font-medium transition duration-150 ${
                   active === 'dashboard'
                     ? 'bg-primary-foreground text-primary'
                     : 'text-primary-foreground opacity-70 hover:opacity-100'
@@ -117,7 +117,7 @@ export function StudentNav({ name, active }: StudentNavProps) {
                   key={link.id}
                   href={link.href}
                   onClick={() => setDrawerOpen(false)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition duration-150 ${
                     active === link.id
                       ? 'bg-primary-foreground text-primary'
                       : 'text-primary-foreground opacity-70 hover:opacity-100'

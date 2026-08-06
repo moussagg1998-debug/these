@@ -32,12 +32,12 @@ interface NotificationsResponse {
 
 // Where a click on a notification of this type should navigate. Types with
 // no entry here are marked read and the dropdown just closes — no page in
-// this app's scope corresponds to them yet (e.g. DOCUMENT_SUBMITTED is only
-// ever sent to an encadrant, who has no bell today; WITHDRAWAL_REQUESTED is
+// this app's scope corresponds to them yet (e.g. WITHDRAWAL_REQUESTED is
 // unrelated to the thesis-tracking domain).
 const TYPE_DESTINATION: Record<string, string> = {
   COMMENT_ADDED: '/comments',
   DEADLINE_ADDED: '/deadlines',
+  DOCUMENT_SUBMITTED: '/documents',
   MESSAGE_RECEIVED: '/messages',
   THESIS_ASSIGNED: '/dashboard',
 };
