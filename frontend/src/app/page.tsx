@@ -146,7 +146,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/signup"
-              className="flex items-center justify-center gap-2 rounded-sm bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground"
+              className="flex items-center justify-center gap-2 rounded-sm bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground transition-transform duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
             >
               <Icon i="arrow-right" size={14} />
               Commencer gratuitement
@@ -222,7 +222,10 @@ export default function LandingPage() {
         </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-md border border-border bg-background p-6">
+            <div
+              key={f.title}
+              className="rounded-md border border-border bg-background p-6 transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md"
+            >
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-sm bg-secondary text-secondary-foreground">
                 <Icon i={f.icon} size={20} />
               </div>
@@ -252,7 +255,7 @@ export default function LandingPage() {
           {TESTIMONIALS.map((t) => (
             <div
               key={t.name}
-              className="flex flex-col gap-4 rounded-md border border-border bg-surface p-6"
+              className="flex flex-col gap-4 rounded-md border border-border bg-surface p-6 transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md"
             >
               <div className="flex gap-1">
                 {Array.from({ length: 5 }).map((_, j) => (
@@ -292,7 +295,7 @@ export default function LandingPage() {
           {PLANS.map((p) => (
             <div
               key={p.name}
-              className={`flex flex-col gap-4 rounded-md p-6 ${
+              className={`flex flex-col gap-4 rounded-md p-6 transition-shadow transition-transform duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
                 p.primary
                   ? 'border-2 border-primary bg-primary text-primary-foreground'
                   : 'border border-border bg-background'
@@ -348,7 +351,7 @@ export default function LandingPage() {
               </div>
               <Link
                 href="/signup"
-                className={`mt-2 rounded-sm py-2.5 text-center text-sm font-medium ${
+                className={`mt-2 rounded-sm py-2.5 text-center text-sm font-medium transition-transform duration-150 motion-safe:active:scale-[0.98] ${
                   p.primary
                     ? 'bg-primary-foreground text-primary'
                     : 'bg-primary text-primary-foreground'
@@ -374,7 +377,7 @@ export default function LandingPage() {
         </p>
         <Link
           href="/signup"
-          className="inline-flex items-center gap-2 rounded-sm bg-primary px-8 py-4 text-sm font-medium text-primary-foreground"
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-8 py-4 text-sm font-medium text-primary-foreground transition-transform duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
         >
           <Icon i="arrow-right" size={14} />
           Créer mon compte gratuitement
