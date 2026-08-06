@@ -39,8 +39,8 @@ export function AddToCalendarModal({ deadline, onClose }: AddToCalendarModalProp
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div className="bg-surface border border-border rounded-lg shadow-lg w-full max-w-md p-6 flex flex-col gap-5">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 motion-safe:animate-fade-in">
+      <div className="bg-surface border border-border rounded-lg shadow-lg w-full max-w-md p-6 flex flex-col gap-5 motion-safe:animate-scale-in">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold font-headings text-foreground">
             Ajouter au calendrier

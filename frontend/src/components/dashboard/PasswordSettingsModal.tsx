@@ -74,8 +74,8 @@ export function PasswordSettingsModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div className="bg-surface rounded-lg shadow-2xl w-96 max-w-full">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 motion-safe:animate-fade-in">
+      <div className="bg-surface rounded-lg shadow-2xl w-96 max-w-full motion-safe:animate-scale-in">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold font-headings text-foreground">
             {hasPassword ? 'Changer le mot de passe' : 'Définir un mot de passe'}
