@@ -7,6 +7,7 @@
 // NotificationBell instead of only showing a static count badge.
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
@@ -24,25 +25,37 @@ const NAV_LINKS: { id: 'documents' | 'comments' | 'deadlines'; href: string; lab
 ];
 
 export function StudentNav({ name, active }: StudentNavProps) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   return (
     <nav className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
-      <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
-        <div className="w-7 h-7 bg-primary rounded-sm flex items-center justify-center">
-          <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-        </div>
-        <span className="hidden sm:inline text-base font-semibold font-headings text-foreground">
-          ThèseFacile
-        </span>
-      </Link>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Ouvrir le menu"
+          className="md:hidden text-foreground"
+        >
+          <Icon i="menu" size={20} />
+        </button>
+        <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
+          <div className="w-7 h-7 bg-primary rounded-sm flex items-center justify-center">
+            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
+          </div>
+          <span className="hidden sm:inline text-base font-semibold font-headings text-foreground">
+            ThèseFacile
+          </span>
+        </Link>
+      </div>
 
       <div className="hidden md:flex items-center gap-6 text-sm font-medium">
         <Link
           href="/dashboard"
-          className={
+          className={`transition-colors duration-150 ${
             active === 'dashboard'
               ? 'text-primary border-b-2 border-primary pb-0.5'
-              : 'text-muted-foreground'
-          }
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
           Mon mémoire
         </Link>
@@ -50,11 +63,11 @@ export function StudentNav({ name, active }: StudentNavProps) {
           <Link
             key={link.id}
             href={link.href}
-            className={
+            className={`transition-colors duration-150 ${
               active === link.id
                 ? 'text-primary border-b-2 border-primary pb-0.5'
-                : 'text-muted-foreground'
-            }
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
             {link.label}
           </Link>
@@ -68,6 +81,61 @@ export function StudentNav({ name, active }: StudentNavProps) {
           <div className="text-xs font-semibold text-foreground">{name}</div>
         </div>
       </div>
+
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="w-64 bg-primary flex flex-col motion-safe:animate-slide-in-left">
+            <div
+              className="flex items-center justify-between px-5 py-4 border-b"
+              style={{ borderColor: 'rgba(245,243,238,0.15)' }}
+            >
+              <span className="font-headings font-semibold text-primary-foreground">
+                ThèseFacile
+              </span>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Fermer le menu"
+              >
+                <Icon i="x" size={18} className="text-primary-foreground" />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-1 px-3 py-4">
+              <Link
+                href="/dashboard"
+                onClick={() => setDrawerOpen(false)}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                  active === 'dashboard'
+                    ? 'bg-primary-foreground text-primary'
+                    : 'text-primary-foreground opacity-70 hover:opacity-100'
+                }`}
+              >
+                Mon mémoire
+              </Link>
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  onClick={() => setDrawerOpen(false)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                    active === link.id
+                      ? 'bg-primary-foreground text-primary'
+                      : 'text-primary-foreground opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <button
+            type="button"
+            className="flex-1 bg-black/40 motion-safe:animate-fade-in"
+            aria-label="Fermer le menu"
+            onClick={() => setDrawerOpen(false)}
+          />
+        </div>
+      )}
     </nav>
   );
 }

@@ -30,7 +30,7 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
 
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="w-64 bg-primary flex flex-col">
+          <div className="w-64 bg-primary flex flex-col motion-safe:animate-slide-in-left">
             <div
               className="flex items-center justify-between px-5 py-4 border-b"
               style={{ borderColor: 'rgba(245,243,238,0.15)' }}
@@ -54,10 +54,10 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
                     key={item.href}
                     href={item.href}
                     onClick={() => setDrawerOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
                       isActive
                         ? 'bg-primary-foreground text-primary'
-                        : 'text-primary-foreground opacity-70'
+                        : 'text-primary-foreground opacity-70 hover:opacity-100'
                     }`}
                   >
                     <Icon i={item.icon} size={16} />
@@ -69,7 +69,7 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
           </div>
           <button
             type="button"
-            className="flex-1 bg-black/40"
+            className="flex-1 bg-black/40 motion-safe:animate-fade-in"
             aria-label="Fermer le menu"
             onClick={() => setDrawerOpen(false)}
           />
