@@ -395,6 +395,11 @@ model Thesis {
   encadrant   User     @relation("ThesisEncadrant", fields: [encadrantId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // Set when the encadrant "retire" the student from active supervision.
+  // Reversible (soft-delete) — null = active. Excluded from every
+  // cross-thesis list/aggregate query; documents/comments/deadlines/messages
+  // are kept, not cascade-deleted.
+  archivedAt  DateTime?
 
   documents Document[]
   comments  Comment[]

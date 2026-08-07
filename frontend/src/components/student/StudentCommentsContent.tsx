@@ -100,29 +100,37 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
   return (
     <StudentShell name={name} active="comments">
       <div className="px-4 py-6 sm:px-8">
-        <div className="border border-border rounded-md overflow-hidden">
+        <div className="flex flex-col border border-border rounded-md overflow-hidden bg-background">
           <div className="px-5 py-4 border-b border-border bg-surface">
             <div className="text-sm font-semibold font-headings text-foreground">Commentaires</div>
           </div>
-          {comments.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
-              Aucun commentaire pour l&apos;instant.
-            </p>
-          ) : (
-            comments.map((c) => <StudentCommentItem key={c.id} comment={c} />)
-          )}
-          <form onSubmit={onSend} className="flex flex-col gap-2 p-5 border-t border-border">
+          {/* Bounded + independently scrollable, so the composer below never
+              gets pushed out of view as the thread grows — same pattern as
+              StudentMessagingContent's conversation pane. */}
+          <div className="flex-1 overflow-y-auto max-h-[60vh]">
+            {comments.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-muted-foreground">
+                Aucun commentaire pour l&apos;instant.
+              </p>
+            ) : (
+              comments.map((c) => <StudentCommentItem key={c.id} comment={c} />)
+            )}
+          </div>
+          <form
+            onSubmit={onSend}
+            className="flex items-end gap-3 p-4 border-t border-border bg-surface"
+          >
             <textarea
-              rows={3}
+              rows={2}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Votre message…"
-              className="border border-border rounded-sm px-3 py-2 text-sm text-foreground bg-input outline-none resize-none"
+              className="flex-1 border border-border rounded-sm px-3 py-2 text-sm text-foreground bg-input outline-none resize-none"
             />
             <button
               type="submit"
               disabled={sending || !body.trim()}
-              className="self-end flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50 shrink-0"
             >
               <Icon i="send" size={12} />
               {sending ? 'Envoi…' : 'Envoyer'}

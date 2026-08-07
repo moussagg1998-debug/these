@@ -51,6 +51,14 @@ describe('GET /api/documents', () => {
     expect(args?.where?.thesis?.encadrantId).toBe('user-1');
   });
 
+  it('excludes documents from archived (retirés) theses', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    await GET(makeGet());
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.thesis?.archivedAt).toBeNull();
+  });
+
   it('applies the studentId filter when provided', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     prismaMock.document.findMany.mockResolvedValue([] as never);

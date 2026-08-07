@@ -180,7 +180,7 @@ export default function DashboardEncadrantPage() {
         />
       }
     >
-      <div className="flex flex-1 flex-col xl:flex-row gap-0 min-w-0">
+      <div className="flex flex-1 flex-col lg:flex-row gap-0 min-w-0">
         <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8 gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
@@ -188,7 +188,6 @@ export default function DashboardEncadrantPage() {
               value={String(theses?.total ?? items.length)}
               sub={`${stats.soutenance} en soutenance`}
               icon="users"
-              highlight
             />
             <StatCard
               label="Discussions actives"
@@ -270,7 +269,7 @@ export default function DashboardEncadrantPage() {
                   </div>
                   <div className="shrink-0 w-20" />
                 </div>
-                <div className="min-w-max">
+                <div className="min-w-max max-h-48 overflow-y-auto">
                   {visibleItems.slice(0, 7).map((thesis) => (
                     <StudentRow key={thesis.id} thesis={thesis} />
                   ))}
@@ -280,7 +279,7 @@ export default function DashboardEncadrantPage() {
           </div>
         </div>
 
-        <div className="w-full xl:w-72 shrink-0 border-t xl:border-t-0 xl:border-l border-border bg-surface flex flex-col px-5 py-6 gap-5">
+        <div className="w-full lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface flex flex-col px-5 py-6 gap-5">
           <div>
             <h3 className="text-sm font-semibold font-headings text-foreground mb-1">
               Activité récente
@@ -350,15 +349,13 @@ export default function DashboardEncadrantPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="mt-auto w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-sm opacity-50 cursor-not-allowed"
+          <Link
+            href="/students/reminders"
+            className="mt-auto w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-sm transition-opacity duration-150 hover:opacity-90"
           >
             <Icon i="send" size={14} />
             Envoyer des rappels groupés
-          </button>
+          </Link>
         </div>
       </div>
 

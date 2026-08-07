@@ -30,6 +30,7 @@ interface StudentProfileSidebarProps {
   recentDocuments: ThesisDocument[];
   onCommentSent?: () => void;
   onStageChanged?: () => void;
+  onArchived?: () => void;
 }
 
 export function StudentProfileSidebar({
@@ -42,6 +43,7 @@ export function StudentProfileSidebar({
   recentDocuments,
   onCommentSent,
   onStageChanged,
+  onArchived,
 }: StudentProfileSidebarProps) {
   const { toast } = useToast();
   const [composerOpen, setComposerOpen] = useState(false);
@@ -50,7 +52,28 @@ export function StudentProfileSidebar({
   const [stageEditorOpen, setStageEditorOpen] = useState(false);
   const [pendingStage, setPendingStage] = useState(stage);
   const [savingStage, setSavingStage] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const name = displayName(student);
+
+  async function onRemoveStudent() {
+    if (
+      !window.confirm(
+        `Retirer ${name} de votre liste d'encadrement ? Les documents, commentaires et échéances sont conservés, mais l'étudiant n'apparaîtra plus dans "Mes étudiants".`,
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    try {
+      await api(`/api/theses/${thesisId}`, { method: 'DELETE' });
+      toast(`${name} a été retiré(e) de votre liste d'encadrement.`, 'success');
+      onArchived?.();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   async function onSend(e: FormEvent) {
     e.preventDefault();
@@ -249,12 +272,12 @@ export function StudentProfileSidebar({
         )}
         <button
           type="button"
-          disabled
-          title="Bientôt disponible"
-          className="flex cursor-not-allowed items-center justify-center gap-2 px-3 py-2.5 bg-surface border border-border text-muted-foreground text-xs font-medium rounded-sm"
+          onClick={() => void onRemoveStudent()}
+          disabled={archiving}
+          className="flex items-center justify-center gap-2 px-3 py-2.5 bg-surface border border-danger text-danger text-xs font-medium rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 hover:bg-danger hover:text-danger-foreground"
         >
-          <Icon i="more-vertical" size={12} />
-          Plus d&apos;options
+          <Icon i="user-minus" size={12} />
+          {archiving ? 'Retrait…' : "Retirer l'étudiant"}
         </button>
       </div>
     </div>

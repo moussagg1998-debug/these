@@ -72,3 +72,14 @@ Fetches (all via `useApi`, gated on `profile.profileType === 'ETUDIANT'`): `GET 
 - [x] Wire `/dashboard`'s ETUDIANT branch to the new content (replacing the placeholder)
 - [ ] 375/768/1280 check — **not verified**, same caveat as every prior phase, no browser tool in this session
 - [x] `pnpm format && lint && typecheck && test && build`
+
+## Parity re-check (2026-08-05)
+Re-fetched `new_screen5.jsx` from Banani (user re-selected it, unchanged since Phase 7) to verify pixel/behavior parity against the shipped code. Tokens unchanged (`#1B4332` primary, IBM Plex Sans — no drift). Diffed against 3 candidate gaps; user confirmed only 1 to close:
+- [x] **Closed**: "Prochaine échéance" sidebar card only rendered `deadlines.items[0]`. Banani's mock shows the urgent one highlighted plus 2 more upcoming rows below. `GET /api/theses/{id}/deadlines` already returns the full list ordered `dueAt asc` (route.ts:41) — no backend change needed. Added `laterDeadlines = items.slice(1, 3)`, rendered as plain rows beneath the highlighted next deadline in `StudentDashboardContent.tsx`.
+- Declined by user (left as-is, not a bug): "Voir le commentaire" link on the "À traiter" card, and an avatar next to "Encadrant : …" in the header card — both cosmetic-only gaps, user chose not to add them.
+- `pnpm typecheck && lint && test (695/695) && build` all green after the change.
+
+## Parity re-check #2 (2026-08-07)
+Re-fetched `new_screen5.jsx` again — the Banani design itself had moved on since the first re-check: "Mes documents" and "Retours de mon encadrant" are now a 2-column grid (previously stacked), comments are grouped "EN ATTENTE"/"RÉSOLUS", the badge is `bg-danger`/"à traiter" (was `bg-primary`/"non résolu(s)"), and the upload button reads "Déposer" (was "Déposer un fichier"). Closed all four gaps in `StudentDashboardContent.tsx`, plus added the user-requested scroll containers (`max-h-72`/`max-h-80` + `overflow-y-auto`) to both panels — Banani's static mock has no scroll affordance since it only ever renders 3-6 rows, but real accounts can exceed that, and the user asked for scrollbars explicitly on these two lists.
+
+Real browser QA (Playwright + system Chrome, temporary seed script + screenshots, deleted after use): 6 documents / 7 comments (4 unresolved, 3 resolved) on one thesis, checked at 375/768/1280px. 0/3 horizontal overflow; both panels confirmed genuinely scrollable (`scrollHeight > clientHeight`, not just visually clipped); 2-col grid holds from `md:` (768px) up; grouped sections and badge render correctly. `pnpm format && lint && typecheck && test (739/739) && build` all green.

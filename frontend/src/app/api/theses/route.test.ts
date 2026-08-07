@@ -75,6 +75,14 @@ describe('GET /api/theses', () => {
     expect(args?.where?.studentId).toBe('user-1');
   });
 
+  it('excludes archived (retirés) theses by default', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.thesis.findMany.mockResolvedValue([] as never);
+    await GET(makeGet('http://test/api/theses'));
+    const args = prismaMock.thesis.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.archivedAt).toBeNull();
+  });
+
   it('includes last document, next deadline, and comment count for the students table', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     prismaMock.thesis.findMany.mockResolvedValue([] as never);
@@ -140,13 +148,15 @@ describe('POST /api/theses', () => {
     expect(body.error).toBe('NOT_A_STUDENT');
   });
 
-  it('student already has a thesis → 409 THESIS_ALREADY_EXISTS', async () => {
+  it('student already has an active thesis → 409 THESIS_ALREADY_EXISTS', async () => {
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
       .mockResolvedValueOnce({ id: 'stu-1', profileType: 'ETUDIANT' } as never);
     prismaMock.thesis.findFirst.mockResolvedValue({ id: 'existing-thesis' } as never);
     const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
     expect(res.status).toBe(409);
+    const findFirstArgs = prismaMock.thesis.findFirst.mock.calls[0]?.[0];
+    expect(findFirstArgs?.where?.archivedAt).toBeNull();
     const body = await res.json();
     expect(body.error).toBe('THESIS_ALREADY_EXISTS');
   });

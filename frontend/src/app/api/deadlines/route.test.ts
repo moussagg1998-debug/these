@@ -53,6 +53,14 @@ describe('GET /api/deadlines', () => {
     expect(args?.take).toBe(200);
   });
 
+  it('excludes deadlines from archived (retirés) theses', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.deadline.findMany.mockResolvedValue([] as never);
+    await GET(makeGet());
+    const args = prismaMock.deadline.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.thesis?.archivedAt).toBeNull();
+  });
+
   it('applies the studentId filter when provided', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     prismaMock.deadline.findMany.mockResolvedValue([] as never);

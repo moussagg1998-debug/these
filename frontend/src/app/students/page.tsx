@@ -195,7 +195,7 @@ export default function StudentListPage() {
                 </div>
                 <div className="shrink-0 w-20" />
               </div>
-              <div className="min-w-max">
+              <div className="min-w-max max-h-48 overflow-y-auto">
                 {filtered.map((thesis) => (
                   <StudentRow key={thesis.id} thesis={thesis} />
                 ))}

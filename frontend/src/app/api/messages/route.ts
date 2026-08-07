@@ -34,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (profile instanceof NextResponse) return profile;
 
     const theses = await prisma.thesis.findMany({
-      where: { encadrantId: auth.user.sub },
+      where: { encadrantId: auth.user.sub, archivedAt: null },
       orderBy: [{ createdAt: 'desc' }],
       take: 200,
       include: {

@@ -81,10 +81,17 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
     [commentsRes, thesis],
   );
 
-  const unresolvedCount = useMemo(
-    () => encadrantComments.filter((c) => !c.resolved).length,
+  const unresolvedComments = useMemo(
+    () => encadrantComments.filter((c) => !c.resolved),
     [encadrantComments],
   );
+
+  const resolvedComments = useMemo(
+    () => encadrantComments.filter((c) => c.resolved),
+    [encadrantComments],
+  );
+
+  const unresolvedCount = unresolvedComments.length;
 
   const latestUnresolved = useMemo(
     () => [...encadrantComments].reverse().find((c) => !c.resolved) ?? null,
@@ -163,54 +170,81 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
             </div>
           </div>
 
-          {/* Documents */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
-              <div className="text-sm font-semibold font-headings text-foreground">
-                Mes documents
+          {/* Documents + Retours — side by side on md+, matching Banani's
+              2-col grid; stacked on mobile */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Documents */}
+            <div className="border border-border rounded-md overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
+                <div className="text-sm font-semibold font-headings text-foreground">
+                  Mes documents
+                </div>
+                <Link
+                  href="/documents/new"
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary-foreground bg-primary px-3 py-1.5 rounded-sm"
+                >
+                  <Icon i="upload" size={12} />
+                  Déposer
+                </Link>
               </div>
-              <Link
-                href="/documents/new"
-                className="flex items-center gap-1.5 text-xs font-medium text-primary-foreground bg-primary px-3 py-1.5 rounded-sm"
-              >
-                <Icon i="upload" size={12} />
-                Déposer un fichier
-              </Link>
-            </div>
-            {documents.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted-foreground">
-                Aucun document déposé pour l&apos;instant.
-              </p>
-            ) : (
-              documents.map((doc) => (
-                <StudentDocumentRow
-                  key={doc.id}
-                  doc={doc}
-                  commented={commentedDocIds.has(doc.id)}
-                />
-              ))
-            )}
-          </div>
-
-          {/* Comments */}
-          <div className="border border-border rounded-md overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
-              <div className="text-sm font-semibold font-headings text-foreground">
-                Retours de mon encadrant
-              </div>
-              {unresolvedCount > 0 && (
-                <div className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
-                  {unresolvedCount} non résolu{unresolvedCount > 1 ? 's' : ''}
+              {documents.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-muted-foreground">
+                  Aucun document déposé pour l&apos;instant.
+                </p>
+              ) : (
+                <div className="max-h-72 overflow-y-auto">
+                  {documents.map((doc) => (
+                    <StudentDocumentRow
+                      key={doc.id}
+                      doc={doc}
+                      commented={commentedDocIds.has(doc.id)}
+                    />
+                  ))}
                 </div>
               )}
             </div>
-            {encadrantComments.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted-foreground">
-                Aucun retour pour l&apos;instant.
-              </p>
-            ) : (
-              encadrantComments.map((c) => <StudentCommentItem key={c.id} comment={c} />)
-            )}
+
+            {/* Comments — grouped "En attente" / "Résolus", matching Banani */}
+            <div className="border border-border rounded-md overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
+                <div className="text-sm font-semibold font-headings text-foreground">
+                  Retours de mon encadrant
+                </div>
+                {unresolvedCount > 0 && (
+                  <div className="text-xs bg-danger text-danger-foreground px-2 py-0.5 rounded-sm font-medium">
+                    {unresolvedCount} à traiter
+                  </div>
+                )}
+              </div>
+              {encadrantComments.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-muted-foreground">
+                  Aucun retour pour l&apos;instant.
+                </p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto">
+                  {unresolvedComments.length > 0 && (
+                    <>
+                      <div className="px-5 pt-4 pb-1 text-xs font-medium uppercase tracking-widest text-danger">
+                        En attente
+                      </div>
+                      {unresolvedComments.map((c) => (
+                        <StudentCommentItem key={c.id} comment={c} />
+                      ))}
+                    </>
+                  )}
+                  {resolvedComments.length > 0 && (
+                    <>
+                      <div className="px-5 pt-4 pb-1 text-xs font-medium uppercase tracking-widest text-success">
+                        Résolus
+                      </div>
+                      {resolvedComments.map((c) => (
+                        <StudentCommentItem key={c.id} comment={c} />
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

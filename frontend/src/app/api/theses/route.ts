@@ -52,7 +52,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const cursor = decodeCursor(url.searchParams.get('cursor'));
 
     const scopeField = profile.profileType === 'ENCADRANT' ? 'encadrantId' : 'studentId';
-    const baseWhere: Prisma.ThesisWhereInput = { [scopeField]: auth.user.sub };
+    const baseWhere: Prisma.ThesisWhereInput = {
+      [scopeField]: auth.user.sub,
+      archivedAt: null,
+    };
     const where: Prisma.ThesisWhereInput = { ...baseWhere, ...cursorWhere(cursor) };
 
     // Sequential, not Promise.all: DATABASE_URL pins connection_limit=1 for
@@ -129,7 +132,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const existing = await prisma.thesis.findFirst({ where: { studentId: student.id } });
+    const existing = await prisma.thesis.findFirst({
+      where: { studentId: student.id, archivedAt: null },
+    });
     if (existing) {
       return NextResponse.json(
         { error: 'THESIS_ALREADY_EXISTS', message: 'This student already has a thesis' },

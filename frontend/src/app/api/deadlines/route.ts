@@ -32,6 +32,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const where: Prisma.DeadlineWhereInput = {
       thesis: {
         encadrantId: auth.user.sub,
+        archivedAt: null,
         ...(studentId ? { studentId } : {}),
       },
     };

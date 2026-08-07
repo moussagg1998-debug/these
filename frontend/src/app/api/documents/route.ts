@@ -37,6 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const baseWhere: Prisma.DocumentWhereInput = {
       thesis: {
         encadrantId: auth.user.sub,
+        archivedAt: null,
         ...(studentId ? { studentId } : {}),
       },
     };

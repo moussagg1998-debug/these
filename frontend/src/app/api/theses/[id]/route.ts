@@ -1,9 +1,12 @@
-// ThèseFacile — GET + PATCH /api/theses/[id].
+// ThèseFacile — GET + PATCH + DELETE /api/theses/[id].
 //
 // GET: detail view ("Détail Étudiant — Profil") — either side of the thesis
-// (student or encadrant) may read it.
+// (student or encadrant) may read it. Stays readable even once archived.
 // PATCH: update stage/progress — encadrant-only (the student doesn't
 // self-report progress in the Banani flow; the encadrant tracks it).
+// DELETE: "Retirer l'étudiant" — encadrant-only, soft-delete (sets
+// archivedAt). Documents/comments/deadlines/messages are kept, never
+// cascade-deleted — see schema.prisma's Thesis.archivedAt comment.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -94,5 +97,39 @@ export async function PATCH(req: NextRequest, { params }: RouteParams): Promise<
     });
 
     return NextResponse.json(thesis, { headers: { 'x-request-id': ctx.requestId } });
+  });
+}
+
+export async function DELETE(req: NextRequest, { params }: RouteParams): Promise<NextResponse> {
+  const ctx = makeRequestContext(req.headers);
+  return withRequestContext(ctx, async () => {
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await params;
+    const access = await resolveThesisAccess(prisma, id, auth.user.sub);
+    if (access instanceof NextResponse) return access;
+    if (access.encadrantId !== auth.user.sub) {
+      return NextResponse.json(
+        { error: 'ENCADRANT_ONLY', message: 'Only the encadrant can remove a student' },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    const archived = await prisma.thesis.update({
+      where: { id },
+      data: { archivedAt: access.archivedAt ?? new Date() },
+    });
+
+    // A body is required, not just a 204 — the shared `api()` wrapper
+    // (frontend/src/lib/api.ts, protected) unconditionally calls
+    // `response.json()` on every `response.ok` result.
+    return NextResponse.json(
+      { ok: true, archivedAt: archived.archivedAt },
+      { headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }

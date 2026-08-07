@@ -50,6 +50,14 @@ describe('GET /api/comments', () => {
     expect(args?.where?.parentId).toBeNull();
   });
 
+  it('excludes comments from archived (retirés) theses', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.comment.findMany.mockResolvedValue([] as never);
+    await GET(makeGet());
+    const args = prismaMock.comment.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.thesis?.archivedAt).toBeNull();
+  });
+
   it('applies resolved + priority filters', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     prismaMock.comment.findMany.mockResolvedValue([] as never);

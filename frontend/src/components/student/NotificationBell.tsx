@@ -40,6 +40,7 @@ const TYPE_DESTINATION: Record<string, string> = {
   DOCUMENT_SUBMITTED: '/documents',
   MESSAGE_RECEIVED: '/messages',
   THESIS_ASSIGNED: '/dashboard',
+  REMINDER: '/messages',
 };
 
 export function NotificationBell() {

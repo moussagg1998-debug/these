@@ -197,7 +197,10 @@ export function createBictorysProvider(env: BictorysEnv): BictorysProviderHandle
       country: 'SN',
       paymentReference: input.externalRef,
       successRedirectUrl: input.successUrl,
-      ErrorRedirectUrl: input.failureUrl, // E majuscule — convention Bictorys
+      // Bictorys' docs spell this camelCase, but some API versions only
+      // honor the capitalized form — send both so neither shape is missed.
+      errorRedirectUrl: input.failureUrl,
+      ErrorRedirectUrl: input.failureUrl,
       customerObject,
     };
 

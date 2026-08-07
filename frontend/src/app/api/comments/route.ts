@@ -37,6 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       parentId: null,
       thesis: {
         encadrantId: auth.user.sub,
+        archivedAt: null,
         ...(studentId ? { studentId } : {}),
       },
       ...(resolvedParam !== null ? { resolved: resolvedParam === 'true' } : {}),

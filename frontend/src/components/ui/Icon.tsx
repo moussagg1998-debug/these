@@ -5,6 +5,7 @@
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   BarChart2,
   Bell,
@@ -56,6 +57,7 @@ import {
   Star,
   Upload,
   User,
+  UserMinus,
   UserPlus,
   Users,
   X,
@@ -65,6 +67,7 @@ import {
 const ICONS: Record<string, LucideIcon> = {
   'alert-circle': AlertCircle,
   'alert-triangle': AlertTriangle,
+  'arrow-left': ArrowLeft,
   'arrow-right': ArrowRight,
   'bar-chart-2': BarChart2,
   bell: Bell,
@@ -119,6 +122,7 @@ const ICONS: Record<string, LucideIcon> = {
   star: Star,
   upload: Upload,
   user: User,
+  'user-minus': UserMinus,
   'user-plus': UserPlus,
   users: Users,
   x: X,

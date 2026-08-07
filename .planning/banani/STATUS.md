@@ -1,6 +1,6 @@
 # Banani implementation status — ThèseFacile
 
-Last updated: 2026-08-04 (Phase 14)
+Last updated: 2026-08-06 (Phase 16)
 
 Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `YQWElzV_9JrI`) — 20 screens fetched (`new_screen7.jsx` "Messagerie — Côté Encadrant" added to the Banani project after the initial 19-screen fetch; retrieved once the Banani MCP was reconnected mid-Phase-10).
 
@@ -160,6 +160,33 @@ Flow: [ThèseFacile](https://app.banani.co/flow/YQWElzV_9JrI) (Banani project `Y
 - [x] QA navigateur réelle (Playwright + Chrome système) : 25 thèses de test créées pour valider concrètement la pagination, parcours complet encadrant + étudiant + cas limite (étudiant sans thèse) aux 3 breakpoints, 0 dépassement horizontal, `pnpm build` propre (18 pages, 54 routes API).
 - [x] format/lint/typecheck/test(694/694)/build tous verts.
 - Points restants documentés dans le rapport d'audit final (favicon manquant, liens marketing `#` décoratifs, pied de page `/terms` inerte, KPIs secondaires du dashboard toujours approximatifs au-delà de 20 thèses).
+
+### Phase 15 — Dashboard Étudiant parity re-check (2026-08-05)
+- [x] Re-selected `new_screen5.jsx` "Dashboard Étudiant" in Banani; re-fetched via MCP to verify the Phase 7 build still matches (screen unchanged, tokens unchanged).
+- [x] **Fix**: "Prochaine échéance" sidebar card in `StudentDashboardContent.tsx` now lists the next 2 upcoming deadlines below the highlighted urgent one (`deadlines.items.slice(1, 3)`), matching Banani's 3-row layout — data was already fetched (`GET /api/theses/{id}/deadlines`, ordered `dueAt asc`), just underused.
+- [x] Declined by user: "Voir le commentaire" link on the "À traiter" card, avatar next to "Encadrant : …" in the header — both cosmetic, left as-is.
+- [x] format/lint/typecheck/test(695/695)/build all green.
+- Plan: `.planning/banani/phase-7-dashboard-etudiant.md` § Parity re-check
+
+### Phase 16 — Rappels groupés (2026-08-06)
+- [x] `group-reminders` — "Rappels groupés" (`new_screen8.jsx`) — `frontend/src/app/students/reminders/page.tsx`, ENCADRANT-only. Entry point: `/dashboard`'s "Envoyer des rappels groupés" button, previously `disabled` since Phase 3 — now a real `Link`.
+- [x] Shared: `ReminderRecipientRow` under `frontend/src/components/dashboard/`; reuses `DashboardShell`, `Avatar`, `Icon`, and `GET /api/theses?limit=50` (no new GET endpoint needed)
+- [x] Backend: **new** `POST /api/reminders` — cross-thesis bulk send (top-level, mirrors `/api/messages`/`/api/deadlines`). Deliberately reuses the existing `Message` + `Notification` models instead of a new `Reminder` table: every send creates a real `Message` row (visible in the student's `/messages` thread) regardless of channel toggles; "Notification in-app"/"Email" only control whether a `Notification` and/or email additionally fire. `{{prénom}}` is substituted server-side, accent-insensitive, per recipient.
+- [x] Email channel goes straight through the `EmailQueue` singleton (`getEmailQueue().enqueue(...)`) — **no outbox involvement**: the existing `email-queue-drain` cron drains any pending `EmailJob` regardless of who enqueued it, so there was no need to touch the protected `outbox/dispatcher.ts`/`types.ts`. New `frontend/src/lib/server/theses/reminder-email.ts` template factory (HTML-escaped, mirrors `auth/email-templates.ts`'s shape without editing that file).
+- [x] `Icon.tsx`: added `arrow-left`
+- [x] **User-confirmed departures from the Banani mock** (asked upfront, see `phase-16-rappels-groupes.md`): all students pre-selected by default (encadrant opts out); SMS channel and "Planifier l'envoi" scheduling dropped entirely from the UI (not shown-disabled) — neither has backing infrastructure in this starter.
+- [x] format/lint/typecheck/test(729/729)/build all green
+- [x] **Real browser QA** (Playwright + system Chrome, temporary seed data created/verified/deleted): full login → dashboard → click button → recipients load (all 3 pre-selected) → Désélectionner/Tout sélectionner → template switching (Standard/Urgent) → individual recipient toggle → urgency note ("1 étudiant en urgence haute") → submit (in-app channel only, to avoid a live Resend send in this QA pass) → toast "3 rappels envoyés" → redirect to `/dashboard`. DB verified directly: 3 personalized `Message` rows + 3 `REMINDER` `Notification` rows created with correct per-recipient first-name substitution and deterministic `dedupeKey`s. 0/3 horizontal-overflow checks at 375/768/1280px. Email-channel send path is covered by unit tests only (not exercised live, to avoid sending real email via the project's real Resend key during QA).
+- Plan: `.planning/banani/phase-16-rappels-groupes.md`
+
+### Phase 17 — Dashboard Étudiant parity re-check #2 + scrollbars (2026-08-07)
+- [x] Re-selected `new_screen5.jsx` "Dashboard Étudiant" in Banani; re-fetched via MCP — the design had changed since Phase 15's check: "Mes documents"/"Retours de mon encadrant" now render **side by side in a 2-column grid** (was stacked), the "Déposer un fichier" button shortened to "Déposer", the unresolved-count badge switched from `bg-primary`/"non résolu(s)" to `bg-danger`/"à traiter", and comments are grouped into "EN ATTENTE"/"RÉSOLUS" sections.
+- [x] `StudentDashboardContent.tsx`: wrapped the two panels in `grid grid-cols-1 md:grid-cols-2 gap-6` (mobile stacks, tablet+ sits side by side — matches Banani's desktop 2-col without a new breakpoint decision); relabeled the upload button; recolored/retexted the badge; grouped `encadrantComments` into `unresolvedComments`/`resolvedComments` with "En attente"/"Résolus" section headers (reusing the existing `StudentCommentItem` per-row component as-is, not duplicating it — it's also consumed by `/comments`)
+- [x] Added `max-h-72 overflow-y-auto` (documents) / `max-h-80 overflow-y-auto` (comments) scroll containers to both dashboard-embedded panels (user request — these two lists specifically, not the full `/documents`/`/comments` pages which stay unpaginated-but-unbounded by design)
+- [x] Kept every previously user-confirmed departure from the Banani mock unchanged: no fake 8-step milestone curriculum, document status stays 2-state (no schema-backed "Validé"), student-side "Marquer comme résolu" stays disabled (Phase 4's encadrant-only policy), no avatar next to "Encadrant :", no "Année 2024–2025" text
+- [x] format/lint/typecheck/test(739/739)/build all green
+- [x] **Real browser QA** (Playwright + system Chrome via the cached npx install, temporary seed script created/verified/deleted): logged in as a seeded étudiant with 6 documents + 7 comments (4 unresolved/3 resolved) on a real thesis. Confirmed at 375/768/1280px: 0/3 horizontal-overflow, both panels report `scrollHeight > clientHeight` (actually scrollable, not just clipped), 2-col grid holds from `md:` up, grouped "En attente"/"Résolus" sections render with the right counts and colors, "4 à traiter" badge correct. Test data + temp scripts deleted after.
+- Plan: `.planning/banani/phase-7-dashboard-etudiant.md` § Parity re-check #2
 
 ## In progress
 _(none — every fetched Banani screen for both sides is now built)_

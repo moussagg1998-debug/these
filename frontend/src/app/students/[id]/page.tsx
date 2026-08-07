@@ -256,7 +256,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             {activity.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucune activité pour l&apos;instant.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                 {activity.map((a) => (
                   <div
                     key={a.key}
@@ -293,6 +293,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             void refreshThesis();
           }}
           onStageChanged={() => void refreshThesis()}
+          onArchived={() => router.push('/students')}
         />
       </div>
     </DashboardShell>
