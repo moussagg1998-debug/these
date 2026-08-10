@@ -1,9 +1,17 @@
 // Conditions d'utilisation — Banani screen "Conditions d'utilisation"
 // (new_screen4.jsx). See .planning/banani/phase-2-auth-onboarding.md.
 // Server component — fully static, no interactivity beyond anchor links.
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { MarketingNav } from '@/components/marketing/MarketingNav';
+
+export const metadata: Metadata = {
+  title: "Conditions d'utilisation",
+  description: "Conditions générales d'utilisation de la plateforme ThèseFacile.",
+  alternates: { canonical: '/terms' },
+};
 
 const SECTIONS = [
   {
@@ -46,7 +54,7 @@ const SECTIONS = [
     id: '7',
     title: '7. Tarification et paiement',
     content:
-      "L'accès au service est soumis à un abonnement mensuel payant selon le plan choisi (Essentiel, Pro, Département). Le paiement s'effectue par mobile money (Orange Money, Wave, MTN MoMo) ou par virement bancaire. Aucun remboursement ne sera accordé pour les périodes entamées. ThèseFacile se réserve le droit de modifier ses tarifs avec un préavis de 30 jours.",
+      "L'accès au service est soumis à un abonnement mensuel selon le plan choisi (Gratuit, Essentiel, Pro). Le paiement des plans payants s'effectue par mobile money (Orange Money, Wave, MTN MoMo) ou par virement bancaire. Aucun remboursement ne sera accordé pour les périodes entamées. ThèseFacile se réserve le droit de modifier ses tarifs avec un préavis de 30 jours.",
   },
   {
     id: '8',
@@ -119,15 +127,16 @@ export default function TermsPage() {
               <Icon i="file-text" size={14} className="text-primary" />
               Version PDF
             </div>
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-sm bg-muted px-3 py-2 text-xs font-medium text-muted-foreground"
-            >
-              <Icon i="download" size={12} />
-              Télécharger
-            </button>
+            <Tooltip label="Bientôt disponible" className="w-full">
+              <button
+                type="button"
+                disabled
+                className="w-full flex cursor-not-allowed items-center justify-center gap-1.5 rounded-sm bg-muted px-3 py-2 text-xs font-medium text-muted-foreground"
+              >
+                <Icon i="download" size={12} />
+                Télécharger
+              </button>
+            </Tooltip>
           </div>
         </div>
 

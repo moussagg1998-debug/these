@@ -24,18 +24,51 @@ const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'off' },
 ];
 
+// SEO: top-level segments that are auth-gated or part of the auth funnel.
+// These render server-side as a generic "Chargement…" shell to any caller,
+// including crawlers (the real gate is client-side, post-mount — see
+// useUser() in each page). robots.ts Disallows the same prefixes to save
+// crawl budget, but Disallow alone doesn't guarantee an already-discovered
+// URL stays out of the index — this header is the actual guarantee, since
+// it's read even by a crawler that ignores robots.txt but still fetches
+// and inspects the response headers.
+const PRIVATE_PATH_PREFIXES = [
+  'dashboard',
+  'admin',
+  'documents',
+  'students',
+  'comments',
+  'deadlines',
+  'settings',
+  'onboarding',
+  'login',
+  'signup',
+  'verify-email',
+  'forgot-password',
+  'reset-password',
+  'auth',
+];
+
+const noindexHeaders = [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }];
+
 const config: NextConfig = {
   reactStrictMode: true,
   // Standalone output bundles a self-contained server.js + minimal node_modules
   // into .next/standalone — required by the Docker runtime image (frontend/Dockerfile).
   // Has no impact on `next dev` / `next start` workflows.
   output: 'standalone',
+  // Removes the `X-Powered-By: Next.js` response header.
+  poweredByHeader: false,
   async headers() {
     return [
       {
         source: '/:path*',
         headers: securityHeaders,
       },
+      ...PRIVATE_PATH_PREFIXES.flatMap((prefix) => [
+        { source: `/${prefix}`, headers: noindexHeaders },
+        { source: `/${prefix}/:path*`, headers: noindexHeaders },
+      ]),
     ];
   },
 };

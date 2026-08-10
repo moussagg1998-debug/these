@@ -25,11 +25,6 @@ export function MarketingFooter() {
             <a href="/#tarifs">Tarifs</a>
           </div>
           <div className="flex flex-col gap-2">
-            <span className="mb-1 font-medium text-foreground">Ressources</span>
-            <a href="#">Documentation</a>
-            <a href="#">Support</a>
-          </div>
-          <div className="flex flex-col gap-2">
             <span className="mb-1 font-medium text-foreground">Légal</span>
             <Link href="/terms">CGU</Link>
           </div>

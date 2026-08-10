@@ -31,7 +31,11 @@ export function MarketingNav() {
 
         <div className="hidden items-center gap-8 text-sm font-medium text-muted-foreground lg:flex">
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href}>
+            <a
+              key={l.href}
+              href={l.href}
+              className="transition-colors duration-150 hover:text-foreground"
+            >
               {l.label}
             </a>
           ))}
@@ -40,13 +44,13 @@ export function MarketingNav() {
         <div className="hidden items-center gap-3 lg:flex">
           <Link
             href="/login"
-            className="rounded-sm border border-border px-4 py-2 text-sm font-medium text-foreground"
+            className="rounded-sm border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
           >
             Se connecter
           </Link>
           <Link
             href="/signup"
-            className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
           >
             Essai gratuit
           </Link>
@@ -57,7 +61,7 @@ export function MarketingNav() {
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label="Menu"
-          className="flex h-10 w-10 items-center justify-center rounded-sm border border-border lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-sm border border-border transition duration-150 hover:bg-input motion-safe:active:scale-90 lg:hidden"
         >
           <Icon i={open ? 'x' : 'sliders'} size={18} className="text-foreground" />
         </button>
@@ -66,19 +70,23 @@ export function MarketingNav() {
       {open && (
         <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 lg:hidden">
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="text-sm font-medium text-muted-foreground">
+            <a
+              key={l.href}
+              href={l.href}
+              className="text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
+            >
               {l.label}
             </a>
           ))}
           <Link
             href="/login"
-            className="rounded-sm border border-border px-4 py-3 text-center text-sm font-medium text-foreground"
+            className="rounded-sm border border-border px-4 py-3 text-center text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
           >
             Se connecter
           </Link>
           <Link
             href="/signup"
-            className="rounded-sm bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground"
+            className="rounded-sm bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground transition duration-150 motion-safe:active:scale-[0.98]"
           >
             Essai gratuit
           </Link>

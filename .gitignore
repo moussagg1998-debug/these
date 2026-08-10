@@ -20,4 +20,5 @@ next-env.d.ts
 # Local cruft — not part of the kit
 amp
 node-compile-cache/
+.qa-screens/
 
