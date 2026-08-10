@@ -10,7 +10,10 @@ import { redis } from '@/lib/server/redis';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PROBE_TIMEOUT_MS = 1_500;
+// Neon/Upstash free-tier instances auto-suspend when idle and take a couple
+// seconds to wake on the next connection — 1500ms was tripping this probe
+// into a false "unhealthy" on the first request after idle.
+const PROBE_TIMEOUT_MS = 5_000;
 
 async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
