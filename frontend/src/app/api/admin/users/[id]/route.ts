@@ -2,8 +2,13 @@
 //
 // Sequence: makeRequestContext → withRequestContext → requireAdmin('ADMIN')
 // → enforceAdminRateLimit → prisma.user.findUnique with the same PII-safe
-// USER_SELECT shape as the list endpoint. 404 on miss with stable code
-// USER_NOT_FOUND.
+// USER_SELECT shape as the list endpoint (plus profile fields the detail
+// view needs). 404 on miss with stable code USER_NOT_FOUND.
+//
+// `lastActivityAt` is derived, not stored — the schema has no
+// lastLoginAt/lastActiveAt column. We take the max of the target's most
+// recent Message/Comment/FileUpload/Thesis touch. Queries run sequentially
+// (Neon connection_limit=1 convention — no Promise.all).
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -23,7 +28,48 @@ const USER_SELECT = {
   status: true,
   emailVerifiedAt: true,
   createdAt: true,
+  profileType: true,
+  institution: { select: { name: true } },
+  department: true,
+  academicGrade: true,
+  specialties: true,
+  bio: true,
 } as const satisfies Prisma.UserSelect;
+
+async function deriveLastActivityAt(userId: string): Promise<string | null> {
+  const timestamps: Date[] = [];
+
+  const lastMessage = await prisma.message.findFirst({
+    where: { senderId: userId },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+  if (lastMessage) timestamps.push(lastMessage.createdAt);
+
+  const lastComment = await prisma.comment.findFirst({
+    where: { authorId: userId },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+  if (lastComment) timestamps.push(lastComment.createdAt);
+
+  const lastUpload = await prisma.fileUpload.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+  if (lastUpload) timestamps.push(lastUpload.createdAt);
+
+  const lastThesisTouch = await prisma.thesis.findFirst({
+    where: { OR: [{ studentId: userId }, { encadrantId: userId }] },
+    orderBy: { updatedAt: 'desc' },
+    select: { updatedAt: true },
+  });
+  if (lastThesisTouch) timestamps.push(lastThesisTouch.updatedAt);
+
+  if (timestamps.length === 0) return null;
+  return new Date(Math.max(...timestamps.map((d) => d.getTime()))).toISOString();
+}
 
 export async function GET(
   req: NextRequest,
@@ -48,6 +94,12 @@ export async function GET(
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    return NextResponse.json({ user }, { headers: { 'x-request-id': reqCtx.requestId } });
+
+    const lastActivityAt = await deriveLastActivityAt(id);
+
+    return NextResponse.json(
+      { user: { ...user, lastActivityAt } },
+      { headers: { 'x-request-id': reqCtx.requestId } },
+    );
   });
 }

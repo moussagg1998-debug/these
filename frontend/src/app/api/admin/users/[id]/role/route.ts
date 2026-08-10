@@ -23,6 +23,7 @@ import { requireSuperadmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
+import { clientIp } from '@/lib/server/middleware/rate-limit-by-email';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const Body = z.object({
@@ -80,12 +81,15 @@ export async function PATCH(
         select: { id: true, role: true },
       });
 
+      const userAgent = req.headers.get('user-agent');
       await logAdminAction(tx, {
         actorId: auth.admin.id,
         action: 'user.role_change',
         targetType: 'User',
         targetId: id,
         metadata: { from: target.role, to: parsed.data.role },
+        ip: clientIp(req),
+        ...(userAgent ? { userAgent } : {}),
       });
 
       return { kind: 'OK' as const, user: updated };

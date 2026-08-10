@@ -46,6 +46,7 @@ function row(
     id: string;
     createdAt: Date;
     actorId: string;
+    actorEmail: string | null;
     action: string;
     targetType: string | null;
     targetId: string | null;
@@ -55,6 +56,9 @@ function row(
   return {
     id: overrides.id ?? 'a-1',
     actorId: overrides.actorId ?? 'admin-1',
+    actor: {
+      email: overrides.actorEmail === undefined ? 'admin@test.local' : overrides.actorEmail,
+    },
     action: overrides.action ?? 'user.role_change',
     targetType: overrides.targetType === undefined ? 'User' : overrides.targetType,
     targetId: overrides.targetId === undefined ? 'user-target-1' : overrides.targetId,
@@ -203,13 +207,14 @@ describe('GET /api/admin/audit-log [Wave 1]', () => {
     expect(args?.take).toBe(21);
   });
 
-  it('GET selects full incident-triage shape (id, actorId, action, targetType, targetId, metadata, ip, userAgent, createdAt)', async () => {
+  it('GET selects full incident-triage shape (id, actorId, actor.email, action, targetType, targetId, metadata, ip, userAgent, createdAt)', async () => {
     prismaMock.adminAction.findMany.mockResolvedValue([] as never);
     await GET(makeGet('http://test/api/admin/audit-log'));
     const args = prismaMock.adminAction.findMany.mock.calls[0]?.[0];
     expect(args?.select).toEqual({
       id: true,
       actorId: true,
+      actor: { select: { email: true } },
       action: true,
       targetType: true,
       targetId: true,
@@ -218,6 +223,16 @@ describe('GET /api/admin/audit-log [Wave 1]', () => {
       userAgent: true,
       createdAt: true,
     });
+  });
+
+  it('GET flattens actor.email into a top-level actorEmail field', async () => {
+    prismaMock.adminAction.findMany.mockResolvedValue([
+      row({ actorEmail: 'super@test.local' }),
+    ] as never);
+    const res = await GET(makeGet('http://test/api/admin/audit-log'));
+    const body = await res.json();
+    expect(body.items[0].actorEmail).toBe('super@test.local');
+    expect(body.items[0].actor).toBeUndefined();
   });
 
   it('GET response includes x-request-id header', async () => {

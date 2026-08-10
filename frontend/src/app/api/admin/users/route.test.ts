@@ -168,6 +168,14 @@ describe('/api/admin/users [Wave 1] — list', () => {
     expect(where?.['role']).toBe('USER');
   });
 
+  it('GET filters by profileType (ETUDIANT/ENCADRANT)', async () => {
+    prismaMock.user.findMany.mockResolvedValueOnce([] as never);
+    await GET(makeGet('http://test/api/admin/users?profileType=ENCADRANT'));
+    const args = prismaMock.user.findMany.mock.calls[0]?.[0];
+    const where = args?.where as Record<string, unknown> | undefined;
+    expect(where?.['profileType']).toBe('ENCADRANT');
+  });
+
   it('GET clamps limit to MAX_LIMIT=50 and emits nextCursor when hasMore', async () => {
     // 21 rows (= default 20 + 1) → nextCursor populated, last visible row drives the cursor
     const rows = Array.from({ length: 21 }, (_, i) =>
@@ -599,6 +607,42 @@ describe('/api/admin/users/[id]/status [Wave 2] — suspend / restore', () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe('VALIDATION_FAILED');
+  });
+
+  it("PATCH an admin's own account to SUSPENDED → 403 CANNOT_SUSPEND_SELF (no update, no AdminAction)", async () => {
+    const res = await PATCH_STATUS(
+      makePatch(`http://test/api/admin/users/${adminUser.id}/status`, { status: 'SUSPENDED' }),
+      paramsOf(adminUser.id),
+    );
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('CANNOT_SUSPEND_SELF');
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(mockLogAdminAction).not.toHaveBeenCalled();
+  });
+
+  it('PATCH restoring your own account (SUSPENDED → ACTIVE) is NOT blocked by the self-suspend guard', async () => {
+    mockRequireAdmin.mockResolvedValueOnce(superadminCtx);
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: superadminUser.id,
+      status: 'SUSPENDED',
+      email: superadminUser.email,
+      name: null,
+      role: 'SUPERADMIN',
+    } as never);
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: superadminUser.id,
+      status: 'ACTIVE',
+    } as never);
+
+    const res = await PATCH_STATUS(
+      makePatch(`http://test/api/admin/users/${superadminUser.id}/status`, { status: 'ACTIVE' }),
+      paramsOf(superadminUser.id),
+    );
+
+    expect(res.status).toBe(200);
   });
 
   it('PATCH status rejects when CSRF fails', async () => {
