@@ -55,14 +55,27 @@ model User {
   // rows from before this migration).
   termsAcceptedAt DateTime?
 
+  // Settings → "Général" display preferences. `dateFormat` defaults to
+  // "long" (matches the pre-existing hardcoded fr-FR spelled-out format, e.g.
+  // "8 août 2026") so shipping this feature doesn't visually change any
+  // existing date on any screen unless a user explicitly opts into a
+  // different format. `locale` is a single-value enum today ("fr") — no
+  // i18n/translation system exists yet, so this only records the
+  // preference for when one does; it does not change any UI text.
+  locale     String @default("fr")
+  timezone   String @default("Africa/Dakar")
+  dateFormat String @default("long") // "long" | "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD"
+
   verificationCodes VerificationCode[]
   uploads           FileUpload[]
+  uploadErrorEvents UploadErrorEvent[]
   notifications     Notification[]
   notifPrefs        NotificationPreferences?
   orders            Order[]
   withdrawals       Withdrawal[]
   oauthAccounts     OAuthAccount[]
   adminActions      AdminAction[]
+  securityEvents    SecurityEvent[]
 
   // ThèseFacile domain relations — a User can appear as either side
   // depending on `profileType`, never both (see IMPLEMENTATION-PLAN.md §6).
@@ -110,6 +123,107 @@ model AdminAction {
   @@index([actorId, createdAt])
   @@index([action, createdAt])
   @@index([targetType, targetId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Security event log — Admin → Sécurité. Append-only history of
+// self-service auth events (login success/failure, password changes),
+// distinct from AdminAction (which is scoped to a back-office admin
+// acting on a target). Powers the /admin/security KPI cards and the
+// live anomaly-detection rules in lib/server/security/anomalies.ts.
+//
+// `userId` is null for LOGIN_FAILED against an email that doesn't match
+// any account — `email` is always captured so the row is still useful
+// for spray/enumeration-attempt triage.
+// ───────────────────────────────────────────────────────────────────────
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  type      String // LOGIN_SUCCESS | LOGIN_FAILED | PASSWORD_CHANGED
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String
+  ip        String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Upload error log — Admin → Gestion des documents. Append-only history of
+// failed POST /api/upload attempts (same "SecurityEvent for a different
+// pipeline" shape). `source` distinguishes the two error categories the
+// admin page reports separately:
+//   VALIDATION — our own pre-flight gates rejected the request (missing
+//     file, size cap, MIME allowlist, magic-byte mismatch, HEIC transcode
+//     failure, Cloudinary not configured) — Cloudinary was never called.
+//   CLOUDINARY — the request passed every local gate but Cloudinary's own
+//     upload_stream call threw.
+// FileUpload itself only records successes (it's an insert-on-success
+// ledger), so failed attempts had no persistence anywhere before this.
+model UploadErrorEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  code      String // UPLOAD_MISSING_FILE | FILE_TOO_LARGE | INVALID_MIME | MAGIC_BYTE_MISMATCH | HEIC_CONVERSION_FAILED | STORAGE_NOT_CONFIGURED | UPLOAD_FAILED
+  source    String // VALIDATION | CLOUDINARY
+  mimeType  String?
+  sizeBytes Int?
+  createdAt DateTime @default(now())
+
+  @@index([source, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Admin monitoring center — Admin → Monitoring. Populated exclusively by
+// /api/cron/monitoring-check (+ the SUPERADMIN-only manual "Vérifier
+// maintenant" trigger) via frontend/src/lib/server/monitoring/run-checks.ts.
+// Never written from a client request directly.
+//
+// `service` is one of: application | neon | vercel | github | cloudinary |
+// resend | upstash | bictorys (see lib/server/monitoring/types.ts).
+//
+// No raw per-check log table on purpose — `consecutiveFailures` is the only
+// state the threshold state machine needs, and `MonitoringIncident` rows
+// already ARE the incident history. Incidents are low-frequency, so unlike
+// WebhookLog/EmailJob this needs no retention-purge cron.
+// ───────────────────────────────────────────────────────────────────────
+model MonitoringServiceStatus {
+  service             String    @id
+  status              String    @default("UNVERIFIED") // OPERATIONAL | WARNING | CRITICAL | UNVERIFIED
+  lastCheckedAt       DateTime?
+  lastSuccessAt       DateTime?
+  lastLatencyMs       Int?
+  lastError           String? // sanitized + truncated — see monitoring/sanitize.ts. Never a raw provider payload or secret.
+  consecutiveFailures Int       @default(0)
+  updatedAt           DateTime  @updatedAt
+}
+
+model MonitoringIncident {
+  id             String    @id @default(cuid())
+  service        String
+  severity       String    @default("CRITICAL") // CRITICAL | WARNING — run-checks.ts opens both today (Admin -> Centre d'alertes)
+  // OPEN = auto-detected, not yet acknowledged ("nouvelle"). ACKNOWLEDGED =
+  // an admin clicked "Prendre en charge" ("en cours") — PATCH .../acknowledge,
+  // audited via logAdminAction. RESOLVED = either the underlying check
+  // recovered (auto) or an admin clicked "Marquer comme traitée" (manual,
+  // PATCH .../resolve, audited) — both paths set resolvedAt/durationMs the
+  // same way so the UI can't tell which happened, which is intentional: from
+  // an admin's perspective "résolue" means the same thing either way.
+  status         String    @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  detectedError  String // sanitized + truncated, same as MonitoringServiceStatus.lastError
+  detectedAt     DateTime  @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  durationMs     Int?
+  createdAt      DateTime  @default(now())
+
+  @@index([service, status])
+  @@index([status, detectedAt])
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -222,6 +336,19 @@ model EmailJob {
   scheduledAt DateTime  @default(now())
   sentAt      DateTime?
   createdAt   DateTime  @default(now())
+
+  // Delivery tracking (Resend webhook, POST /api/webhooks/resend). `resendId`
+  // is captured from the Mailer.send() response at the moment status flips
+  // to SENT — it's the correlation key the webhook uses to find this row via
+  // `data.email_id`. Both fields stay null until (a) the send actually
+  // succeeds and (b) a delivery-status webhook event arrives, so their
+  // absence is itself meaningful: null resendId = never sent or Resend
+  // webhook not configured; null deliveryStatus = sent but no delivery
+  // confirmation received yet (which is the truthful default — Resend does
+  // not guarantee webhook delivery order or latency).
+  resendId         String?   @unique
+  deliveryStatus   String? // DELIVERED | BOUNCED | COMPLAINED | DELAYED
+  deliveryStatusAt DateTime?
 
   @@index([status, scheduledAt])
 }
@@ -384,17 +511,17 @@ model Institution {
 }
 
 model Thesis {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   topic       String
   // "En attente" | "Rédaction" | "Révision" | "Bloqué" | "Soutenance"
-  stage       String   @default("En attente")
-  progress    Int      @default(0) // 0-100
+  stage       String    @default("En attente")
+  progress    Int       @default(0) // 0-100
   studentId   String
-  student     User     @relation("ThesisStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  student     User      @relation("ThesisStudent", fields: [studentId], references: [id], onDelete: Cascade)
   encadrantId String
-  encadrant   User     @relation("ThesisEncadrant", fields: [encadrantId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  encadrant   User      @relation("ThesisEncadrant", fields: [encadrantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   // Set when the encadrant "retire" the student from active supervision.
   // Reversible (soft-delete) — null = active. Excluded from every
   // cross-thesis list/aggregate query; documents/comments/deadlines/messages
@@ -411,23 +538,29 @@ model Thesis {
 }
 
 model Document {
-  id         String    @id @default(cuid())
-  thesisId   String
-  thesis     Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
-  chapter    String? // e.g. "Chapitre 3"
+  id          String    @id @default(cuid())
+  thesisId    String
+  thesis      Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  chapter     String? // e.g. "Chapitre 3"
   // Cloudinary URL — produced by the existing /api/upload flow, not a new
   // storage path. See CLAUDE.md "Files Claude SHOULD modify" — upload/sniff.ts.
-  fileUrl    String
+  fileUrl     String
   // Both optional: Cloudinary's upload response carries `original_filename`/
   // `bytes`, populated by the student upload flow (Phase 8) — older rows
   // (or any created another way) fall back to deriving a display name from
   // `chapter`/`fileUrl` and omitting size when these are null.
-  fileName   String?
-  sizeBytes  Int?
-  uploadedAt DateTime  @default(now())
-  comments   Comment[]
+  fileName    String?
+  sizeBytes   Int?
+  uploadedAt  DateTime  @default(now())
+  // "Programmer le dépôt" — file is uploaded to storage immediately, but the
+  // Document only becomes visible to the encadrant (and DOCUMENT_SUBMITTED
+  // fires) once the scheduled-deposits cron releases it at this time. Null
+  // means an ordinary, immediately-visible deposit — the common case.
+  scheduledAt DateTime?
+  comments    Comment[]
 
   @@index([thesisId, uploadedAt])
+  @@index([scheduledAt])
 }
 
 model Comment {
@@ -454,29 +587,49 @@ model Comment {
 
   @@index([thesisId, createdAt])
   @@index([parentId])
+  @@index([authorId])
 }
 
 model Deadline {
-  id          String   @id @default(cuid())
-  thesisId    String
-  thesis      Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
-  title       String
-  description String?
-  dueAt       DateTime
-  urgency     String   @default("medium") // "low" | "medium" | "high"
-  createdAt   DateTime @default(now())
+  id            String    @id @default(cuid())
+  thesisId      String
+  thesis        Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  dueAt         DateTime
+  urgency       String    @default("medium") // "low" | "medium" | "high"
+  // Set by the encadrant (PATCH /api/deadlines/[id]) once the student has
+  // genuinely met this deadline — stops it from showing as "En retard" once
+  // dueAt passes. Same authority model as Comment.resolved.
+  completedAt   DateTime?
+  // Set at creation (POST /api/theses/[id]/deadlines) — opt out of the
+  // automatic "3 jours avant" reminder the deadline-reminder cron sends the
+  // encadrant for this specific deadline. Defaults on so existing behavior
+  // (every deadline gets reminded) is unchanged unless explicitly disabled.
+  remindEnabled Boolean   @default(true)
+  createdAt     DateTime  @default(now())
 
   @@index([thesisId, dueAt])
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  thesisId  String
-  thesis    Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  body      String
+  id       String @id @default(cuid())
+  thesisId String
+  thesis   Thesis @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  // Empty string allowed when an attachment carries the message (attachment-
+  // only send) — the route requires body OR attachmentUrl to be present.
+  body     String
+
+  // Optional single image attachment, uploaded via POST /api/upload (same
+  // Cloudinary pipeline as documents/avatars) before the message is created.
+  attachmentUrl      String?
+  attachmentFilename String?
+  attachmentMimeType String?
+
   createdAt DateTime @default(now())
 
   @@index([thesisId, createdAt])
+  @@index([senderId])
 }
