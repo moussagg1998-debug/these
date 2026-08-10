@@ -17,11 +17,14 @@ const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 const params = Promise.resolve({ id: 'thesis-1' });
 
-function thesisRow(overrides: Partial<{ studentId: string; encadrantId: string }> = {}) {
+function thesisRow(
+  overrides: Partial<{ studentId: string; encadrantId: string; stage: string }> = {},
+) {
   return {
     id: 'thesis-1',
     studentId: overrides.studentId ?? 'stu-1',
     encadrantId: overrides.encadrantId ?? 'enc-1',
+    stage: overrides.stage ?? 'Rédaction',
   };
 }
 
@@ -77,6 +80,27 @@ describe('POST /api/theses/[id]/messages', () => {
     expect(res.status).toBe(400);
   });
 
+  it('blocked thesis, student sender → 403 THESIS_BLOCKED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    const res = await POST(makePost({ body: 'salut' }), { params });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('THESIS_BLOCKED');
+    expect(prismaMock.message.create).not.toHaveBeenCalled();
+  });
+
+  it('blocked thesis, encadrant sender → still allowed', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ encadrantId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    prismaMock.message.create.mockResolvedValue({ id: 'm-1', thesisId: 'thesis-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost({ body: 'salut' }), { params });
+    expect(res.status).toBe(201);
+  });
+
   it('student sends → notifies the encadrant', async () => {
     prismaMock.thesis.findUnique.mockResolvedValue(
       thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
@@ -87,5 +111,36 @@ describe('POST /api/theses/[id]/messages', () => {
     expect(res.status).toBe(201);
     const notifArg = prismaMock.notification.create.mock.calls[0]?.[0];
     expect(notifArg?.data?.userId).toBe('enc-1');
+  });
+
+  it('attachment-only (no body) → 201, notification falls back to a fixed label', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    prismaMock.message.create.mockResolvedValue({ id: 'm-1', thesisId: 'thesis-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(
+      makePost({
+        attachmentUrl: 'https://res.cloudinary.com/demo/image/upload/x.jpg',
+        attachmentFilename: 'x.jpg',
+        attachmentMimeType: 'image/jpeg',
+      }),
+      { params },
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.message.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.attachmentUrl).toBe(
+      'https://res.cloudinary.com/demo/image/upload/x.jpg',
+    );
+    expect(createArg?.data?.body).toBe('');
+    const notifArg = prismaMock.notification.create.mock.calls[0]?.[0];
+    expect(notifArg?.data?.body).toBe('📎 Pièce jointe');
+  });
+
+  it('invalid attachmentUrl (not a URL) → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    const res = await POST(makePost({ attachmentUrl: 'not-a-url' }), { params });
+    expect(res.status).toBe(400);
+    expect(prismaMock.message.create).not.toHaveBeenCalled();
   });
 });

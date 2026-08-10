@@ -11,8 +11,10 @@ import { useApi } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StudentShell } from './StudentShell';
-import { StudentCommentItem } from './StudentCommentItem';
+import { StudentCommentItem, StudentCommentItemSkeleton } from './StudentCommentItem';
+import { ThesisBlockedBanner } from './ThesisBlockedBanner';
 import type { ThesisListItem, ThesisPerson } from '@/lib/theses';
 
 interface ThesesResponse {
@@ -52,10 +54,11 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
   } = useApi<CommentsResponse>(`/api/theses/${thesisPath}/comments`, { skip: !thesis });
 
   const comments = useMemo(() => commentsRes?.items ?? [], [commentsRes]);
+  const blocked = thesis?.stage === 'Bloqué';
 
   async function onSend(e: FormEvent) {
     e.preventDefault();
-    if (!body.trim() || !thesis) return;
+    if (!body.trim() || !thesis || blocked) return;
     setSending(true);
     try {
       await api(`/api/theses/${thesis.id}/comments`, { method: 'POST', body: { body } });
@@ -63,7 +66,11 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
       setBody('');
       void refreshComments();
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+      if (err instanceof ApiError && err.code === 'THESIS_BLOCKED') {
+        toast('Votre encadrant a bloqué votre mémoire — vous ne pouvez plus commenter.', 'error');
+      } else {
+        toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
+      }
     } finally {
       setSending(false);
     }
@@ -72,7 +79,16 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
   if (thesesLoading && !thesesRes) {
     return (
       <StudentShell name={name} active="comments">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="px-4 py-6 sm:px-8">
+          <div className="border border-border rounded-md overflow-hidden bg-background">
+            <div className="px-5 py-4 border-b border-border bg-surface">
+              <Skeleton className="h-3.5 w-28" />
+            </div>
+            <StudentCommentItemSkeleton />
+            <StudentCommentItemSkeleton />
+            <StudentCommentItemSkeleton />
+          </div>
+        </div>
       </StudentShell>
     );
   }
@@ -80,7 +96,7 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
   if (!thesis) {
     return (
       <StudentShell name={name} active="comments">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center motion-safe:animate-fade-in">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
@@ -92,7 +108,16 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
   if (!commentsRes && !commentsError) {
     return (
       <StudentShell name={name} active="comments">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="px-4 py-6 sm:px-8">
+          <div className="border border-border rounded-md overflow-hidden bg-background">
+            <div className="px-5 py-4 border-b border-border bg-surface">
+              <Skeleton className="h-3.5 w-28" />
+            </div>
+            <StudentCommentItemSkeleton />
+            <StudentCommentItemSkeleton />
+            <StudentCommentItemSkeleton />
+          </div>
+        </div>
       </StudentShell>
     );
   }
@@ -109,33 +134,39 @@ export function StudentCommentsContent({ name }: StudentCommentsContentProps) {
               StudentMessagingContent's conversation pane. */}
           <div className="flex-1 overflow-y-auto max-h-[60vh]">
             {comments.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted-foreground">
+              <p className="px-5 py-6 text-sm text-muted-foreground motion-safe:animate-fade-in">
                 Aucun commentaire pour l&apos;instant.
               </p>
             ) : (
               comments.map((c) => <StudentCommentItem key={c.id} comment={c} />)
             )}
           </div>
-          <form
-            onSubmit={onSend}
-            className="flex items-end gap-3 p-4 border-t border-border bg-surface"
-          >
-            <textarea
-              rows={2}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Votre message…"
-              className="flex-1 border border-border rounded-sm px-3 py-2 text-sm text-foreground bg-input outline-none resize-none"
-            />
-            <button
-              type="submit"
-              disabled={sending || !body.trim()}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50 shrink-0"
+          {blocked ? (
+            <div className="p-4 border-t border-border bg-surface">
+              <ThesisBlockedBanner />
+            </div>
+          ) : (
+            <form
+              onSubmit={onSend}
+              className="flex items-end gap-3 p-4 border-t border-border bg-surface"
             >
-              <Icon i="send" size={12} />
-              {sending ? 'Envoi…' : 'Envoyer'}
-            </button>
-          </form>
+              <textarea
+                rows={2}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Votre message…"
+                className="flex-1 border border-border rounded-sm px-3 py-2 text-sm text-foreground bg-input outline-none resize-none"
+              />
+              <button
+                type="submit"
+                disabled={sending || !body.trim()}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50 shrink-0 transition duration-150 motion-safe:active:scale-[0.98]"
+              >
+                <Icon i="send" size={12} />
+                {sending ? 'Envoi…' : 'Envoyer'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </StudentShell>

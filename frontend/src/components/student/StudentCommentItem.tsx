@@ -7,6 +7,7 @@
 // phase-7-dashboard-etudiant.md).
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { displayName, relativeTime, type ThesisPerson } from '@/lib/theses';
 
 interface StudentCommentItemProps {
@@ -27,7 +28,11 @@ export function StudentCommentItem({ comment }: StudentCommentItemProps) {
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2">
-          <Avatar name={displayName(comment.author)} className="h-6 w-6" />
+          <Avatar
+            name={displayName(comment.author)}
+            src={comment.author.avatarUrl}
+            className="h-6 w-6"
+          />
           <span className="text-xs font-semibold text-foreground">
             {displayName(comment.author)}
           </span>
@@ -56,6 +61,20 @@ export function StudentCommentItem({ comment }: StudentCommentItemProps) {
           Marquer comme résolu
         </button>
       )}
+    </div>
+  );
+}
+
+export function StudentCommentItemSkeleton() {
+  return (
+    <div className="px-5 py-4 border-b border-border last:border-0">
+      <div className="flex items-center gap-2 mb-2">
+        <Skeleton className="h-6 w-6 rounded-full" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-12" />
+      </div>
+      <Skeleton className="h-3.5 w-full" />
+      <Skeleton className="h-3.5 w-2/3 mt-1.5" />
     </div>
   );
 }

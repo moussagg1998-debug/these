@@ -17,11 +17,14 @@ const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 const params = Promise.resolve({ id: 'thesis-1' });
 
-function thesisRow(overrides: Partial<{ studentId: string; encadrantId: string }> = {}) {
+function thesisRow(
+  overrides: Partial<{ studentId: string; encadrantId: string; stage: string }> = {},
+) {
   return {
     id: 'thesis-1',
     studentId: overrides.studentId ?? 'stu-1',
     encadrantId: overrides.encadrantId ?? 'enc-1',
+    stage: overrides.stage ?? 'Rédaction',
   };
 }
 
@@ -64,6 +67,25 @@ describe('GET /api/theses/[id]/documents', () => {
     const body = await res.json();
     expect(body.items).toEqual([]);
   });
+
+  it('student viewer sees everything — no scheduledAt visibility filter', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ studentId: 'user-1' }) as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    await GET(makeGet(), { params });
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    expect(args?.where).toEqual({ thesisId: 'thesis-1' });
+  });
+
+  it('encadrant viewer excludes documents still scheduled for the future', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    await GET(makeGet(), { params });
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.OR).toEqual([
+      { scheduledAt: null },
+      { scheduledAt: { lte: expect.any(Date) } },
+    ]);
+  });
 });
 
 describe('POST /api/theses/[id]/documents', () => {
@@ -81,6 +103,17 @@ describe('POST /api/theses/[id]/documents', () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe('STUDENT_ONLY');
+  });
+
+  it('thesis blocked → 403 THESIS_BLOCKED, no Prisma writes', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    const res = await POST(makePost({ fileUrl: 'https://x.com/a.pdf' }), { params });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('THESIS_BLOCKED');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
   });
 
   it('invalid fileUrl → 400 VALIDATION_FAILED', async () => {
@@ -126,5 +159,37 @@ describe('POST /api/theses/[id]/documents', () => {
     const createArg = prismaMock.document.create.mock.calls[0]?.[0];
     expect(createArg?.data?.fileName).toBe('Memoire_v4.docx');
     expect(createArg?.data?.sizeBytes).toBe(204800);
+  });
+
+  it('scheduledAt in the past → 400 SCHEDULED_AT_IN_PAST', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    const res = await POST(
+      makePost({
+        fileUrl: 'https://x.com/a.pdf',
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
+      }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('SCHEDULED_AT_IN_PAST');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('scheduledAt in the future → creates with scheduledAt, does not notify yet', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    prismaMock.document.create.mockResolvedValue({ id: 'doc-1' } as never);
+    const futureIso = new Date(Date.now() + 60 * 60_000).toISOString();
+    const res = await POST(makePost({ fileUrl: 'https://x.com/a.pdf', scheduledAt: futureIso }), {
+      params,
+    });
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.document.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.scheduledAt).toEqual(new Date(futureIso));
+    expect(prismaMock.notification.create).not.toHaveBeenCalled();
   });
 });

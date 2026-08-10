@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
+import { SuccessCheckmark } from '@/components/ui/SuccessCheckmark';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -51,17 +52,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3.5 text-sm font-medium shadow-lg transition-opacity ${
-              t.exiting ? 'opacity-0' : 'opacity-100'
+            className={`pointer-events-auto flex items-center gap-3 rounded-2xl border bg-surface px-5 py-3.5 text-sm font-medium shadow-lg transition-all duration-300 ${
+              t.exiting
+                ? 'opacity-0 -translate-y-2'
+                : 'translate-y-0 opacity-100 motion-safe:animate-toast-in'
             } ${
               t.type === 'success'
-                ? 'border-green-200 bg-white text-green-700'
+                ? 'border-success/30 text-success'
                 : t.type === 'error'
-                  ? 'border-red-200 bg-white text-red-700'
-                  : 'border-gray-200 bg-white text-gray-700'
+                  ? 'border-danger/30 text-danger'
+                  : 'border-border text-foreground'
             }`}
             style={{ maxWidth: '90vw' }}
           >
+            {t.type === 'success' && <SuccessCheckmark />}
             {t.message}
           </div>
         ))}

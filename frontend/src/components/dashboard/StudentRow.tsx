@@ -2,6 +2,7 @@
 // to a real ThesisListItem instead of the mock array Banani hardcoded.
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/ui/Skeleton';
 import {
   STAGE_COLORS,
   URGENCY_DOT,
@@ -25,7 +26,7 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
     <div className="flex flex-col gap-3 px-5 py-4 border-b border-border bg-surface transition-colors duration-150 hover:bg-input/40 lg:flex-row lg:items-center lg:gap-4">
       {/* Avatar + name + topic */}
       <div className="flex items-center gap-3 lg:w-64 lg:shrink-0">
-        <Avatar name={name} className="h-9 w-9 shrink-0" />
+        <Avatar name={name} src={thesis.student.avatarUrl} className="h-9 w-9 shrink-0" />
         <div className="min-w-0">
           <div className="text-sm font-semibold text-foreground">{name}</div>
           <div className="text-xs text-muted-foreground leading-snug line-clamp-1">
@@ -47,7 +48,7 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
           <div className="flex items-center gap-2">
             <div className="w-16 lg:flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-primary rounded-full"
+                className="h-full bg-primary rounded-full transition-[width] duration-500 ease-out"
                 style={{ width: `${thesis.progress}%` }}
               />
             </div>
@@ -91,6 +92,40 @@ export function StudentRow({ thesis }: { thesis: ThesisListItem }) {
         >
           Ouvrir
         </Link>
+      </div>
+    </div>
+  );
+}
+
+export function StudentRowSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 px-5 py-4 border-b border-border bg-surface last:border-b-0 lg:flex-row lg:items-center lg:gap-4">
+      <div className="flex items-center gap-3 lg:w-64 lg:shrink-0">
+        <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+        <div className="min-w-0 flex flex-col gap-1.5">
+          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="h-3 w-40" />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 lg:contents">
+        <div className="lg:w-28 lg:shrink-0">
+          <Skeleton className="h-5 w-16" />
+        </div>
+        <div className="lg:w-36 lg:shrink-0">
+          <Skeleton className="h-1.5 w-24 rounded-full" />
+        </div>
+        <div className="lg:w-36 lg:shrink-0">
+          <Skeleton className="h-3.5 w-16" />
+        </div>
+        <div className="lg:w-20 lg:shrink-0">
+          <Skeleton className="h-3.5 w-12" />
+        </div>
+        <div className="lg:flex-1">
+          <Skeleton className="h-3.5 w-24" />
+        </div>
+      </div>
+      <div className="shrink-0 self-start lg:self-center">
+        <Skeleton className="h-7 w-16" />
       </div>
     </div>
   );

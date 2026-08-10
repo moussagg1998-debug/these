@@ -25,6 +25,11 @@ const CreateBody = z.object({
   // `bytes` — pass them through here once a real upload UI exists (Phase 6).
   fileName: z.string().trim().max(255).optional(),
   sizeBytes: z.number().int().positive().optional(),
+  // "Programmer le dépôt" — file uploads to storage now regardless, but a
+  // future scheduledAt defers visibility to the encadrant + the
+  // DOCUMENT_SUBMITTED notification until the scheduled-deposits cron
+  // releases it (see that route).
+  scheduledAt: z.string().datetime().optional(),
 });
 
 interface RouteParams {
@@ -41,8 +46,16 @@ export async function GET(req: NextRequest, { params }: RouteParams): Promise<Ne
     const access = await resolveThesisAccess(prisma, id, auth.user.sub);
     if (access instanceof NextResponse) return access;
 
+    // The encadrant doesn't see a scheduled deposit until it's released —
+    // the student (uploader) can always see their own, pending or not.
+    const isEncadrant = access.encadrantId === auth.user.sub;
     const documents = await prisma.document.findMany({
-      where: { thesisId: id },
+      where: {
+        thesisId: id,
+        ...(isEncadrant
+          ? { OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }] }
+          : {}),
+      },
       orderBy: [{ uploadedAt: 'desc' }],
     });
 
@@ -68,6 +81,12 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         { status: 403, headers: { 'x-request-id': ctx.requestId } },
       );
     }
+    if (access.stage === 'Bloqué') {
+      return NextResponse.json(
+        { error: 'THESIS_BLOCKED', message: 'The encadrant has blocked this thesis' },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
 
     const parsed = CreateBody.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
@@ -81,6 +100,14 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       );
     }
 
+    const scheduledAt = parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null;
+    if (scheduledAt && scheduledAt.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { error: 'SCHEDULED_AT_IN_PAST', message: 'scheduledAt must be in the future' },
+        { status: 400, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
     const document = await prisma.document.create({
       data: {
         thesisId: id,
@@ -88,22 +115,28 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         ...(parsed.data.chapter !== undefined ? { chapter: parsed.data.chapter } : {}),
         ...(parsed.data.fileName !== undefined ? { fileName: parsed.data.fileName } : {}),
         ...(parsed.data.sizeBytes !== undefined ? { sizeBytes: parsed.data.sizeBytes } : {}),
+        ...(scheduledAt ? { scheduledAt } : {}),
       },
     });
 
-    try {
-      await createNotification(prisma, {
-        userId: access.encadrantId,
-        type: 'DOCUMENT_SUBMITTED',
-        title: 'Nouveau document déposé',
-        body: parsed.data.chapter
-          ? `Nouveau dépôt : ${parsed.data.chapter}`
-          : 'Nouveau document déposé',
-        data: { thesisId: id, documentId: document.id },
-        dedupeKey: `document-submitted:${document.id}`,
-      });
-    } catch {
-      // Notification is best-effort — the document is already committed.
+    // A scheduled deposit stays invisible to the encadrant until the
+    // scheduled-deposits cron releases it — that's when this same
+    // notification fires instead.
+    if (!scheduledAt) {
+      try {
+        await createNotification(prisma, {
+          userId: access.encadrantId,
+          type: 'DOCUMENT_SUBMITTED',
+          title: 'Nouveau document déposé',
+          body: parsed.data.chapter
+            ? `Nouveau dépôt : ${parsed.data.chapter}`
+            : 'Nouveau document déposé',
+          data: { thesisId: id, documentId: document.id },
+          dedupeKey: `document-submitted:${document.id}`,
+        });
+      } catch {
+        // Notification is best-effort — the document is already committed.
+      }
     }
 
     return NextResponse.json(document, { status: 201, headers: { 'x-request-id': ctx.requestId } });

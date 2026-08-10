@@ -13,6 +13,9 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { StudentProfileSidebar } from '@/components/dashboard/StudentProfileSidebar';
@@ -115,11 +118,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   }, [documents, comments]);
 
   if (!user || profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType === null) {
@@ -150,7 +149,38 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   if (thesisLoading || !thesis) {
     return (
       <DashboardShell name={name}>
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="flex-1 flex flex-col lg:flex-row gap-0 min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
+            <div className="flex items-center gap-6 pb-4 border-b border-border mb-6">
+              {TABS.map((tab) => (
+                <Skeleton key={tab} className="h-4 w-16" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+            <Skeleton className="h-24 w-full mb-6" />
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          </div>
+          <div className="w-full lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface flex flex-col px-5 py-6 gap-4">
+            <div className="flex items-start gap-4 pb-4 border-b border-border">
+              <Skeleton className="h-14 w-14 rounded-md" />
+              <div className="flex-1 flex flex-col gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
       </DashboardShell>
     );
   }
@@ -203,15 +233,15 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 );
               }
               return (
-                <button
-                  key={tab}
-                  type="button"
-                  disabled
-                  title="Bientôt disponible"
-                  className="shrink-0 cursor-not-allowed px-3 py-2 text-sm font-medium text-muted-foreground"
-                >
-                  {tab}
-                </button>
+                <Tooltip key={tab} label="Bientôt disponible">
+                  <button
+                    type="button"
+                    disabled
+                    className="shrink-0 cursor-not-allowed px-3 py-2 text-sm font-medium text-muted-foreground"
+                  >
+                    {tab}
+                  </button>
+                </Tooltip>
               );
             })}
           </div>
@@ -230,7 +260,10 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-2">
                 <span className="text-lg font-semibold text-foreground">{thesis.progress}%</span>
                 <div className="flex-1 h-2 bg-input rounded-full overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${thesis.progress}%` }} />
+                  <div
+                    className="h-full bg-primary transition-[width] duration-500 ease-out"
+                    style={{ width: `${thesis.progress}%` }}
+                  />
                 </div>
               </div>
             </div>
@@ -254,7 +287,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
               Activité récente
             </div>
             {activity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune activité pour l&apos;instant.</p>
+              <p className="text-sm text-muted-foreground motion-safe:animate-fade-in">
+                Aucune activité pour l&apos;instant.
+              </p>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                 {activity.map((a) => (

@@ -83,7 +83,7 @@ export function PasswordSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground"
+            className="text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
             aria-label="Fermer"
           >
             <Icon i="x" size={18} />
@@ -147,14 +147,14 @@ export function PasswordSettingsModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm transition-colors duration-150 hover:bg-surface"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
             >
               {submitting
                 ? 'Enregistrement…'

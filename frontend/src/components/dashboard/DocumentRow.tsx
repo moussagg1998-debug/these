@@ -11,6 +11,7 @@ import {
   type DocumentListItem,
 } from '@/lib/theses';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export function DocumentRow({ doc }: { doc: DocumentListItem }) {
   const stageClass = STAGE_COLORS[doc.thesis.stage] || 'bg-muted text-muted-foreground';
@@ -44,6 +45,27 @@ export function DocumentRow({ doc }: { doc: DocumentListItem }) {
         >
           <Icon i="download" size={14} />
         </a>
+      </div>
+    </div>
+  );
+}
+
+export function DocumentRowSkeleton() {
+  return (
+    <div className="flex flex-col gap-2 px-5 py-3 border-b border-border last:border-0 lg:flex-row lg:items-center lg:gap-4">
+      <div className="flex items-center gap-2 lg:w-40 lg:shrink-0">
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-3.5 w-24" />
+      </div>
+      <div className="flex flex-wrap items-center gap-3 lg:contents">
+        <Skeleton className="h-3.5 w-28 lg:w-48" />
+        <Skeleton className="h-5 w-16 lg:w-28" />
+        <Skeleton className="h-3.5 w-20 lg:w-32" />
+        <Skeleton className="h-3.5 w-10 lg:w-20" />
+        <Skeleton className="h-3.5 w-10 lg:flex-1" />
+      </div>
+      <div className="flex items-center justify-end lg:shrink-0 lg:w-16">
+        <Skeleton className="h-3.5 w-3.5" />
       </div>
     </div>
   );

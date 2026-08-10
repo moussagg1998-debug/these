@@ -9,6 +9,7 @@
 import { useState, type FormEvent } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import {
@@ -52,21 +53,21 @@ export function StudentProfileSidebar({
   const [stageEditorOpen, setStageEditorOpen] = useState(false);
   const [pendingStage, setPendingStage] = useState(stage);
   const [savingStage, setSavingStage] = useState(false);
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const name = displayName(student);
 
-  async function onRemoveStudent() {
-    if (
-      !window.confirm(
-        `Retirer ${name} de votre liste d'encadrement ? Les documents, commentaires et échéances sont conservés, mais l'étudiant n'apparaîtra plus dans "Mes étudiants".`,
-      )
-    ) {
-      return;
-    }
+  function onRemoveStudent() {
+    setRemoveConfirmOpen(true);
+  }
+
+  async function confirmRemoveStudent() {
     setArchiving(true);
     try {
       await api(`/api/theses/${thesisId}`, { method: 'DELETE' });
       toast(`${name} a été retiré(e) de votre liste d'encadrement.`, 'success');
+      setRemoveConfirmOpen(false);
       onArchived?.();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
@@ -92,13 +93,13 @@ export function StudentProfileSidebar({
     }
   }
 
-  async function onSaveStage(e: FormEvent) {
-    e.preventDefault();
+  async function applyStageChange() {
     setSavingStage(true);
     try {
       await api(`/api/theses/${thesisId}`, { method: 'PATCH', body: { stage: pendingStage } });
       toast('Étape mise à jour.', 'success');
       setStageEditorOpen(false);
+      setBlockConfirmOpen(false);
       onStageChanged?.();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : 'Une erreur est survenue', 'error');
@@ -107,10 +108,19 @@ export function StudentProfileSidebar({
     }
   }
 
+  function onSaveStage(e: FormEvent) {
+    e.preventDefault();
+    if (pendingStage === 'Bloqué' && stage !== 'Bloqué') {
+      setBlockConfirmOpen(true);
+      return;
+    }
+    void applyStageChange();
+  }
+
   return (
     <div className="w-full lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface flex flex-col px-5 py-6 gap-6">
       <div className="flex items-start gap-4 pb-4 border-b border-border">
-        <Avatar name={name} className="h-14 w-14 rounded-md" />
+        <Avatar name={name} src={student.avatarUrl} className="h-14 w-14 rounded-md" />
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-sm text-foreground">{name}</div>
           <div className="text-xs text-muted-foreground mt-0.5 truncate">{student.email}</div>
@@ -131,14 +141,14 @@ export function StudentProfileSidebar({
                 <button
                   type="submit"
                   disabled={savingStage}
-                  className="flex-1 px-2 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50"
+                  className="flex-1 px-2 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
                 >
                   {savingStage ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setStageEditorOpen(false)}
-                  className="px-2 py-1.5 border border-border text-foreground text-xs font-medium rounded-sm"
+                  className="px-2 py-1.5 border border-border text-foreground text-xs font-medium rounded-sm transition-colors duration-150 hover:bg-input"
                 >
                   Annuler
                 </button>
@@ -155,7 +165,7 @@ export function StudentProfileSidebar({
                   setPendingStage(stage);
                   setStageEditorOpen(true);
                 }}
-                className="text-xs font-medium text-primary underline"
+                className="text-xs font-medium text-primary underline transition-colors duration-150 hover:text-primary/80"
               >
                 Changer d&apos;étape
               </button>
@@ -173,7 +183,7 @@ export function StudentProfileSidebar({
         </div>
         <div className="w-full h-2 bg-input rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-secondary to-primary"
+            className="h-full bg-gradient-to-r from-secondary to-primary transition-[width] duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -246,7 +256,7 @@ export function StudentProfileSidebar({
               <button
                 type="submit"
                 disabled={sending}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
               >
                 <Icon i="send" size={12} />
                 {sending ? 'Envoi…' : 'Envoyer'}
@@ -254,7 +264,7 @@ export function StudentProfileSidebar({
               <button
                 type="button"
                 onClick={() => setComposerOpen(false)}
-                className="px-3 py-2.5 border border-border text-foreground text-xs font-medium rounded-sm"
+                className="px-3 py-2.5 border border-border text-foreground text-xs font-medium rounded-sm transition-colors duration-150 hover:bg-input"
               >
                 Annuler
               </button>
@@ -264,7 +274,7 @@ export function StudentProfileSidebar({
           <button
             type="button"
             onClick={() => setComposerOpen(true)}
-            className="flex items-center justify-center gap-2 px-3 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm"
+            className="flex items-center justify-center gap-2 px-3 py-2.5 bg-primary text-primary-foreground text-xs font-medium rounded-sm transition duration-150 motion-safe:active:scale-[0.98]"
           >
             <Icon i="send" size={12} />
             Envoyer un retour
@@ -272,7 +282,7 @@ export function StudentProfileSidebar({
         )}
         <button
           type="button"
-          onClick={() => void onRemoveStudent()}
+          onClick={onRemoveStudent}
           disabled={archiving}
           className="flex items-center justify-center gap-2 px-3 py-2.5 bg-surface border border-danger text-danger text-xs font-medium rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 hover:bg-danger hover:text-danger-foreground"
         >
@@ -280,6 +290,32 @@ export function StudentProfileSidebar({
           {archiving ? 'Retrait…' : "Retirer l'étudiant"}
         </button>
       </div>
+
+      {blockConfirmOpen && (
+        <ConfirmModal
+          title="Bloquer ce mémoire ?"
+          description={`${name} ne pourra plus déposer de document, envoyer de message ni commenter tant que vous n'aurez pas changé cette étape. L'étudiant verra un message l'informant du blocage.`}
+          confirmLabel="Bloquer le mémoire"
+          confirmBusyLabel="Blocage…"
+          tone="danger"
+          busy={savingStage}
+          onConfirm={() => void applyStageChange()}
+          onCancel={() => setBlockConfirmOpen(false)}
+        />
+      )}
+
+      {removeConfirmOpen && (
+        <ConfirmModal
+          title="Retirer cet étudiant ?"
+          description={`Retirer ${name} de votre liste d'encadrement ? Les documents, commentaires et échéances sont conservés, mais l'étudiant n'apparaîtra plus dans "Mes étudiants".`}
+          confirmLabel="Retirer l'étudiant"
+          confirmBusyLabel="Retrait…"
+          tone="danger"
+          busy={archiving}
+          onConfirm={() => void confirmRemoveStudent()}
+          onCancel={() => setRemoveConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }

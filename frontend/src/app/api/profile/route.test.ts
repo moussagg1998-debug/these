@@ -56,11 +56,15 @@ describe('GET /api/profile', () => {
       name: null,
       email: 'me@example.com',
       emailVerifiedAt: null,
+      avatarUrl: null,
       department: null,
       academicGrade: null,
       specialties: [],
       bio: null,
       institution: null,
+      locale: 'fr',
+      timezone: 'Africa/Dakar',
+      dateFormat: 'long',
     } as never);
     const res = await GET(makeGet());
     const body = await res.json();
@@ -70,12 +74,35 @@ describe('GET /api/profile', () => {
       name: null,
       email: 'me@example.com',
       emailVerified: false,
+      avatarUrl: null,
       department: null,
       academicGrade: null,
       specialties: [],
       bio: null,
       institution: null,
+      locale: 'fr',
+      timezone: 'Africa/Dakar',
+      dateFormat: 'long',
     });
+  });
+
+  it('returns avatarUrl when set', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      profileType: 'ENCADRANT',
+      institutionId: null,
+      name: 'Amadou Diallo',
+      email: 'amadou@ucad.sn',
+      emailVerifiedAt: null,
+      avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1/user-1/abc.jpg',
+      department: null,
+      academicGrade: null,
+      specialties: [],
+      bio: null,
+      institution: null,
+    } as never);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.avatarUrl).toBe('https://res.cloudinary.com/demo/image/upload/v1/user-1/abc.jpg');
   });
 
   it('returns institution {id, name} when the user belongs to one', async () => {
@@ -196,6 +223,27 @@ describe('PATCH /api/profile', () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     const res = await PATCH(makePatch({ profileType: 'ETUDIANT', department: 'X' }));
     expect(res.status).toBe(409);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('sets avatarUrl after an upload', async () => {
+    prismaMock.user.update.mockResolvedValue({
+      avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1/user-1/abc.jpg',
+    } as never);
+    const res = await PATCH(
+      makePatch({ avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1/user-1/abc.jpg' }),
+    );
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    const updateArg = prismaMock.user.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({
+      avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1/user-1/abc.jpg',
+    });
+  });
+
+  it('non-URL avatarUrl → 400 VALIDATION_FAILED', async () => {
+    const res = await PATCH(makePatch({ avatarUrl: 'not-a-url' }));
+    expect(res.status).toBe(400);
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });

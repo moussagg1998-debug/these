@@ -1,30 +1,33 @@
 @import 'tailwindcss';
 
-/* ThèseFacile design tokens — mirrored verbatim from the Banani flow
-   (YQWElzV_9JrI, /style.css) so components using bg-background,
-   text-primary, etc. match the fetched screens pixel-for-pixel.
-   See .planning/banani/IMPLEMENTATION-PLAN.md § Design tokens. */
+/* ThèseFacile design tokens — dark forest-green palette (2026-08-08 redesign,
+   replacing the original Banani light theme app-wide). Background/foreground
+   intentionally reuse each other's old hex (surface/foreground swap) so the
+   overall luminance relationship — dark chrome, bright accents — stays
+   consistent with every semantic pairing below. */
 @theme {
-  --color-background: #f5f3ee;
-  --color-foreground: #1a1a18;
-  --color-border: #ddd9d0;
-  --color-input: #edeae3;
-  --color-primary: #1b4332;
-  --color-primary-foreground: #f5f3ee;
-  --color-secondary: #d8f3dc;
-  --color-secondary-foreground: #1b4332;
-  --color-muted: #ddd9d0;
-  --color-muted-foreground: #7a7569;
+  --color-background: #0f1f17;
+  --color-foreground: #f5f3ee;
+  --color-border: #24382c;
+  --color-input: #16281e;
+  --color-primary: #4ade80;
+  --color-primary-foreground: #0f1f17;
+  --color-secondary: #1f3d2c;
+  --color-secondary-foreground: #b9f6ca;
+  --color-muted: #1b2a21;
+  --color-muted-foreground: #8fa396;
   --color-accent: #c9782a;
   --color-accent-foreground: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-foreground: #1a1a18;
+  --color-surface: #142720;
+  --color-surface-foreground: #f5f3ee;
   --color-warning: #f5a623;
   --color-warning-foreground: #1a1a18;
-  --color-success: #2e7d52;
+  --color-success: #2fa968;
   --color-success-foreground: #ffffff;
-  --color-danger: #c0392b;
+  --color-danger: #ef4444;
   --color-danger-foreground: #ffffff;
+  --color-gold: #d4af37;
+  --color-gold-foreground: #1a1400;
 
   --radius-sm: 3px;
   --radius-md: 6px;
@@ -48,6 +51,35 @@
   --animate-scale-in: scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-slide-up: slide-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-slide-in-left: slide-in-left 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-toast-in: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-check-draw: check-draw 350ms cubic-bezier(0.65, 0, 0.35, 1) 150ms backwards;
+}
+
+/* Native <input type="date"/"datetime-local"> render a black
+   calendar-picker-indicator glyph by default — invisible against this
+   theme's dark inputs. Rather than approximate --color-primary via a
+   filter() (Chromium-only and imprecise), the indicator is made invisible
+   but still clickable, and call sites overlay a real <Icon i="calendar"
+   className="text-primary"> for an exact, theme-consistent color.
+   The indicator's native hitbox is only the ~20px icon Chromium would
+   have drawn — stretching it (position/inset) to cover the whole input
+   means a click anywhere, including on the overlay icon (which sits
+   above it with pointer-events: none and lets the click fall through),
+   reliably opens the picker instead of missing a misaligned hitbox. */
+input[type='date'],
+input[type='datetime-local'] {
+  position: relative;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
 }
 
 @keyframes fade-in {
@@ -87,5 +119,34 @@
   }
   to {
     transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }

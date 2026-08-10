@@ -43,6 +43,7 @@ import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
 import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/cloudinary-client';
+import { logUploadError, type UploadErrorCode } from '@/lib/server/upload/log-error';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 
@@ -56,6 +57,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const auth = await requireAuth();
     if (auth instanceof NextResponse) return auth;
+    const userId = auth.user.sub;
+
+    // Best-effort — feeds Admin → Gestion des documents' "erreurs
+    // d'upload"/"erreurs Cloudinary" KPIs. Never let a logging failure
+    // change the error response already being returned to the caller.
+    async function recordUploadError(
+      code: UploadErrorCode,
+      source: 'VALIDATION' | 'CLOUDINARY',
+      extras: { mimeType?: string | null; sizeBytes?: number | null } = {},
+    ): Promise<void> {
+      try {
+        await logUploadError(prisma, { code, source, userId, ...extras });
+      } catch {
+        // logging is best-effort
+      }
+    }
 
     // Read env at handler-call time so vi.stubEnv works and operators can flip
     // limits without redeploy. Never hoist these to module top.
@@ -72,6 +89,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       !process.env.CLOUDINARY_API_KEY ||
       !process.env.CLOUDINARY_API_SECRET
     ) {
+      await recordUploadError('STORAGE_NOT_CONFIGURED', 'VALIDATION');
       return NextResponse.json(
         { code: 'STORAGE_NOT_CONFIGURED', message: 'Storage not configured' },
         { status: 503, headers: { 'x-request-id': ctx.requestId } },
@@ -81,6 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const form = await req.formData();
     const file = form.get('file');
     if (!(file instanceof File)) {
+      await recordUploadError('UPLOAD_MISSING_FILE', 'VALIDATION');
       return NextResponse.json(
         { code: 'UPLOAD_MISSING_FILE', message: 'file field is required' },
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
@@ -88,6 +107,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (file.size > maxBytes) {
+      await recordUploadError('FILE_TOO_LARGE', 'VALIDATION', {
+        mimeType: file.type,
+        sizeBytes: file.size,
+      });
       return NextResponse.json(
         { code: 'FILE_TOO_LARGE', message: `Max ${maxBytes} bytes` },
         { status: 413, headers: { 'x-request-id': ctx.requestId } },
@@ -95,6 +118,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (!allowedMime.includes(file.type)) {
+      await recordUploadError('INVALID_MIME', 'VALIDATION', {
+        mimeType: file.type,
+        sizeBytes: file.size,
+      });
       return NextResponse.json(
         { code: 'INVALID_MIME', message: `MIME ${file.type} not allowed` },
         { status: 415, headers: { 'x-request-id': ctx.requestId } },
@@ -107,6 +134,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let buf = Buffer.from(ab);
     const { match, sniffed } = verifyMagicBytes(buf, file.type);
     if (sniffed && !match) {
+      await recordUploadError('MAGIC_BYTE_MISMATCH', 'VALIDATION', {
+        mimeType: file.type,
+        sizeBytes: file.size,
+      });
       return NextResponse.json(
         { code: 'MAGIC_BYTE_MISMATCH', message: 'File bytes do not match declared MIME' },
         { status: 415, headers: { 'x-request-id': ctx.requestId } },
@@ -132,6 +163,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         storedMime = 'image/jpeg';
         storedFilename = storedFilename.replace(/\.(heic|heif)$/i, '.jpg');
       } catch {
+        await recordUploadError('HEIC_CONVERSION_FAILED', 'VALIDATION', {
+          mimeType: storedMime,
+          sizeBytes: buf.length,
+        });
         return NextResponse.json(
           { code: 'HEIC_CONVERSION_FAILED', message: 'HEIC conversion failed' },
           { status: 502, headers: { 'x-request-id': ctx.requestId } },
@@ -149,11 +184,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       uploaded = await uploadBuffer(publicId, buf, storedMime);
     } catch (e) {
       if (e instanceof StorageNotConfiguredError) {
+        await recordUploadError('STORAGE_NOT_CONFIGURED', 'VALIDATION', {
+          mimeType: storedMime,
+          sizeBytes: buf.length,
+        });
         return NextResponse.json(
           { code: 'STORAGE_NOT_CONFIGURED', message: 'Storage not configured' },
           { status: 503, headers: { 'x-request-id': ctx.requestId } },
         );
       }
+      await recordUploadError('UPLOAD_FAILED', 'CLOUDINARY', {
+        mimeType: storedMime,
+        sizeBytes: buf.length,
+      });
       return NextResponse.json(
         { code: 'UPLOAD_FAILED', message: 'Storage write failed' },
         { status: 502, headers: { 'x-request-id': ctx.requestId } },

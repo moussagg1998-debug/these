@@ -122,4 +122,28 @@ describe('POST /api/theses/[id]/deadlines', () => {
     const createArg = prismaMock.deadline.create.mock.calls[0]?.[0];
     expect(createArg?.data?.description).toBe('Chapitre 3 complet');
   });
+
+  it('remindEnabled defaults to true when omitted', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.deadline.create.mockResolvedValue({ id: 'd-3' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    await POST(makePost({ title: 'Dépôt final', dueAt: '2026-06-01' }), { params });
+    const createArg = prismaMock.deadline.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.remindEnabled).toBe(true);
+  });
+
+  it('remindEnabled: false is passed through to the create call', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.deadline.create.mockResolvedValue({ id: 'd-4' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    await POST(makePost({ title: 'Dépôt final', dueAt: '2026-06-01', remindEnabled: false }), {
+      params,
+    });
+    const createArg = prismaMock.deadline.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.remindEnabled).toBe(false);
+  });
 });

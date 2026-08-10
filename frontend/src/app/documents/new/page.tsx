@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { StudentFileUploadForm } from '@/components/student/StudentFileUploadForm';
 import type { ThesisListItem } from '@/lib/theses';
 
@@ -43,14 +44,12 @@ export default function NewDocumentPage() {
   }, [shouldRedirect, router]);
 
   if (stillResolving || shouldRedirect) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   const name = profile!.name || profile!.email.split('@')[0] || profile!.email;
 
-  return <StudentFileUploadForm thesisId={thesis!.id} name={name} />;
+  return (
+    <StudentFileUploadForm thesisId={thesis!.id} name={name} blocked={thesis!.stage === 'Bloqué'} />
+  );
 }

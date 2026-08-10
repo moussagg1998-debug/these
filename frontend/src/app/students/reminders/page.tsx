@@ -23,8 +23,12 @@ import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
-import { ReminderRecipientRow } from '@/components/dashboard/ReminderRecipientRow';
+import {
+  ReminderRecipientRow,
+  ReminderRecipientRowSkeleton,
+} from '@/components/dashboard/ReminderRecipientRow';
 import { urgencyFromDueDate, type ThesisListItem } from '@/lib/theses';
 
 interface ProfileResponse {
@@ -112,11 +116,7 @@ export default function GroupRemindersPage() {
   }, [items, initialized]);
 
   if (!user || profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType !== 'ENCADRANT') {
@@ -241,7 +241,7 @@ export default function GroupRemindersPage() {
                   <button
                     type="button"
                     onClick={selectAll}
-                    className="text-xs text-secondary-foreground"
+                    className="text-xs text-secondary-foreground transition-colors duration-150 hover:text-secondary-foreground/70"
                   >
                     Tout sélectionner
                   </button>
@@ -249,7 +249,7 @@ export default function GroupRemindersPage() {
                   <button
                     type="button"
                     onClick={selectNone}
-                    className="text-xs text-muted-foreground"
+                    className="text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground"
                   >
                     Désélectionner
                   </button>
@@ -257,13 +257,17 @@ export default function GroupRemindersPage() {
               </div>
 
               {thesesLoading && !theses ? (
-                <p className="text-sm text-muted-foreground">Chargement…</p>
+                <div className="border border-border rounded-md overflow-hidden">
+                  <ReminderRecipientRowSkeleton />
+                  <ReminderRecipientRowSkeleton />
+                  <ReminderRecipientRowSkeleton />
+                </div>
               ) : thesesError ? (
                 <p className="text-sm text-danger">
                   Impossible de charger vos étudiants. Réessayez plus tard.
                 </p>
               ) : items.length === 0 ? (
-                <div className="border border-dashed border-border rounded-md p-8 text-center">
+                <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
                   <p className="text-sm text-muted-foreground">
                     Aucun étudiant à contacter pour l&apos;instant.
                   </p>
@@ -275,7 +279,7 @@ export default function GroupRemindersPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="border border-border rounded-md overflow-hidden">
+                <div className="border border-border rounded-md max-h-64 overflow-y-auto overflow-x-hidden">
                   {items.map((thesis) => (
                     <ReminderRecipientRow
                       key={thesis.id}
@@ -356,7 +360,7 @@ export default function GroupRemindersPage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-5 h-5 bg-primary text-primary-foreground text-xs font-semibold rounded-full flex items-center justify-center shrink-0">
-                  3
+                  {Number(emailChannel) + Number(inAppChannel)}
                 </span>
                 <h2 className="text-sm font-semibold text-foreground">Canal d&apos;envoi</h2>
               </div>
@@ -456,7 +460,7 @@ export default function GroupRemindersPage() {
                 type="button"
                 onClick={onSubmit}
                 disabled={!canSubmit}
-                className="w-full bg-primary text-primary-foreground text-sm font-semibold py-3 rounded-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-150"
+                className="w-full bg-primary text-primary-foreground text-sm font-semibold py-3 rounded-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 motion-safe:enabled:active:scale-[0.98]"
               >
                 <Icon i="send" size={14} />
                 {submitting ? 'Envoi…' : 'Envoyer les rappels'}

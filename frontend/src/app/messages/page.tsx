@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { StudentMessagingContent } from '@/components/student/StudentMessagingContent';
 import { EncadrantMessagingContent } from '@/components/dashboard/EncadrantMessagingContent';
 import type { ThesisListItem } from '@/lib/theses';
@@ -49,11 +50,7 @@ export default function MessagesPage() {
   }, [needsOnboarding, studentWithoutThesis, router]);
 
   if (stillResolving || needsOnboarding || studentWithoutThesis) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   const name = profile!.name || profile!.email.split('@')[0] || profile!.email;

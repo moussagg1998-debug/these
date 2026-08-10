@@ -17,9 +17,18 @@ import { resolveThesisAccess } from '@/lib/server/theses/guards';
 import { createNotification } from '@/lib/server/notifications';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const CreateBody = z.object({
-  body: z.string().trim().min(1).max(5000),
-});
+const CreateBody = z
+  .object({
+    body: z.string().trim().max(5000).optional(),
+    // Uploaded beforehand via POST /api/upload (same Cloudinary pipeline as
+    // avatars/documents) — the route just persists the returned URL.
+    attachmentUrl: z.string().trim().url().max(2000).optional(),
+    attachmentFilename: z.string().trim().max(300).optional(),
+    attachmentMimeType: z.string().trim().max(100).optional(),
+  })
+  .refine((data) => (data.body && data.body.length > 0) || data.attachmentUrl, {
+    message: 'body or attachmentUrl is required',
+  });
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -56,6 +65,12 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     const { id } = await params;
     const access = await resolveThesisAccess(prisma, id, auth.user.sub);
     if (access instanceof NextResponse) return access;
+    if (access.stage === 'Bloqué' && access.studentId === auth.user.sub) {
+      return NextResponse.json(
+        { error: 'THESIS_BLOCKED', message: 'The encadrant has blocked this thesis' },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
 
     const parsed = CreateBody.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
@@ -73,17 +88,23 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       data: {
         thesisId: id,
         senderId: auth.user.sub,
-        body: parsed.data.body,
+        body: parsed.data.body ?? '',
+        attachmentUrl: parsed.data.attachmentUrl ?? null,
+        attachmentFilename: parsed.data.attachmentFilename ?? null,
+        attachmentMimeType: parsed.data.attachmentMimeType ?? null,
       },
     });
 
     const recipientId = access.studentId === auth.user.sub ? access.encadrantId : access.studentId;
+    const notificationBody = parsed.data.body?.trim()
+      ? parsed.data.body.slice(0, 140)
+      : '📎 Pièce jointe';
     try {
       await createNotification(prisma, {
         userId: recipientId,
         type: 'MESSAGE_RECEIVED',
         title: 'Nouveau message',
-        body: parsed.data.body.slice(0, 140),
+        body: notificationBody,
         data: { thesisId: id, messageId: message.id },
         dedupeKey: `message-received:${message.id}`,
       });

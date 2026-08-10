@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { AddToCalendarModal } from './AddToCalendarModal';
 import { formatDate, type DeadlineBucket, type ThesisDeadline } from '@/lib/theses';
 
@@ -15,6 +16,7 @@ const URGENCY_CLASS: Record<DeadlineBucket, string> = {
   urgent: 'border-warning bg-warning/5',
   upcoming: 'border-secondary bg-secondary/5',
   future: 'border-border bg-surface',
+  done: 'border-success bg-success/5',
 };
 
 const URGENCY_BADGE: Record<DeadlineBucket, string> = {
@@ -22,6 +24,7 @@ const URGENCY_BADGE: Record<DeadlineBucket, string> = {
   urgent: 'bg-warning text-warning-foreground',
   upcoming: 'bg-secondary text-secondary-foreground',
   future: 'bg-muted text-muted-foreground',
+  done: 'bg-success text-success-foreground',
 };
 
 interface StudentDeadlineCardProps {
@@ -32,6 +35,7 @@ interface StudentDeadlineCardProps {
 
 export function StudentDeadlineCard({ deadline, daysLeft, bucket }: StudentDeadlineCardProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const isDone = bucket === 'done';
 
   return (
     <div
@@ -49,11 +53,13 @@ export function StudentDeadlineCard({ deadline, daysLeft, bucket }: StudentDeadl
             <div
               className={`text-xs font-semibold px-2 py-1 rounded-sm whitespace-nowrap ${URGENCY_BADGE[bucket]}`}
             >
-              {daysLeft > 0
-                ? `${daysLeft} jour${daysLeft > 1 ? 's' : ''}`
-                : daysLeft === 0
-                  ? "Aujourd'hui"
-                  : `Retard: ${Math.abs(daysLeft)} j`}
+              {isDone
+                ? 'Respectée'
+                : daysLeft > 0
+                  ? `${daysLeft} jour${daysLeft > 1 ? 's' : ''}`
+                  : daysLeft === 0
+                    ? "Aujourd'hui"
+                    : `Retard: ${Math.abs(daysLeft)} j`}
             </div>
           </div>
         </div>
@@ -74,6 +80,26 @@ export function StudentDeadlineCard({ deadline, daysLeft, bucket }: StudentDeadl
       {calendarOpen && (
         <AddToCalendarModal deadline={deadline} onClose={() => setCalendarOpen(false)} />
       )}
+    </div>
+  );
+}
+
+export function StudentDeadlineCardSkeleton() {
+  return (
+    <div className="flex items-start gap-4 p-4 border border-border rounded-md bg-surface">
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-5 w-16" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </div>
     </div>
   );
 }

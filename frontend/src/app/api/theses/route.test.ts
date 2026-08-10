@@ -94,6 +94,15 @@ describe('GET /api/theses', () => {
     expect(count?.select?.comments).toBe(true);
   });
 
+  it('excludes validated (completedAt) deadlines from the next-deadline slot', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.thesis.findMany.mockResolvedValue([] as never);
+    await GET(makeGet('http://test/api/theses'));
+    const args = prismaMock.thesis.findMany.mock.calls[0]?.[0];
+    const deadlines = args?.include?.deadlines as { where?: { completedAt?: unknown } } | undefined;
+    expect(deadlines?.where?.completedAt).toBeNull();
+  });
+
   it('returns a real total count independent of the page-limited items array', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     prismaMock.thesis.findMany.mockResolvedValue([{ id: 't1' }] as never);

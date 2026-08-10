@@ -78,7 +78,7 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground"
+            className="text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
             aria-label="Fermer"
           >
             <Icon i="x" size={18} />
@@ -150,12 +150,19 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Échéance estimée
               </span>
-              <input
-                type="date"
-                value={deadlineAt}
-                onChange={(e) => setDeadlineAt(e.target.value)}
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={deadlineAt}
+                  onChange={(e) => setDeadlineAt(e.target.value)}
+                  className="w-full border border-border rounded-sm px-3 py-2.5 pr-9 text-sm text-foreground bg-input outline-none"
+                />
+                <Icon
+                  i="calendar"
+                  size={14}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-primary"
+                />
+              </div>
             </label>
 
             {error && (
@@ -169,14 +176,14 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm transition-colors duration-150 hover:bg-surface"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
             >
               {submitting ? 'Ajout…' : "Ajouter l'étudiant"}
             </button>

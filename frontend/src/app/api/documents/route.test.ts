@@ -11,6 +11,7 @@ vi.mock('@/lib/server/middleware', () => ({
 }));
 
 import { requireAuth } from '@/lib/server/middleware';
+import { encodeCursor } from '@/lib/server/pagination/paginate';
 import { GET } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
@@ -18,6 +19,20 @@ const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 
 function makeGet(url = 'http://test/api/documents'): NextRequest {
   return new NextRequest(url, { method: 'GET' });
+}
+
+// Prisma types `where.AND` as WhereInput | WhereInput[] — the route always
+// passes an array, so tests narrow the mock call arg through this shape
+// once instead of casting at every access site.
+interface DocumentWhereProbe {
+  AND?: Array<{
+    thesis?: { encadrantId?: string; archivedAt?: null; studentId?: string };
+    OR?: unknown;
+  }>;
+  OR?: unknown;
+}
+function whereOf(args: unknown): DocumentWhereProbe | undefined {
+  return (args as { where?: DocumentWhereProbe } | undefined)?.where;
 }
 
 beforeEach(() => {
@@ -48,7 +63,9 @@ describe('GET /api/documents', () => {
     prismaMock.document.findMany.mockResolvedValue([] as never);
     await GET(makeGet());
     const args = prismaMock.document.findMany.mock.calls[0]?.[0];
-    expect(args?.where?.thesis?.encadrantId).toBe('user-1');
+    // AND-wrapped (not a bare top-level filter) — see route.ts comment on
+    // why this must not collide with the cursor pagination's own `OR`.
+    expect(whereOf(args)?.AND?.[0]?.thesis?.encadrantId).toBe('user-1');
   });
 
   it('excludes documents from archived (retirés) theses', async () => {
@@ -56,7 +73,7 @@ describe('GET /api/documents', () => {
     prismaMock.document.findMany.mockResolvedValue([] as never);
     await GET(makeGet());
     const args = prismaMock.document.findMany.mock.calls[0]?.[0];
-    expect(args?.where?.thesis?.archivedAt).toBeNull();
+    expect(whereOf(args)?.AND?.[0]?.thesis?.archivedAt).toBeNull();
   });
 
   it('applies the studentId filter when provided', async () => {
@@ -64,7 +81,30 @@ describe('GET /api/documents', () => {
     prismaMock.document.findMany.mockResolvedValue([] as never);
     await GET(makeGet('http://test/api/documents?studentId=stu-1'));
     const args = prismaMock.document.findMany.mock.calls[0]?.[0];
-    expect(args?.where?.thesis?.studentId).toBe('stu-1');
+    expect(whereOf(args)?.AND?.[0]?.thesis?.studentId).toBe('stu-1');
+  });
+
+  it('excludes documents still scheduled for the future', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    await GET(makeGet());
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    expect(whereOf(args)?.AND?.[1]?.OR).toEqual([
+      { scheduledAt: null },
+      { scheduledAt: { lte: expect.any(Date) } },
+    ]);
+  });
+
+  it('keeps the scheduledAt visibility filter intact when a cursor is present (AND/OR do not collide)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    const cursor = encodeCursor({ createdAt: new Date('2026-01-01T00:00:00.000Z'), id: 'doc-1' });
+    await GET(makeGet(`http://test/api/documents?cursor=${encodeURIComponent(cursor)}`));
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    // The visibility filter (inside AND) must survive; the cursor's own
+    // top-level OR must be a separate key, not overwrite it.
+    expect(whereOf(args)?.AND?.[1]?.OR).toBeDefined();
+    expect(whereOf(args)?.OR).toBeDefined();
   });
 
   it('returns items + nextCursor derived from uploadedAt', async () => {
@@ -88,6 +128,6 @@ describe('GET /api/documents', () => {
     const body = await res.json();
     expect(body.total).toBe(63);
     const countArgs = prismaMock.document.count.mock.calls[0]?.[0];
-    expect(countArgs?.where?.thesis?.encadrantId).toBe('user-1');
+    expect(whereOf(countArgs)?.AND?.[0]?.thesis?.encadrantId).toBe('user-1');
   });
 });

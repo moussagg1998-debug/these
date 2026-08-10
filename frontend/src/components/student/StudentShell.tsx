@@ -10,7 +10,7 @@ import { StudentNav } from './StudentNav';
 
 interface StudentShellProps {
   name: string;
-  active?: 'dashboard' | 'documents' | 'comments' | 'deadlines';
+  active?: 'dashboard' | 'documents' | 'comments' | 'deadlines' | 'settings';
   children: ReactNode;
 }
 

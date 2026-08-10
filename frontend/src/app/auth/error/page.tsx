@@ -38,37 +38,39 @@ function AuthErrorBody() {
     'Une erreur inconnue est survenue pendant la connexion. Réessayez.';
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-4 font-body">
-      <div className="mb-2 flex items-center gap-2.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-          <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
+    <div className="flex min-h-screen bg-background font-body">
+      <main className="mx-auto flex w-full max-w-md flex-col justify-center gap-6 px-4">
+        <div className="mb-2 flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
+            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
+          </div>
+          <span className="font-headings text-base font-semibold text-foreground">ThèseFacile</span>
         </div>
-        <span className="font-headings text-base font-semibold text-foreground">ThèseFacile</span>
-      </div>
 
-      <div className="flex items-start gap-3 rounded-sm border border-border bg-input p-4">
-        <Icon i="alert-circle" size={18} className="mt-0.5 shrink-0 text-danger" />
-        <div>
-          <h1 className="mb-1 font-headings text-lg font-semibold text-foreground">
-            Échec de connexion
-          </h1>
-          <p className="text-sm text-muted-foreground">{message}</p>
-          {code && <p className="mt-2 font-mono text-xs text-muted-foreground">code : {code}</p>}
+        <div className="flex items-start gap-3 rounded-sm border border-border bg-input p-4">
+          <Icon i="alert-circle" size={18} className="mt-0.5 shrink-0 text-danger" />
+          <div>
+            <h1 className="mb-1 font-headings text-lg font-semibold text-foreground">
+              Échec de connexion
+            </h1>
+            <p className="text-sm text-muted-foreground">{message}</p>
+            {code && <p className="mt-2 font-mono text-xs text-muted-foreground">code : {code}</p>}
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <Link
-          href="/login"
-          className="rounded-sm bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground"
-        >
-          Retour à la connexion
-        </Link>
-        <Link href="/" className="text-center text-sm text-muted-foreground underline">
-          Accueil
-        </Link>
-      </div>
-    </main>
+        <div className="flex flex-col gap-2">
+          <Link
+            href="/login"
+            className="rounded-sm bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground"
+          >
+            Retour à la connexion
+          </Link>
+          <Link href="/" className="text-center text-sm text-muted-foreground underline">
+            Accueil
+          </Link>
+        </div>
+      </main>
+    </div>
   );
 }
 

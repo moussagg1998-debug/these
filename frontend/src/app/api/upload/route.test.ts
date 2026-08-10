@@ -47,8 +47,9 @@ const prismaCreate = vi.fn(async (args: unknown) => ({
   sizeBytes: 4,
   createdAt: new Date(),
 }));
+const uploadErrorCreate = vi.fn().mockResolvedValue({});
 vi.mock('@/lib/server/prisma', () => ({
-  prisma: { fileUpload: { create: prismaCreate } },
+  prisma: { fileUpload: { create: prismaCreate }, uploadErrorEvent: { create: uploadErrorCreate } },
 }));
 
 beforeEach(() => {
@@ -93,6 +94,7 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(body.key).toMatch(/^user-1\/.+$/);
     expect(body.url).toMatch(/^https:\/\/res\.cloudinary\.com\//);
     expect(prismaCreate).toHaveBeenCalled();
+    expect(uploadErrorCreate).not.toHaveBeenCalled();
   });
 
   it('magic byte mismatch', async () => {
@@ -105,6 +107,9 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(415);
     const body = await res.json();
     expect(body.code).toBe('MAGIC_BYTE_MISMATCH');
+    expect(uploadErrorCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'MAGIC_BYTE_MISMATCH', source: 'VALIDATION' }),
+    });
   });
 
   it('mime not allowed', async () => {
@@ -116,6 +121,9 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(415);
     const body = await res.json();
     expect(body.code).toBe('INVALID_MIME');
+    expect(uploadErrorCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'INVALID_MIME', source: 'VALIDATION' }),
+    });
   });
 
   it('file too large', async () => {
@@ -126,6 +134,9 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(413);
     const body = await res.json();
     expect(body.code).toBe('FILE_TOO_LARGE');
+    expect(uploadErrorCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'FILE_TOO_LARGE', source: 'VALIDATION' }),
+    });
   });
 
   it('storage not configured (env missing)', async () => {
@@ -136,6 +147,9 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.code).toBe('STORAGE_NOT_CONFIGURED');
+    expect(uploadErrorCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'STORAGE_NOT_CONFIGURED', source: 'VALIDATION' }),
+    });
   });
 
   it('missing file', async () => {
@@ -144,6 +158,9 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe('UPLOAD_MISSING_FILE');
+    expect(uploadErrorCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'UPLOAD_MISSING_FILE', source: 'VALIDATION' }),
+    });
   });
 
   it('upload failed (cloudinary throws)', async () => {
@@ -157,6 +174,9 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.code).toBe('UPLOAD_FAILED');
+    expect(uploadErrorCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'UPLOAD_FAILED', source: 'CLOUDINARY' }),
+    });
   });
 
   it('csrf missing returns 403', async () => {

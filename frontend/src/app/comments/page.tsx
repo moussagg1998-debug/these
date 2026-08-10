@@ -15,9 +15,12 @@ import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
+import { useSlidingIndicator } from '@/lib/useSlidingIndicator';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { CommentThread } from '@/components/dashboard/CommentThread';
+import { CommentThread, CommentThreadSkeleton } from '@/components/dashboard/CommentThread';
 import { StudentCommentsContent } from '@/components/student/StudentCommentsContent';
 import { displayName, type CommentListItem, type ThesisListItem } from '@/lib/theses';
 
@@ -53,6 +56,7 @@ function CommentsOverviewContent() {
   const searchParams = useSearchParams();
   const studentIdFilter = searchParams.get('studentId');
   const [activeFilter, setActiveFilter] = useState<FilterId>('open');
+  const { containerRef, registerItem, style, ready } = useSlidingIndicator(activeFilter);
   const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, boolean>>({});
   const [extraItems, setExtraItems] = useState<CommentListItem[]>([]);
   const [extraCursor, setExtraCursor] = useState<string | null>(null);
@@ -126,11 +130,7 @@ function CommentsOverviewContent() {
   }
 
   if (!user || profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType === null) {
@@ -160,7 +160,7 @@ function CommentsOverviewContent() {
             <button
               type="button"
               onClick={() => router.push('/comments')}
-              className="text-primary font-medium"
+              className="text-primary font-medium transition-colors duration-150 hover:text-primary/80"
             >
               Retirer le filtre
             </button>
@@ -180,32 +180,44 @@ function CommentsOverviewContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                disabled={f.disabled}
-                title={f.disabled ? 'Bientôt disponible' : undefined}
-                onClick={() => !f.disabled && setActiveFilter(f.id)}
-                className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm ${
-                  f.disabled
-                    ? 'cursor-not-allowed bg-surface border border-border text-muted-foreground opacity-50'
-                    : f.id === activeFilter
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-surface border border-border text-foreground'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <div ref={containerRef} className="relative flex items-center gap-2 w-fit">
+              <div
+                aria-hidden
+                className={`absolute inset-y-0 rounded-sm bg-primary transition-[left,width] duration-250 ease-out ${ready ? 'opacity-100' : 'opacity-0'}`}
+                style={{ left: style.left, width: style.width }}
+              />
+              {FILTERS.map((f) => (
+                <Tooltip key={f.id} label={f.disabled ? 'Bientôt disponible' : undefined}>
+                  <button
+                    ref={registerItem(f.id)}
+                    type="button"
+                    disabled={f.disabled}
+                    onClick={() => !f.disabled && setActiveFilter(f.id)}
+                    className={`relative z-10 shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm transition duration-150 ${
+                      f.disabled
+                        ? 'cursor-not-allowed bg-surface border border-border text-muted-foreground opacity-50'
+                        : f.id === activeFilter
+                          ? 'text-primary-foreground motion-safe:active:scale-[0.97]'
+                          : 'bg-surface border border-border text-foreground hover:bg-input motion-safe:active:scale-[0.97]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
           </div>
         </div>
 
         {commentsLoading && !commentsRes ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <div className="flex flex-col gap-3">
+            <CommentThreadSkeleton />
+            <CommentThreadSkeleton />
+            <CommentThreadSkeleton />
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="border border-dashed border-border rounded-md p-8 text-center">
+          <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
             <p className="text-sm text-muted-foreground">Aucun commentaire dans cette catégorie.</p>
           </div>
         ) : (
@@ -225,7 +237,7 @@ function CommentsOverviewContent() {
               type="button"
               onClick={() => void loadMore()}
               disabled={loadingMore}
-              className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50"
+              className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50 transition duration-150 hover:bg-primary/5 motion-safe:active:scale-[0.98]"
             >
               {loadingMore ? 'Chargement…' : 'Charger plus'}
             </button>

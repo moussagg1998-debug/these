@@ -16,9 +16,10 @@ import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { DocumentRow } from '@/components/dashboard/DocumentRow';
+import { DocumentRow, DocumentRowSkeleton } from '@/components/dashboard/DocumentRow';
 import { StudentDocumentsContent } from '@/components/student/StudentDocumentsContent';
 import {
   displayName,
@@ -117,11 +118,7 @@ function DocumentsLibraryContent() {
   }, [items, typeFilter, monthFilter]);
 
   if (!user || profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType === null) {
@@ -151,7 +148,7 @@ function DocumentsLibraryContent() {
             <button
               type="button"
               onClick={() => router.push('/documents')}
-              className="text-primary font-medium"
+              className="text-primary font-medium transition-colors duration-150 hover:text-primary/80"
             >
               Retirer le filtre
             </button>
@@ -189,9 +186,14 @@ function DocumentsLibraryContent() {
         </div>
 
         {docsLoading && !docsRes ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <div className="border border-border rounded-md overflow-hidden">
+            <DocumentRowSkeleton />
+            <DocumentRowSkeleton />
+            <DocumentRowSkeleton />
+            <DocumentRowSkeleton />
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="border border-dashed border-border rounded-md p-8 text-center">
+          <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
             <p className="text-sm text-muted-foreground">
               Aucun document déposé pour l&apos;instant.
             </p>
@@ -230,7 +232,7 @@ function DocumentsLibraryContent() {
               type="button"
               onClick={() => void loadMore()}
               disabled={loadingMore}
-              className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50"
+              className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50 transition duration-150 hover:bg-primary/5 motion-safe:active:scale-[0.98]"
             >
               {loadingMore ? 'Chargement…' : 'Charger plus'}
             </button>

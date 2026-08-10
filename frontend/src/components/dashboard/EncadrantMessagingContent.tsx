@@ -8,13 +8,16 @@
 // inserts rather than new backend concepts).
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
+import { uploadFile } from '@/lib/uploadFile';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { AddToCalendarModal } from '@/components/student/AddToCalendarModal';
@@ -39,6 +42,9 @@ interface InboxMessage {
   id: string;
   body: string;
   senderId: string;
+  attachmentUrl: string | null;
+  attachmentFilename: string | null;
+  attachmentMimeType: string | null;
   createdAt: string;
 }
 
@@ -59,12 +65,28 @@ interface ThreadMessage {
   id: string;
   senderId: string;
   body: string;
+  attachmentUrl: string | null;
+  attachmentFilename: string | null;
+  attachmentMimeType: string | null;
   createdAt: string;
 }
 
 interface ThreadResponse {
   items: ThreadMessage[];
 }
+
+interface PendingAttachment {
+  url: string;
+  filename: string;
+  mimeType: string;
+}
+
+const ATTACHMENT_ERROR_MESSAGES: Record<string, string> = {
+  FILE_TOO_LARGE: 'Fichier trop volumineux.',
+  INVALID_MIME: 'Format non supporté — utilisez une image JPEG, PNG ou WebP.',
+  MAGIC_BYTE_MISMATCH: 'Le fichier ne correspond pas au format déclaré.',
+  STORAGE_NOT_CONFIGURED: "Le stockage d'images n'est pas configuré.",
+};
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -81,6 +103,10 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [attaching, setAttaching] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -150,6 +176,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
     setActiveThesisId(thesisId);
     setMobileView('thread');
     setDraft('');
+    setPendingAttachment(null);
     setError(null);
   }
 
@@ -157,15 +184,48 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
     setDraft((prev) => (prev ? `${prev} ${text}` : text));
   }
 
+  async function onAttachmentSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAttaching(true);
+    setError(null);
+    try {
+      const uploaded = await uploadFile(file);
+      setPendingAttachment({ url: uploaded.url, filename: file.name, mimeType: uploaded.mimeType });
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? (ATTACHMENT_ERROR_MESSAGES[err.code] ?? err.message)
+          : 'Une erreur est survenue.',
+      );
+    } finally {
+      setAttaching(false);
+    }
+  }
+
   async function onSend(e: FormEvent) {
     e.preventDefault();
     const body = draft.trim();
-    if (!body || !activeThesisId) return;
+    if ((!body && !pendingAttachment) || !activeThesisId) return;
     setSending(true);
     setError(null);
     try {
-      await api(`/api/theses/${activeThesisId}/messages`, { method: 'POST', body: { body } });
+      await api(`/api/theses/${activeThesisId}/messages`, {
+        method: 'POST',
+        body: {
+          body,
+          ...(pendingAttachment
+            ? {
+                attachmentUrl: pendingAttachment.url,
+                attachmentFilename: pendingAttachment.filename,
+                attachmentMimeType: pendingAttachment.mimeType,
+              }
+            : {}),
+        },
+      });
       setDraft('');
+      setPendingAttachment(null);
       await refreshThread();
       void refreshInbox();
     } catch (err) {
@@ -182,9 +242,52 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
     >
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
         {inboxLoading && items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="w-full lg:w-80 shrink-0 border border-border rounded-md overflow-hidden bg-surface flex flex-col">
+              <div className="px-4 py-3 border-b border-border">
+                <Skeleton className="h-8 w-full" />
+              </div>
+              <div className="flex flex-col">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 px-4 py-3.5 border-b border-border last:border-b-0"
+                  >
+                    <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+                    <div className="flex-1 flex flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="hidden lg:flex flex-1 min-w-0 border border-border rounded-md overflow-hidden bg-background flex-col">
+              <div className="flex items-center gap-3 px-6 py-4 bg-surface border-b border-border">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-28" />
+                  <Skeleton className="h-3 w-36" />
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col gap-4 px-6 py-6">
+                <div className="flex gap-3">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                  <Skeleton className="h-10 w-48" />
+                </div>
+                <div className="flex gap-3 flex-row-reverse">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                  <Skeleton className="h-10 w-40" />
+                </div>
+                <div className="flex gap-3">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                  <Skeleton className="h-10 w-56" />
+                </div>
+              </div>
+            </div>
+          </div>
         ) : items.length === 0 ? (
-          <div className="border border-dashed border-border rounded-md p-8 text-center">
+          <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
             <p className="text-sm text-muted-foreground">
               Aucun étudiant pour l&apos;instant — ajoutez-en un pour commencer à échanger.
             </p>
@@ -211,7 +314,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
               </div>
               <div className="max-h-[60vh] overflow-y-auto flex flex-col">
                 {filteredItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8 px-4">
+                  <p className="text-sm text-muted-foreground text-center py-8 px-4 motion-safe:animate-fade-in">
                     Aucun résultat.
                   </p>
                 ) : (
@@ -222,12 +325,16 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                         key={item.thesis.id}
                         type="button"
                         onClick={() => selectThesis(item.thesis.id)}
-                        className={`flex items-start gap-3 px-4 py-3.5 border-b border-border last:border-b-0 text-left ${
-                          isActive ? 'bg-secondary' : ''
+                        className={`flex items-start gap-3 px-4 py-3.5 border-b border-border last:border-b-0 text-left transition-colors duration-150 ${
+                          isActive ? 'bg-secondary' : 'hover:bg-input'
                         }`}
                       >
                         <div className="relative shrink-0">
-                          <Avatar name={displayName(item.thesis.student)} className="h-9 w-9" />
+                          <Avatar
+                            name={displayName(item.thesis.student)}
+                            src={item.thesis.student.avatarUrl}
+                            className="h-9 w-9"
+                          />
                           {item.unreadCount > 0 && (
                             <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
                               {item.unreadCount > 9 ? '9+' : item.unreadCount}
@@ -254,7 +361,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                           </div>
                           {item.lastMessage && (
                             <div className="text-xs text-muted-foreground truncate">
-                              {item.lastMessage.body}
+                              {item.lastMessage.body || '📎 Pièce jointe'}
                             </div>
                           )}
                         </div>
@@ -277,12 +384,16 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                     <button
                       type="button"
                       onClick={() => setMobileView('list')}
-                      className="lg:hidden text-muted-foreground shrink-0"
+                      className="lg:hidden text-muted-foreground shrink-0 transition duration-150 hover:text-foreground motion-safe:active:scale-90"
                       aria-label="Retour aux conversations"
                     >
                       <Icon i="chevron-right" size={18} className="rotate-180" />
                     </button>
-                    <Avatar name={displayName(activeItem.thesis.student)} className="h-10 w-10" />
+                    <Avatar
+                      name={displayName(activeItem.thesis.student)}
+                      src={activeItem.thesis.student.avatarUrl}
+                      className="h-10 w-10"
+                    />
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-foreground truncate">
                         {displayName(activeItem.thesis.student)}
@@ -310,14 +421,6 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                       <Icon i="calendar" size={12} />
                       Planifier une réunion
                     </button>
-                    <button
-                      type="button"
-                      disabled
-                      title="Bientôt disponible"
-                      className="w-8 h-8 rounded-sm border border-border flex items-center justify-center text-muted-foreground opacity-50 cursor-not-allowed"
-                    >
-                      <Icon i="more-horizontal" size={14} />
-                    </button>
                   </div>
                 </div>
 
@@ -326,7 +429,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                   className="max-h-[45vh] overflow-y-auto flex flex-col gap-4 px-6 py-6"
                 >
                   {threadMessages.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                    <p className="text-sm text-muted-foreground text-center py-8 motion-safe:animate-fade-in">
                       Aucun message pour l&apos;instant.
                     </p>
                   ) : (
@@ -339,19 +442,38 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                         >
                           <Avatar
                             name={isOwn ? name : displayName(activeItem.thesis.student)}
+                            src={isOwn ? null : activeItem.thesis.student.avatarUrl}
                             className="h-8 w-8 shrink-0"
                           />
                           <div
                             className={`flex flex-col gap-1 max-w-lg ${isOwn ? 'items-end' : ''}`}
                           >
                             <div
-                              className={`px-4 py-2.5 rounded-md text-sm leading-relaxed whitespace-pre-wrap ${
+                              className={`overflow-hidden rounded-md ${
                                 isOwn
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-input text-foreground'
                               }`}
                             >
-                              {msg.body}
+                              {msg.attachmentUrl &&
+                                msg.attachmentMimeType?.startsWith('image/') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setLightboxUrl(msg.attachmentUrl)}
+                                    className="block w-full"
+                                  >
+                                    <img
+                                      src={msg.attachmentUrl}
+                                      alt={msg.attachmentFilename ?? 'Pièce jointe'}
+                                      className="max-h-60 w-full object-cover"
+                                    />
+                                  </button>
+                                )}
+                              {msg.body && (
+                                <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                                  {msg.body}
+                                </p>
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {relativeTime(msg.createdAt)}
@@ -366,9 +488,9 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                 <div className="px-6 pb-3 flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    disabled
-                    title="Bientôt disponible"
-                    className="text-xs font-medium text-secondary-foreground bg-secondary border border-secondary px-3 py-1.5 rounded-sm opacity-50 cursor-not-allowed"
+                    disabled={attaching}
+                    onClick={() => attachmentInputRef.current?.click()}
+                    className="text-xs font-medium text-secondary-foreground bg-secondary border border-secondary px-3 py-1.5 rounded-sm transition duration-150 hover:bg-secondary/70 disabled:opacity-50 motion-safe:active:scale-[0.97]"
                   >
                     📎 Joindre un fichier
                   </button>
@@ -379,7 +501,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                         'Pourriez-vous me proposer 2-3 créneaux cette semaine pour faire le point ?',
                       )
                     }
-                    className="text-xs font-medium text-secondary-foreground bg-secondary border border-secondary px-3 py-1.5 rounded-sm"
+                    className="text-xs font-medium text-secondary-foreground bg-secondary border border-secondary px-3 py-1.5 rounded-sm transition duration-150 hover:bg-secondary/70 motion-safe:active:scale-[0.97]"
                   >
                     📅 Proposer un rendez-vous
                   </button>
@@ -390,7 +512,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                         `Après relecture, ${chapitreActif ? `le ${chapitreActif}` : 'ce chapitre'} est validé — vous pouvez poursuivre sur la suite.`,
                       )
                     }
-                    className="text-xs font-medium text-secondary-foreground bg-secondary border border-secondary px-3 py-1.5 rounded-sm"
+                    className="text-xs font-medium text-secondary-foreground bg-secondary border border-secondary px-3 py-1.5 rounded-sm transition duration-150 hover:bg-secondary/70 motion-safe:active:scale-[0.97]"
                   >
                     ✓ Valider un chapitre
                   </button>
@@ -402,6 +524,20 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                       {error}
                     </p>
                   )}
+                  {pendingAttachment && (
+                    <div className="mb-2 flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-1.5 text-xs text-foreground">
+                      <Icon i="paperclip" size={12} className="shrink-0 text-muted-foreground" />
+                      <span className="flex-1 truncate">{pendingAttachment.filename}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPendingAttachment(null)}
+                        aria-label="Retirer la pièce jointe"
+                        className="shrink-0 text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
+                      >
+                        <Icon i="x" size={12} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-end gap-3">
                     <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input transition-colors duration-150 focus-within:border-primary">
                       <input
@@ -411,19 +547,30 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                         placeholder={`Votre message à ${displayName(activeItem.thesis.student)}…`}
                         className="flex-1 text-sm text-foreground bg-transparent outline-none"
                       />
+                      <input
+                        ref={attachmentInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => void onAttachmentSelected(e)}
+                      />
                       <button
                         type="button"
-                        disabled
-                        title="Bientôt disponible"
-                        className="text-muted-foreground opacity-50 cursor-not-allowed"
+                        disabled={attaching}
+                        onClick={() => attachmentInputRef.current?.click()}
+                        className="text-muted-foreground transition duration-150 hover:text-foreground disabled:opacity-50 motion-safe:active:scale-90"
                       >
-                        <Icon i="paperclip" size={16} />
+                        <Icon
+                          i={attaching ? 'loader' : 'paperclip'}
+                          size={16}
+                          className={attaching ? 'animate-spin' : undefined}
+                        />
                       </button>
                     </div>
                     <button
                       type="submit"
-                      disabled={sending || !draft.trim()}
-                      className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
+                      disabled={sending || (!draft.trim() && !pendingAttachment)}
+                      className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
                     >
                       <Icon i="send" size={16} />
                     </button>
@@ -444,7 +591,11 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                     Contexte étudiant
                   </div>
                   <div className="flex flex-col items-center text-center gap-2 mb-3">
-                    <Avatar name={displayName(activeItem.thesis.student)} className="h-14 w-14" />
+                    <Avatar
+                      name={displayName(activeItem.thesis.student)}
+                      src={activeItem.thesis.student.avatarUrl}
+                      className="h-14 w-14"
+                    />
                     <div className="text-sm font-semibold text-foreground">
                       {displayName(activeItem.thesis.student)}
                     </div>
@@ -466,7 +617,7 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                   </div>
                   <div className="w-full h-1.5 bg-border rounded-full overflow-hidden mb-3">
                     <div
-                      className="h-full bg-primary rounded-full"
+                      className="h-full bg-primary rounded-full transition-[width] duration-500 ease-out"
                       style={{ width: `${activeItem.thesis.progress}%` }}
                     />
                   </div>
@@ -493,7 +644,9 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
                     Derniers documents
                   </div>
                   {activeItem.recentDocuments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Aucun document déposé.</p>
+                    <p className="text-xs text-muted-foreground motion-safe:animate-fade-in">
+                      Aucun document déposé.
+                    </p>
                   ) : (
                     <div className="flex flex-col gap-2">
                       {activeItem.recentDocuments.map((doc) => (
@@ -553,6 +706,10 @@ export function EncadrantMessagingContent({ name }: EncadrantMessagingContentPro
           deadline={activeItem.nextDeadline}
           onClose={() => setCalendarOpen(false)}
         />
+      )}
+
+      {lightboxUrl && (
+        <ImageLightbox src={lightboxUrl} alt="Pièce jointe" onClose={() => setLightboxUrl(null)} />
       )}
     </DashboardShell>
   );

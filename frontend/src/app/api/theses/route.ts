@@ -75,7 +75,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // timestamp and a next-deadline chip — both are derived from real
         // rows rather than modeled as columns on Thesis itself.
         documents: { orderBy: { uploadedAt: 'desc' }, take: 1 },
-        deadlines: { where: { dueAt: { gte: new Date() } }, orderBy: { dueAt: 'asc' }, take: 1 },
+        deadlines: {
+          where: { dueAt: { gte: new Date() }, completedAt: null },
+          orderBy: { dueAt: 'asc' },
+          take: 1,
+        },
         // Banani's "pendingComments" assumes a resolved/unresolved concept
         // the schema doesn't model yet (see Comment in schema.prisma) — this
         // MVP substitutes a plain total comment count per thesis.

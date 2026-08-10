@@ -17,11 +17,14 @@ const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 const params = Promise.resolve({ id: 'thesis-1' });
 
-function thesisRow(overrides: Partial<{ studentId: string; encadrantId: string }> = {}) {
+function thesisRow(
+  overrides: Partial<{ studentId: string; encadrantId: string; stage: string }> = {},
+) {
   return {
     id: 'thesis-1',
     studentId: overrides.studentId ?? 'stu-1',
     encadrantId: overrides.encadrantId ?? 'enc-1',
+    stage: overrides.stage ?? 'Rédaction',
   };
 }
 
@@ -89,6 +92,27 @@ describe('POST /api/theses/[id]/comments', () => {
     prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
     const res = await POST(makePost({ body: '' }), { params });
     expect(res.status).toBe(400);
+  });
+
+  it('blocked thesis, student poster → 403 THESIS_BLOCKED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    const res = await POST(makePost({ body: 'salut' }), { params });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('THESIS_BLOCKED');
+    expect(prismaMock.comment.create).not.toHaveBeenCalled();
+  });
+
+  it('blocked thesis, encadrant poster → still allowed', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ encadrantId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    prismaMock.comment.create.mockResolvedValue({ id: 'c-4', thesisId: 'thesis-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost({ body: 'salut' }), { params });
+    expect(res.status).toBe(201);
   });
 
   it('parentId from a different thesis → 404 PARENT_NOT_FOUND', async () => {

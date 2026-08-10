@@ -17,13 +17,14 @@ import { z } from 'zod';
 import { zEmail } from '@/lib/server/zod-helpers';
 import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
-import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
+import { createEmailLimiter, clientIp } from '@/lib/server/middleware/rate-limit-by-email';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
 import { VERIFICATION_CODE_REGEX, hashPassword } from '@/lib/server/auth';
 import { isBanned } from '@/lib/server/auth/banned-passwords';
 import { isPwned } from '@/lib/server/auth/hibp';
 import { recordSuccess } from '@/lib/server/auth/lockout';
+import { logSecurityEvent } from '@/lib/server/security/log-event';
 
 const PASSWORD_MIN = Number(process.env.AUTH_PASSWORD_MIN_LENGTH ?? 10);
 
@@ -189,6 +190,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     // WR-02 — clear lockout counter on successful reset. Old password
     // failures shouldn't carry over to the new password.
     await recordSuccess(email);
+    await logSecurityEvent(prisma, {
+      type: 'PASSWORD_CHANGED',
+      userId: user.id,
+      email,
+      ip: clientIp(req),
+      userAgent: req.headers.get('user-agent'),
+      metadata: { method: 'reset_code' },
+    });
 
     log.info('password reset', { userId: user.id });
     const res = NextResponse.json({ ok: true });

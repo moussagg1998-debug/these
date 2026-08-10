@@ -2,7 +2,9 @@
 //
 // See .planning/banani/phase-8-student-file-upload.md for every field-scope
 // decision (dropped version field, "notes" reused as a linked Comment,
-// dropped chapter-position/timeline boxes, "Programmer le dépôt" inert).
+// dropped chapter-position/timeline boxes). "Programmer le dépôt" was
+// inert at that phase; it now defers Document visibility/notification to
+// the scheduled-deposits cron (see that route + POST .../documents).
 'use client';
 
 import { useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
@@ -13,7 +15,8 @@ import { uploadFile } from '@/lib/uploadFile';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
 import { StudentShell } from './StudentShell';
-import type { ThesisDocument } from '@/lib/theses';
+import { ThesisBlockedBanner } from './ThesisBlockedBanner';
+import { formatFileSize, type ThesisDocument } from '@/lib/theses';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.odt'];
 const ACCEPTED_ATTR =
@@ -43,14 +46,27 @@ const ERROR_MESSAGES: Record<string, string> = {
   UPLOAD_FAILED: 'Le téléversement a échoué — réessayez.',
   STUDENT_ONLY: "Seul l'étudiant peut déposer un document.",
   VALIDATION_FAILED: 'Vérifiez les champs du formulaire.',
+  SCHEDULED_AT_IN_PAST: 'La date programmée doit être dans le futur.',
 };
+
+// datetime-local needs local (not UTC) wall-clock time with no seconds.
+function toDatetimeLocalMin(): string {
+  const now = new Date();
+  const tzOffsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+}
 
 interface StudentFileUploadFormProps {
   thesisId: string;
   name: string;
+  blocked?: boolean;
 }
 
-export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormProps) {
+export function StudentFileUploadForm({
+  thesisId,
+  name,
+  blocked = false,
+}: StudentFileUploadFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
@@ -59,6 +75,8 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
 
   function validateAndSetFile(f: File) {
     if (f.size > MAX_SIZE_BYTES) {
@@ -86,8 +104,8 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
     if (f) validateAndSetFile(f);
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function depositFile(scheduledAtIso?: string) {
+    if (blocked) return;
     if (!file) {
       setError('Sélectionnez un fichier à déposer.');
       return;
@@ -103,6 +121,7 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
           fileName: uploaded.filename,
           sizeBytes: uploaded.sizeBytes,
           ...(chapter.trim() ? { chapter: chapter.trim() } : {}),
+          ...(scheduledAtIso ? { scheduledAt: scheduledAtIso } : {}),
         },
       });
 
@@ -116,7 +135,10 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
         }).catch(() => {});
       }
 
-      toast('Document déposé avec succès', 'success');
+      toast(
+        scheduledAtIso ? 'Dépôt programmé avec succès' : 'Document déposé avec succès',
+        'success',
+      );
       router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
@@ -128,6 +150,24 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
     }
   }
 
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    await depositFile();
+  }
+
+  async function onConfirmSchedule() {
+    if (!scheduledAt) {
+      setError('Choisissez une date et une heure.');
+      return;
+    }
+    const iso = new Date(scheduledAt).toISOString();
+    if (new Date(iso).getTime() <= Date.now()) {
+      setError('La date programmée doit être dans le futur.');
+      return;
+    }
+    await depositFile(iso);
+  }
+
   return (
     <StudentShell name={name} active="documents">
       <div className="max-w-5xl mx-auto px-4 py-6 sm:px-8">
@@ -135,110 +175,168 @@ export function StudentFileUploadForm({ thesisId, name }: StudentFileUploadFormP
           Déposer un document
         </h1>
 
-        <form onSubmit={onSubmit} className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 flex flex-col gap-5 min-w-0">
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragActive(true);
-              }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={onDrop}
-              className={`border-2 border-dashed rounded-md p-8 text-center transition-colors ${
-                dragActive ? 'border-primary bg-secondary' : 'border-border'
-              }`}
-            >
-              <Icon i="file-up" size={28} className="mx-auto mb-3 text-muted-foreground" />
-              {file ? (
-                <div className="text-sm font-medium text-foreground mb-3">{file.name}</div>
-              ) : (
-                <>
-                  <p className="text-sm text-foreground mb-1">Glissez-déposez votre fichier ici</p>
-                  <p className="text-xs text-muted-foreground mb-3">ou</p>
-                </>
-              )}
-              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary rounded-sm px-3 py-1.5 cursor-pointer">
-                <Icon i="upload" size={12} />
-                {file ? 'Changer de fichier' : 'Parcourir'}
-                <input
-                  type="file"
-                  accept={ACCEPTED_ATTR}
-                  className="hidden"
-                  onChange={onFileChange}
-                />
-              </label>
-              <p className="text-xs text-muted-foreground mt-3">
-                Max 10 Mo — Formats : .docx, .pdf, .odt
-              </p>
-            </div>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Chapitre
-              </span>
-              <input
-                type="text"
-                list="chapter-suggestions"
-                value={chapter}
-                onChange={(e) => setChapter(e.target.value)}
-                placeholder="Ex. Chapitre 4 — Résultats"
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none transition-colors duration-150 focus:border-primary"
-              />
-              <datalist id="chapter-suggestions">
-                {CHAPTER_SUGGESTIONS.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Notes (optionnel)
-              </span>
-              <textarea
-                rows={4}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ajoutez un contexte pour votre encadrant…"
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none resize-none transition-colors duration-150 focus:border-primary"
-              />
-            </label>
-
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
-            )}
-          </div>
-
-          <div className="w-full lg:w-64 shrink-0 flex flex-col gap-3">
-            <div className="border border-border rounded-md p-4 bg-surface flex flex-col gap-2">
-              <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
-                Actions
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground py-2.5 rounded-sm disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
-              >
-                <Icon i="upload" size={14} />
-                {submitting ? 'Dépôt en cours…' : 'Déposer le document'}
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Bientôt disponible"
-                className="w-full flex items-center justify-center gap-1.5 text-sm font-medium border border-border text-muted-foreground py-2.5 rounded-sm cursor-not-allowed opacity-60"
-              >
-                <Icon i="clock" size={14} />
-                Programmer le dépôt
-              </button>
-            </div>
-            <Link href="/dashboard" className="text-xs text-center text-muted-foreground py-2">
-              Annuler et revenir au tableau de bord
+        {blocked ? (
+          <div className="flex flex-col gap-4 max-w-xl motion-safe:animate-fade-in">
+            <ThesisBlockedBanner />
+            <Link href="/dashboard" className="text-xs text-muted-foreground">
+              Retour au tableau de bord
             </Link>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={onSubmit} className="flex flex-col lg:flex-row gap-6">
+            <div className="flex-1 flex flex-col gap-5 min-w-0">
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={onDrop}
+                className={`border-2 border-dashed rounded-md p-8 text-center transition-colors ${
+                  dragActive ? 'border-primary bg-secondary' : 'border-border'
+                }`}
+              >
+                {file ? (
+                  <div className="flex items-center gap-3 rounded-md border border-border bg-surface px-3 py-2.5 mb-3 text-left motion-safe:animate-scale-in">
+                    <div className="w-9 h-9 rounded-sm bg-secondary text-secondary-foreground flex items-center justify-center shrink-0">
+                      <Icon i="file-text" size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {file.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {file.name.slice(file.name.lastIndexOf('.') + 1).toUpperCase()} ·{' '}
+                        {formatFileSize(file.size)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFile(null)}
+                      aria-label="Retirer le fichier"
+                      className="shrink-0 text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
+                    >
+                      <Icon i="x" size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Icon i="file-up" size={28} className="mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-foreground mb-1">
+                      Glissez-déposez votre fichier ici
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3">ou</p>
+                  </>
+                )}
+                <label className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary rounded-sm px-3 py-1.5 cursor-pointer">
+                  <Icon i="upload" size={12} />
+                  {file ? 'Changer de fichier' : 'Parcourir'}
+                  <input
+                    type="file"
+                    accept={ACCEPTED_ATTR}
+                    className="hidden"
+                    onChange={onFileChange}
+                  />
+                </label>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Max 10 Mo — Formats : .docx, .pdf, .odt
+                </p>
+              </div>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Chapitre
+                </span>
+                <input
+                  type="text"
+                  list="chapter-suggestions"
+                  value={chapter}
+                  onChange={(e) => setChapter(e.target.value)}
+                  placeholder="Ex. Chapitre 4 — Résultats"
+                  className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none transition-colors duration-150 focus:border-primary"
+                />
+                <datalist id="chapter-suggestions">
+                  {CHAPTER_SUGGESTIONS.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Notes (optionnel)
+                </span>
+                <textarea
+                  rows={4}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ajoutez un contexte pour votre encadrant…"
+                  className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none resize-none transition-colors duration-150 focus:border-primary"
+                />
+              </label>
+
+              {error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )}
+            </div>
+
+            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-3">
+              <div className="border border-border rounded-md p-4 bg-surface flex flex-col gap-2">
+                <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
+                  Actions
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full flex items-center justify-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground py-2.5 rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
+                >
+                  <Icon i="upload" size={14} />
+                  {submitting ? 'Dépôt en cours…' : 'Déposer le document'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduling((v) => !v)}
+                  aria-expanded={scheduling}
+                  className="w-full flex items-center justify-center gap-1.5 text-sm font-medium border border-border text-foreground py-2.5 rounded-sm transition duration-150 hover:bg-input motion-safe:active:scale-[0.98]"
+                >
+                  <Icon i="clock" size={14} />
+                  Programmer le dépôt
+                </button>
+                {scheduling && (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <div className="relative">
+                      <input
+                        type="datetime-local"
+                        value={scheduledAt}
+                        min={toDatetimeLocalMin()}
+                        onChange={(e) => setScheduledAt(e.target.value)}
+                        className="w-full border border-border rounded-sm px-2 py-1.5 pr-7 text-xs text-foreground bg-input outline-none transition-colors duration-150 focus:border-primary"
+                      />
+                      <Icon
+                        i="calendar"
+                        size={12}
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-primary"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void onConfirmSchedule()}
+                      disabled={submitting || !file || !scheduledAt}
+                      className="w-full text-xs font-medium bg-secondary text-secondary-foreground py-2 rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
+                    >
+                      {submitting ? 'Programmation…' : 'Confirmer la programmation'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <Link href="/dashboard" className="text-xs text-center text-muted-foreground py-2">
+                Annuler et revenir au tableau de bord
+              </Link>
+            </div>
+          </form>
+        )}
       </div>
     </StudentShell>
   );

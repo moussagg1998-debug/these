@@ -63,6 +63,12 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     const { id } = await params;
     const access = await resolveThesisAccess(prisma, id, auth.user.sub);
     if (access instanceof NextResponse) return access;
+    if (access.stage === 'Bloqué' && access.studentId === auth.user.sub) {
+      return NextResponse.json(
+        { error: 'THESIS_BLOCKED', message: 'The encadrant has blocked this thesis' },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
 
     const parsed = CreateBody.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {

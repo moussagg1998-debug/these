@@ -3,6 +3,7 @@
 // so unused icons don't ship in the bundle — extend ICONS as new Banani
 // screens introduce new icon names.
 import {
+  Activity,
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
@@ -11,6 +12,7 @@ import {
   Bell,
   BellOff,
   BookOpen,
+  Building2,
   Calendar,
   CalendarPlus,
   CalendarX,
@@ -22,6 +24,7 @@ import {
   ChevronUp,
   Circle,
   Clock,
+  Cloud,
   CreditCard,
   Database,
   Download,
@@ -30,10 +33,12 @@ import {
   FileText,
   FileUp,
   Flag,
+  GitBranch,
   Globe,
   GraduationCap,
   Info,
   LayoutDashboard,
+  Loader2,
   Lock,
   LogIn,
   LogOut,
@@ -50,21 +55,27 @@ import {
   Plus,
   Search,
   Send,
+  Server,
   Settings,
+  Shield,
   ShieldCheck,
   Sliders,
   Smartphone,
   Star,
+  Triangle,
   Upload,
   User,
+  UserCheck,
   UserMinus,
   UserPlus,
   Users,
   X,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
 const ICONS: Record<string, LucideIcon> = {
+  activity: Activity,
   'alert-circle': AlertCircle,
   'alert-triangle': AlertTriangle,
   'arrow-left': ArrowLeft,
@@ -73,6 +84,7 @@ const ICONS: Record<string, LucideIcon> = {
   bell: Bell,
   'bell-off': BellOff,
   'book-open': BookOpen,
+  'building-2': Building2,
   calendar: Calendar,
   'calendar-plus': CalendarPlus,
   'calendar-x': CalendarX,
@@ -88,6 +100,7 @@ const ICONS: Record<string, LucideIcon> = {
   // neutral stand-in until a real Google "G" mark is wired.
   chrome: Globe,
   clock: Clock,
+  cloud: Cloud,
   'credit-card': CreditCard,
   database: Database,
   download: Download,
@@ -96,9 +109,14 @@ const ICONS: Record<string, LucideIcon> = {
   'file-text': FileText,
   'file-up': FileUp,
   flag: Flag,
+  // lucide-react has no brand "GitHub" mark (same removal as Chrome/Facebook
+  // — see the `chrome` entry above); GitBranch is the closest neutral
+  // stand-in for the Admin → Monitoring GitHub card.
+  github: GitBranch,
   'graduation-cap': GraduationCap,
   info: Info,
   'layout-dashboard': LayoutDashboard,
+  loader: Loader2,
   lock: Lock,
   'log-in': LogIn,
   'log-out': LogOut,
@@ -115,23 +133,28 @@ const ICONS: Record<string, LucideIcon> = {
   plus: Plus,
   search: Search,
   send: Send,
+  server: Server,
   settings: Settings,
+  shield: Shield,
   'shield-check': ShieldCheck,
   sliders: Sliders,
   smartphone: Smartphone,
   star: Star,
+  triangle: Triangle,
   upload: Upload,
   user: User,
+  'user-check': UserCheck,
   'user-minus': UserMinus,
   'user-plus': UserPlus,
   users: Users,
   x: X,
+  zap: Zap,
 };
 
 interface IconProps {
   i: string;
   size?: number;
-  className?: string;
+  className?: string | undefined;
 }
 
 export function Icon({ i, size = 16, className }: IconProps) {
