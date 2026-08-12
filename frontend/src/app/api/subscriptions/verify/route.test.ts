@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
+vi.mock('@/lib/server/auth', () => ({
+  verifyCsrf: vi.fn(() => null),
+}));
+
 vi.mock('@/lib/server/middleware', () => ({
   requireAuth: vi.fn(async () => ({ user: { sub: 'user-1', email: 'me@example.com' } })),
 }));
@@ -54,6 +58,7 @@ vi.mock('@/lib/server/prisma', () => ({
   },
 }));
 
+import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { POST } from './route';
 
@@ -67,6 +72,7 @@ function makeReq(body: unknown): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(verifyCsrf).mockReturnValue(null);
   vi.mocked(requireAuth).mockResolvedValue({ user: { sub: 'user-1', email: 'me@example.com' } });
   userFindUnique.mockResolvedValue({ plan: 'FREE', planExpiresAt: null });
   reconcileMock.mockResolvedValue('PENDING');
@@ -113,6 +119,15 @@ describe('POST /api/subscriptions/verify', () => {
     });
     const res = await POST(makeReq({ orderId: 'o1' }));
     expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when CSRF fails (checked before auth)', async () => {
+    vi.mocked(verifyCsrf).mockReturnValue(
+      NextResponse.json({ error: 'CSRF_FAILED' }, { status: 403 }),
+    );
+    const res = await POST(makeReq({ orderId: 'o1' }));
+    expect(res.status).toBe(403);
+    expect(requireAuth).not.toHaveBeenCalled();
   });
 
   it('returns 401 when not authenticated', async () => {

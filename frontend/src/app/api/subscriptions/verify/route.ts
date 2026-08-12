@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
@@ -20,6 +21,12 @@ const Body = z.object({ orderId: z.string().trim().min(1).optional() });
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
   return withRequestContext(ctx, async () => {
+    // Unlike `status` (a CSRF-free GET), this POST can trigger
+    // `reconcileChariowOrder`'s DB writes (Order -> PAID, User.plan credit)
+    // and an outbound Chariow API call — CSRF-protect it like `checkout`.
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
     const auth = await requireAuth();
     if (auth instanceof NextResponse) return auth;
 
