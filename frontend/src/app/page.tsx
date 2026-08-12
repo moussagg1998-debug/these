@@ -29,7 +29,6 @@ const JSON_LD = {
   offers: [
     { '@type': 'Offer', name: 'Gratuit', price: '0', priceCurrency: 'XOF' },
     { '@type': 'Offer', name: 'Essentiel', price: '5900', priceCurrency: 'XOF' },
-    { '@type': 'Offer', name: 'Pro', price: '12500', priceCurrency: 'XOF' },
   ],
 };
 
@@ -90,43 +89,39 @@ const TESTIMONIALS = [
 const PLANS = [
   {
     name: 'Gratuit',
+    badge: '',
+    tone: 'accent' as const,
     price: '0',
     unit: 'FCFA',
     period: '',
     desc: "Encadrant qui découvre l'outil",
-    features: ['3 étudiants, 300 Mo', 'Cœur produit complet', 'Archivage 30 jours'],
+    features: [
+      { icon: 'users', label: '2 étudiants, 50 Mo' },
+      { icon: 'layout-dashboard', label: 'Cœur produit complet' },
+      { icon: 'archive', label: 'Archivage permanent' },
+    ],
+    excluded: ['Rappels groupés', 'Support prioritaire'],
+    reassurance: 'Aucune carte bancaire requise',
     recommended: false,
     cta: 'Commencer gratuitement',
   },
   {
     name: 'Essentiel',
+    badge: 'Offre Or',
+    tone: 'gold' as const,
     price: '5 900',
     unit: 'FCFA',
     period: '/ mois',
     desc: 'Encadrant avec une cohorte active',
     features: [
-      '10 étudiants, 2 Go',
-      'Rappels groupés',
-      'Historique illimité',
-      'Support prioritaire 24h',
+      { icon: 'users', label: '20 étudiants, 100 Go' },
+      { icon: 'bell', label: 'Rappels groupés' },
+      { icon: 'phone', label: 'Support prioritaire 24h' },
     ],
+    excluded: [],
+    reassurance: 'Paiement mobile money — sans engagement',
     recommended: true,
     cta: 'Choisir Essentiel',
-  },
-  {
-    name: 'Pro',
-    price: '12 500',
-    unit: 'FCFA',
-    period: '/ mois',
-    desc: 'Encadrant qui professionnalise son suivi',
-    features: [
-      '30 étudiants, 10 Go',
-      'Analytique + export PDF',
-      'Mobile money natif',
-      'Support <4h',
-    ],
-    recommended: false,
-    cta: 'Choisir Pro',
   },
 ];
 
@@ -325,25 +320,36 @@ export default function LandingPage() {
             Paiement par mobile money (Orange Money, Wave, MTN). Sans engagement.
           </p>
         </div>
-        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 md:grid-cols-2">
           {PLANS.map((p) => (
             <div
               key={p.name}
-              className={`relative flex flex-col gap-5 rounded-md bg-surface p-6 transition-[translate,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
-                p.recommended ? 'border-2 border-primary' : 'border border-border'
+              className={`relative flex flex-col gap-5 rounded-md bg-surface p-6 pt-8 transition-[translate,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
+                p.recommended ? 'border-2 border-gold' : 'border border-border'
               }`}
             >
-              {p.recommended && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-gold bg-background px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-gold">
-                  Recommandé
+              {p.badge && (
+                <span
+                  className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-widest ${
+                    p.tone === 'gold'
+                      ? 'bg-gold text-gold-foreground'
+                      : 'bg-accent text-accent-foreground'
+                  }`}
+                >
+                  {p.badge}
                 </span>
               )}
+
               <div>
                 <div className="mb-3 font-headings text-xl font-semibold text-foreground">
                   {p.name}
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="font-headings text-3xl font-semibold text-primary">
+                  <span
+                    className={`font-headings text-3xl font-semibold ${
+                      p.tone === 'gold' ? 'text-gold' : 'text-accent'
+                    }`}
+                  >
                     {p.price}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -353,24 +359,56 @@ export default function LandingPage() {
                 </div>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{p.desc}</p>
               </div>
-              <div className="flex flex-1 flex-col gap-2.5">
+
+              <div className="flex flex-1 flex-col border-t border-border">
                 {p.features.map((feat) => (
-                  <div key={feat} className="flex items-start gap-2.5 text-sm">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                    <span className="text-foreground">{feat}</span>
+                  <div
+                    key={feat.label}
+                    className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0"
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        p.tone === 'gold' ? 'bg-gold/15 text-gold' : 'bg-accent/15 text-accent'
+                      }`}
+                    >
+                      <Icon i={feat.icon} size={15} />
+                    </span>
+                    <span className="flex-1 text-sm text-foreground">{feat.label}</span>
+                    <Icon i="check-circle" size={16} className="shrink-0 text-success" />
+                  </div>
+                ))}
+                {p.excluded.map((label) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-3 border-b border-border/60 py-2.5 opacity-60 last:border-0"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <Icon i="x" size={15} />
+                    </span>
+                    <span className="flex-1 text-sm text-muted-foreground line-through">
+                      {label}
+                    </span>
+                    <Icon i="x" size={16} className="shrink-0 text-danger" />
                   </div>
                 ))}
               </div>
-              <Link
-                href="/signup"
-                className={`mt-2 rounded-sm py-2.5 text-center text-sm font-medium transition duration-150 motion-safe:active:scale-[0.98] ${
-                  p.recommended
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-border text-foreground hover:bg-input'
-                }`}
-              >
-                {p.cta}
-              </Link>
+
+              <div className="flex flex-col gap-3">
+                <Link
+                  href="/signup"
+                  className={`rounded-sm py-2.5 text-center text-sm font-medium transition duration-150 motion-safe:active:scale-[0.98] ${
+                    p.recommended
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-border text-foreground hover:bg-input'
+                  }`}
+                >
+                  {p.cta}
+                </Link>
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Icon i="lock" size={11} />
+                  {p.reassurance}
+                </div>
+              </div>
             </div>
           ))}
         </div>
