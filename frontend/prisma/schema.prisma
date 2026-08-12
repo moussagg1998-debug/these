@@ -34,6 +34,14 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // Chariow subscription — plan Essentiel. "FREE" | "ESSENTIEL". Each
+  // successful Chariow payment extends planExpiresAt by 30 days (from the
+  // current expiry if still active, otherwise from now). Written ONLY by
+  // lib/server/subscriptions/reconcile.ts and lib/server/subscriptions/expire.ts
+  // — never by a route that trusts client input directly.
+  plan          String    @default("FREE") // FREE | ESSENTIEL
+  planExpiresAt DateTime? // null while FREE
+
   // ThèseFacile — product-level profile, independent of the admin `role`
   // above. Null until the user completes "Choix du profil" onboarding.
   // Fixed at onboarding time (one account = one profile) per product decision.

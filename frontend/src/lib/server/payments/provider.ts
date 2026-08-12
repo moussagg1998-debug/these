@@ -19,6 +19,16 @@ export interface ChargeCustomer {
   email?: string;
   phone?: string;
   name?: string;
+  /**
+   * Chariow-specific — its /checkout API requires first/last name
+   * separately. Unused by Bictorys.
+   */
+  firstName?: string;
+  lastName?: string;
+  /** Chariow-specific — ISO2 country of `phone`, resolved client-side. */
+  phoneCountry?: string;
+  /** Chariow-specific — national number (no leading 0, no dial code). */
+  phoneLocal?: string;
 }
 
 export interface ChargeInput {
@@ -47,6 +57,15 @@ export interface ChargeResult {
   paymentUrl: string;
   /** Initial status from the provider — usually PENDING for hosted flows. */
   status: ChargeStatus;
+  /**
+   * Authoritative amount/currency from the provider, when it can differ
+   * from the requested `ChargeInput.amount` (e.g. Chariow debits whatever
+   * price is configured on its own `product_id`, not a client-sent amount).
+   * Absent for providers where the requested amount is always authoritative
+   * (e.g. Bictorys).
+   */
+  amount?: number;
+  currency?: string;
 }
 
 // ───────────────────────────────────────────────────────────────────────

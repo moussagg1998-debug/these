@@ -42,6 +42,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { SettingSection, type SettingItem } from '@/components/dashboard/SettingSection';
 import { PasswordSettingsModal } from '@/components/dashboard/PasswordSettingsModal';
 import { ProfileTab } from '@/components/dashboard/ProfileTab';
+import { SubscriptionTab } from '@/components/dashboard/SubscriptionTab';
 import { StudentShell } from '@/components/student/StudentShell';
 import {
   DATE_FORMAT_OPTIONS,
@@ -109,8 +110,18 @@ function EncadrantSettingsContent({
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [overrides, setOverrides] = useState<NotificationPrefs>({});
-  const [activeTab, setActiveTab] = useState<'profil' | 'parametres'>('profil');
+  const [activeTab, setActiveTab] = useState<'profil' | 'parametres' | 'abonnement'>('profil');
   const { containerRef, registerItem, style, ready } = useSlidingIndicator(activeTab);
+
+  // Deep-link support for the landing page's Essentiel CTA
+  // (`/settings?tab=abonnement`). Read via plain URLSearchParams on mount
+  // instead of next/navigation's useSearchParams() — the latter requires a
+  // Suspense boundary this file doesn't otherwise need, for one query param
+  // read that only matters on first paint.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'abonnement' || tab === 'parametres') setActiveTab(tab);
+  }, []);
   const [locale, setLocale] = useState(profile.locale);
   const [timezone, setTimezone] = useState(profile.timezone);
   const [dateFormat, setDateFormat] = useState(profile.dateFormat);
@@ -446,10 +457,24 @@ function EncadrantSettingsContent({
           >
             Paramètres
           </button>
+          <button
+            type="button"
+            ref={registerItem('abonnement')}
+            onClick={() => setActiveTab('abonnement')}
+            className={`relative px-4 py-2.5 text-sm font-medium border-b-2 border-transparent -mb-px transition-colors duration-150 ${
+              activeTab === 'abonnement'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Abonnement
+          </button>
         </div>
 
         {activeTab === 'profil' ? (
           <ProfileTab profile={profile} onSaved={() => void refreshProfile()} />
+        ) : activeTab === 'abonnement' ? (
+          <SubscriptionTab defaultName={name} />
         ) : (
           <div className="space-y-6">
             <SettingSection title="Général" icon="sliders" items={generalItems} />

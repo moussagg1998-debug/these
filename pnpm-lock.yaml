@@ -65,6 +65,9 @@ importers:
       jose:
         specifier: ^6.2.3
         version: 6.2.3
+      libphonenumber-js:
+        specifier: ^1.13.10
+        version: 1.13.10
       lucide-react:
         specifier: ^1.28.0
         version: 1.28.0(react@19.2.6)
@@ -2738,6 +2741,9 @@ packages:
   libheif-js@1.19.8:
     resolution: {integrity: sha512-vQJWusIxO7wavpON1dusciL8Go9jsIQ+EUrckauFYAiSTjcmLAsuJh3SszLpvkwPci3JcL41ek2n+LUZGFpPIQ==}
     engines: {node: '>=8.0.0'}
+
+  libphonenumber-js@1.13.10:
+    resolution: {integrity: sha512-xJxrdqvbl2rtn2MaUJrUejz8J7/uZNC0V77oks2LxYrO/+ZtVpRmz+fEQMuu6VusnEB1fmpByiLS1WXecOnAnw==}
 
   lightningcss-android-arm64@1.32.0:
     resolution: {integrity: sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==}
@@ -6536,6 +6542,8 @@ snapshots:
       type-check: 0.4.0
 
   libheif-js@1.19.8: {}
+
+  libphonenumber-js@1.13.10: {}
 
   lightningcss-android-arm64@1.32.0:
     optional: true

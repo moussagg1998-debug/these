@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { MarketingNav } from '@/components/marketing/MarketingNav';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
+import { PricingCTA } from '@/components/marketing/PricingCTA';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -394,8 +395,9 @@ export default function LandingPage() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <Link
+                <PricingCTA
                   href="/signup"
+                  loggedInHref={p.name === 'Essentiel' ? '/settings?tab=abonnement' : undefined}
                   className={`rounded-sm py-2.5 text-center text-sm font-medium transition duration-150 motion-safe:active:scale-[0.98] ${
                     p.recommended
                       ? 'bg-primary text-primary-foreground'
@@ -403,7 +405,7 @@ export default function LandingPage() {
                   }`}
                 >
                   {p.cta}
-                </Link>
+                </PricingCTA>
                 <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                   <Icon i="lock" size={11} />
                   {p.reassurance}
