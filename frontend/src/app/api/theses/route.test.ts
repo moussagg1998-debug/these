@@ -172,8 +172,9 @@ describe('POST /api/theses', () => {
 
   it('happy path → 201, creates thesis, notifies student', async () => {
     prismaMock.user.findUnique
-      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
-      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never);
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never) // requireProfileType
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never) // student lookup
+      .mockResolvedValueOnce({ plan: 'ESSENTIEL', planExpiresAt: null } as never); // encadrant plan lookup
     prismaMock.thesis.findFirst.mockResolvedValue(null);
     prismaMock.thesis.create.mockResolvedValue({
       id: 'thesis-1',
@@ -195,7 +196,8 @@ describe('POST /api/theses', () => {
   it('accepts optional stage + deadlineAt and nests a Deadline create', async () => {
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
-      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never);
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'ESSENTIEL', planExpiresAt: null } as never);
     prismaMock.thesis.findFirst.mockResolvedValue(null);
     prismaMock.thesis.create.mockResolvedValue({
       id: 'thesis-1',
@@ -224,7 +226,8 @@ describe('POST /api/theses', () => {
   it('creating with an initial stage derives its progress too', async () => {
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
-      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never);
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'ESSENTIEL', planExpiresAt: null } as never);
     prismaMock.thesis.findFirst.mockResolvedValue(null);
     prismaMock.thesis.create.mockResolvedValue({
       id: 'thesis-1',
@@ -250,5 +253,67 @@ describe('POST /api/theses', () => {
       makePost({ studentEmail: 'a@b.com', topic: 'x', stage: 'Not a real stage' }),
     );
     expect(res.status).toBe(400);
+  });
+
+  it('FREE plan at its 2-student cap → 403 STUDENT_LIMIT_REACHED, no thesis created', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'FREE', planExpiresAt: null } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.thesis.count.mockResolvedValue(2);
+    const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('STUDENT_LIMIT_REACHED');
+    expect(prismaMock.thesis.create).not.toHaveBeenCalled();
+  });
+
+  it('FREE plan already over its cap (grandfathered) → still blocks new additions', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'FREE', planExpiresAt: null } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.thesis.count.mockResolvedValue(5); // already over the 2-student FREE cap
+    const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
+    expect(res.status).toBe(403);
+    expect(prismaMock.thesis.create).not.toHaveBeenCalled();
+  });
+
+  it('ESSENTIEL plan under its 20-student cap → 201, creates thesis', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'ESSENTIEL', planExpiresAt: null } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.thesis.count.mockResolvedValue(5);
+    prismaMock.thesis.create.mockResolvedValue({
+      id: 'thesis-1',
+      topic: 'x',
+      stage: 'En attente',
+      progress: 0,
+      studentId: 'stu-1',
+      encadrantId: 'user-1',
+    } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
+    expect(res.status).toBe(201);
+  });
+
+  it('an expired ESSENTIEL plan is treated as FREE for the cap (2/2 blocks)', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({
+        plan: 'ESSENTIEL',
+        planExpiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.thesis.count.mockResolvedValue(2);
+    const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('STUDENT_LIMIT_REACHED');
   });
 });

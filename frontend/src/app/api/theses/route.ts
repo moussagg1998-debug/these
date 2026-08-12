@@ -25,6 +25,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { requireProfileType } from '@/lib/server/theses/guards';
+import { maxStudents } from '@/lib/server/subscriptions/entitlements';
 import { deriveProgress, THESIS_STAGES } from '@/lib/theses';
 import { createNotification } from '@/lib/server/notifications';
 import { zEmail } from '@/lib/server/zod-helpers';
@@ -143,6 +144,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         { error: 'THESIS_ALREADY_EXISTS', message: 'This student already has a thesis' },
         { status: 409, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    const encadrant = await prisma.user.findUnique({
+      where: { id: auth.user.sub },
+      select: { plan: true, planExpiresAt: true },
+    });
+    if (!encadrant) {
+      return NextResponse.json(
+        { error: 'USER_NOT_FOUND' },
+        { status: 404, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+    const activeStudentCount = await prisma.thesis.count({
+      where: { encadrantId: auth.user.sub, archivedAt: null },
+    });
+    if (activeStudentCount >= maxStudents(encadrant)) {
+      return NextResponse.json(
+        { error: 'STUDENT_LIMIT_REACHED', message: "Limite d'étudiants atteinte pour votre plan." },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
       );
     }
 
