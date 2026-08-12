@@ -3,6 +3,7 @@
 import 'server-only';
 import type { WebhookProvider } from './handler';
 import { createChariowProvider, type ChariowWebhookPayload } from '../payments/chariow';
+import { ChariowProviderUnconfiguredError } from '../payments/chariow-singleton';
 
 export type { ChariowWebhookPayload };
 
@@ -19,7 +20,7 @@ export function getChariowWebhookProvider(): WebhookProvider<ChariowWebhookPaylo
     CHARIOW_PRODUCT_ID_ESSENTIEL: process.env.CHARIOW_PRODUCT_ID_ESSENTIEL ?? '',
   };
   if (!env.CHARIOW_API_KEY || !env.CHARIOW_PRODUCT_ID_ESSENTIEL) {
-    throw new Error('Chariow webhook provider not configured (env missing)');
+    throw new ChariowProviderUnconfiguredError();
   }
   _provider = createChariowProvider(env).webhookProvider;
   return _provider;
