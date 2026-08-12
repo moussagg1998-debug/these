@@ -88,10 +88,16 @@ export async function reconcileChariowOrderCore(
   // into this function, independently, close together on nearly every
   // successful payment. Without this, both open a Serializable transaction
   // and race to UPDATE the same Order row — the loser gets a 40001/P2034
-  // serialization failure instead of the clean "someone else already
-  // credited it" no-op the `updateMany` guard below is designed to produce.
-  // The advisory lock makes the second caller block until the first commits,
-  // so it observes the post-credit row state instead of racing it.
+  // serialization failure. The lock does NOT make that failure impossible:
+  // Postgres takes the Serializable snapshot at the first data-accessing
+  // statement, which is the lock-acquisition SELECT itself, so the second
+  // caller still unblocks holding a pre-credit snapshot and still raises
+  // P2034 when its `updateMany` conflicts with the now-committed row. What
+  // the lock buys is determinism (the loser is always the one still
+  // in-flight when the winner commits, never a genuine double-write) and an
+  // orderly retry: callers that treat P2034 as "reconcile again" (see
+  // `/verify`'s catch) converge on the correct state instead of surfacing
+  // an unhandled 500.
   if (order.userId) {
     await lockSubscriptionTx(tx, order.userId);
   }
@@ -208,6 +214,17 @@ export async function reconcileChariowOrder(opts: {
   return opts.prisma.$transaction(
     (tx) =>
       reconcileChariowOrderCore(tx as unknown as ReconcileTxClient, opts.order, opts.provider),
-    { isolationLevel: 'Serializable' },
+    {
+      isolationLevel: 'Serializable',
+      // Prisma's interactive-transaction default (5s) is too tight now that
+      // this transaction can (a) block on the advisory lock behind a
+      // concurrent reconcile, then (b) run getSaleStatus's own up-to-30s
+      // pull (no `pullTimeoutMs` cap here, unlike the webhook's deliberate
+      // 4s — this path is user-polled every 3s, not holding up a webhook's
+      // own tight budget). Sized for one hop of lock contention (a webhook
+      // holds the lock for at most its own 4s-capped pull) plus this call's
+      // full pull.
+      timeout: 35_000,
+    },
   );
 }

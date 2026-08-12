@@ -149,6 +149,19 @@ describe('POST /api/subscriptions/verify', () => {
     expect(body.status).toBe('PENDING');
   });
 
+  it('returns a graceful PENDING (not a 500) when reconcile hits a P2028 transaction timeout blocked behind the lock', async () => {
+    orderFindUnique.mockResolvedValueOnce({ id: 'o1', userId: 'user-1', provider: 'chariow' });
+    reconcileMock.mockRejectedValueOnce(
+      Object.assign(new Error('Transaction API error: Transaction already closed'), {
+        code: 'P2028',
+      }),
+    );
+    const res = await POST(makeReq({ orderId: 'o1' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('PENDING');
+  });
+
   it('does not swallow a non-P2034 error from reconcile', async () => {
     orderFindUnique.mockResolvedValueOnce({ id: 'o1', userId: 'user-1', provider: 'chariow' });
     reconcileMock.mockRejectedValueOnce(new Error('Chariow API unreachable'));

@@ -218,7 +218,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           // PAYMENT_IN_FLIGHT for the full 2h expiry with an orphaned live
           // Chariow session. Round defensively rather than trust the
           // provider response to already be an integer.
-          amount: result.amount !== undefined ? Math.round(result.amount) : price,
+          amount: Math.round(result.amount ?? price),
           currency: result.currency ?? 'XOF',
         },
       });

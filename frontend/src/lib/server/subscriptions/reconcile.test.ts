@@ -368,9 +368,9 @@ describe('reconcileChariowOrderCore', () => {
 });
 
 describe('reconcileChariowOrder', () => {
-  it('opens its own Serializable transaction and delegates to the core', async () => {
+  it('opens its own Serializable transaction (with a widened timeout for the lock-wait + pull) and delegates to the core', async () => {
     const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>, opts?: unknown) => {
-      expect(opts).toEqual({ isolationLevel: 'Serializable' });
+      expect(opts).toEqual({ isolationLevel: 'Serializable', timeout: 35_000 });
       return fn(makeTx().tx);
     });
     const prisma = { $transaction } as never;

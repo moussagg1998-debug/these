@@ -70,15 +70,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       status = await reconcileChariowOrder({ prisma, order, provider });
     } catch (err) {
       // P2034 — Serializable isolation aborted because the webhook (holding
-      // the same advisory lock) committed a credit concurrently. This poller
-      // retries every 3s regardless, so surface a plain PENDING rather than
-      // a 500 for what is an expected, benign race, not a real failure.
-      if (
-        typeof err === 'object' &&
-        err !== null &&
-        'code' in err &&
-        (err as { code: unknown }).code === 'P2034'
-      ) {
+      // the same advisory lock) committed a credit concurrently.
+      // P2028 — the transaction itself timed out, which can happen while
+      // this call was blocked on that same lock waiting behind the
+      // webhook's own pull. Either way this poller retries every 3s
+      // regardless, so surface a plain PENDING rather than a 500 for what
+      // is an expected, benign race, not a real failure.
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? (err as { code: unknown }).code
+          : undefined;
+      if (code === 'P2034' || code === 'P2028') {
         status = 'PENDING';
       } else {
         throw err;
