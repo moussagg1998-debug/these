@@ -26,6 +26,34 @@ function catchupDays(): number {
   return Number.isFinite(n) && n > 0 ? n : 3;
 }
 
+/**
+ * Rotate a still-unresolved order to the back of the next `updatedAt`-ordered
+ * batch. `reconcileChariowOrder` writes nothing when it can't conclude (remote
+ * still processing, amount anomaly, thrown pull), so without this the same
+ * rows would sort first forever.
+ *
+ * Deliberately PENDING-only: FAILED/EXPIRED candidates are selected by
+ * `updatedAt >= since`, so bumping those would pin every dead order inside the
+ * catch-up window permanently instead of letting it age out after
+ * CHARIOW_RECONCILE_CATCHUP_DAYS. The `status: 'PENDING'` WHERE-guard makes
+ * this a no-op on a row a webhook just flipped to PAID.
+ */
+async function touch(order: { id: string; status: string }): Promise<void> {
+  if (order.status !== 'PENDING') return;
+  try {
+    await prisma.order.updateMany({
+      where: { id: order.id, status: 'PENDING' },
+      data: { updatedAt: new Date() },
+    });
+  } catch (err) {
+    // Best-effort fairness nudge — never worth failing a tick over.
+    log.warn('chariow-reconcile: updatedAt touch failed', {
+      orderId: order.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const fail = verifyCronSecret(req);
   if (fail) return fail;
@@ -50,6 +78,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const candidates = await prisma.order.findMany({
         where: {
           provider: 'chariow',
+          // Without a Chariow sale reference there is nothing to re-pull, so
+          // such an order can never be credited. Superseded checkouts (the
+          // user re-clicked "upgrade" while a prior order was still PENDING)
+          // are exactly this shape, and being the oldest rows they used to
+          // sort to the front of every batch and crowd out real work.
+          providerChargeId: { not: null },
           OR: [
             { status: 'PENDING' },
             { status: 'FAILED', updatedAt: { gte: since } },
@@ -61,15 +95,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             { status: 'EXPIRED', updatedAt: { gte: since } },
           ],
         },
-        orderBy: { createdAt: 'asc' },
+        // `updatedAt`, not `createdAt`: combined with the touch below, an
+        // order that keeps coming back without resolving rotates to the back
+        // of the next batch instead of permanently occupying the front.
+        orderBy: { updatedAt: 'asc' },
         take: BATCH_SIZE,
       });
 
+      let failed = 0;
       for (const order of candidates) {
-        await reconcileChariowOrder({ prisma, order, provider });
+        try {
+          const outcome = await reconcileChariowOrder({ prisma, order, provider });
+          if (outcome !== 'PAID') await touch(order);
+        } catch (err) {
+          // One unreconcilable order (e.g. Chariow 404s a deleted sale) must
+          // not take the rest of the batch down with it — and because the
+          // batch is ordered by `updatedAt`, an un-touched thrower would sort
+          // first again on the very next tick, stalling the queue rather than
+          // being skipped once.
+          failed++;
+          log.error('chariow-reconcile: order failed to reconcile', {
+            orderId: order.id,
+            requestId: ctx.requestId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+          await touch(order);
+        }
         processed++;
       }
-      log.info('chariow-reconcile tick', { processed, requestId: ctx.requestId });
+      log.info('chariow-reconcile tick', { processed, failed, requestId: ctx.requestId });
     });
 
     return NextResponse.json(
