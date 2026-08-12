@@ -46,6 +46,7 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
       return;
     }
     setError(null);
+    setLimitReached(false);
     setSubmitting(true);
     try {
       const thesis = await api<
