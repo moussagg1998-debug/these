@@ -25,6 +25,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/ui/Icon';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { UpgradeModal } from '@/components/dashboard/UpgradeModal';
 import {
   ReminderRecipientRow,
   ReminderRecipientRowSkeleton,
@@ -40,6 +41,11 @@ interface ProfileResponse {
 interface ThesesResponse {
   items: ThesisListItem[];
   total: number;
+}
+
+interface SubscriptionStatus {
+  plan: 'FREE' | 'ESSENTIEL';
+  planExpiresAt: string | null;
 }
 
 interface ReminderTemplate {
@@ -75,6 +81,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_VALID_RECIPIENTS: 'Aucun des étudiants sélectionnés ne vous est assigné.',
   VALIDATION_FAILED: 'Vérifiez les champs du formulaire.',
   PROFILE_TYPE_FORBIDDEN: 'Réservé aux encadrants.',
+  PLAN_UPGRADE_REQUIRED: 'Cette fonctionnalité nécessite le plan Essentiel.',
 };
 
 export default function GroupRemindersPage() {
@@ -92,6 +99,10 @@ export default function GroupRemindersPage() {
   } = useApi<ThesesResponse>('/api/theses?limit=50', {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
+  const { data: subStatus, loading: subLoading } = useApi<SubscriptionStatus>(
+    '/api/subscriptions/status',
+    { skip: !user },
+  );
 
   const items = useMemo(() => theses?.items ?? [], [theses]);
 
@@ -104,6 +115,7 @@ export default function GroupRemindersPage() {
   const [inAppChannel, setInAppChannel] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   // Default: every student pre-selected — the encadrant opts out rather
   // than opts in (user-confirmed default). Only runs once, so a background
@@ -115,7 +127,7 @@ export default function GroupRemindersPage() {
     }
   }, [items, initialized]);
 
-  if (!user || profileLoading || !profile) {
+  if (!user || profileLoading || !profile || subLoading || !subStatus) {
     return <LoadingScreen />;
   }
 
@@ -125,6 +137,67 @@ export default function GroupRemindersPage() {
   }
 
   const name = profile.name || user.email.split('@')[0] || user.email;
+
+  const isEssentiel =
+    subStatus.plan === 'ESSENTIEL' &&
+    (!subStatus.planExpiresAt || new Date(subStatus.planExpiresAt) > new Date());
+
+  if (!isEssentiel) {
+    const [firstNamePart, ...restNameParts] = name.trim().split(/\s+/);
+    const upgradeFirstName = firstNamePart ?? '';
+    const upgradeLastName = restNameParts.join(' ');
+    return (
+      <DashboardShell name={name}>
+        <div className="flex flex-col min-h-full">
+          <div className="flex items-center gap-3 px-4 py-4 sm:px-8 bg-surface border-b border-border">
+            <Link
+              href="/dashboard"
+              aria-label="Retour au tableau de bord"
+              className="w-8 h-8 shrink-0 rounded-sm border border-border bg-background flex items-center justify-center text-muted-foreground transition-colors duration-150 hover:bg-input"
+            >
+              <Icon i="arrow-left" size={15} />
+            </Link>
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground uppercase tracking-widest font-medium mb-0.5">
+                Mes étudiants
+              </div>
+              <h1 className="text-lg sm:text-xl font-semibold font-headings text-foreground truncate">
+                Envoyer des rappels groupés
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center sm:px-8">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
+              <Icon i="lock" size={22} className="text-secondary-foreground" />
+            </div>
+            <h2 className="font-headings text-lg font-semibold text-foreground">
+              Cette fonctionnalité nécessite le plan Essentiel
+            </h2>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Les rappels groupés permettent de contacter tous vos étudiants en un seul envoi.
+              Passez au plan Essentiel pour y accéder.
+            </p>
+            <button
+              type="button"
+              onClick={() => setUpgradeModalOpen(true)}
+              className="mt-2 rounded-sm bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Voir l&apos;offre Essentiel
+            </button>
+          </div>
+        </div>
+
+        {upgradeModalOpen && (
+          <UpgradeModal
+            defaultFirstName={upgradeFirstName}
+            defaultLastName={upgradeLastName}
+            onClose={() => setUpgradeModalOpen(false)}
+          />
+        )}
+      </DashboardShell>
+    );
+  }
 
   function toggleOne(thesisId: string) {
     setSelected((prev) => {
