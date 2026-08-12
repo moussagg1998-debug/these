@@ -246,4 +246,18 @@ describe('PATCH /api/profile', () => {
     expect(res.status).toBe(400);
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
+
+  it('a plan/planExpiresAt tampering attempt in the body is silently dropped, not applied', async () => {
+    prismaMock.user.update.mockResolvedValue({ name: 'Amadou Diallo' } as never);
+    const res = await PATCH(
+      makePatch({
+        name: 'Amadou Diallo',
+        plan: 'ESSENTIEL',
+        planExpiresAt: '2099-01-01T00:00:00.000Z',
+      }),
+    );
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.user.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ name: 'Amadou Diallo' });
+  });
 });
