@@ -30,6 +30,7 @@ function SubscribeReturnContent() {
       return;
     }
     let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     async function poll() {
       try {
@@ -50,7 +51,7 @@ function SubscribeReturnContent() {
           setState('slow');
           return;
         }
-        setTimeout(() => void poll(), POLL_INTERVAL_MS);
+        timerId = setTimeout(() => void poll(), POLL_INTERVAL_MS);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 404) {
@@ -61,12 +62,13 @@ function SubscribeReturnContent() {
           setState('slow');
           return;
         }
-        setTimeout(() => void poll(), POLL_INTERVAL_MS);
+        timerId = setTimeout(() => void poll(), POLL_INTERVAL_MS);
       }
     }
     void poll();
     return () => {
       cancelled = true;
+      clearTimeout(timerId);
     };
   }, [orderId]);
 
