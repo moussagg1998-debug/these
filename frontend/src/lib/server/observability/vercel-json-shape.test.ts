@@ -34,11 +34,11 @@ describe('vercel.json schema (CRON-07, D-20)', () => {
     expect(existsSync(VERCEL_JSON)).toBe(true);
   });
 
-  it('declares exactly 9 cron schedules', () => {
+  it('declares exactly 11 cron schedules', () => {
     if (!existsSync(VERCEL_JSON)) return; // skip silently when RED-by-design
     const cfg = JSON.parse(readFileSync(VERCEL_JSON, 'utf8')) as VercelConfig;
     expect(cfg.crons).toBeDefined();
-    expect(cfg.crons!.length).toBe(9);
+    expect(cfg.crons!.length).toBe(11);
   });
 
   it('every cron path matches /^\\/api\\/cron\\/[a-z-]+$/ and schedule is valid 5-field cron', () => {
@@ -64,11 +64,12 @@ describe('vercel.json schema (CRON-07, D-20)', () => {
     }
   });
 
-  it('declares schedules for the 9 canonical crons (Phase 5 + post-audit + ThèseFacile + admin monitoring)', () => {
+  it('declares schedules for the 11 canonical crons (Phase 5 + post-audit + ThèseFacile + admin monitoring + Chariow subscriptions)', () => {
     if (!existsSync(VERCEL_JSON)) return;
     const cfg = JSON.parse(readFileSync(VERCEL_JSON, 'utf8')) as VercelConfig;
     const paths = (cfg.crons ?? []).map((c) => c.path).sort();
     expect(paths).toEqual([
+      '/api/cron/chariow-reconcile',
       '/api/cron/deadline-reminder',
       '/api/cron/email-job-purge',
       '/api/cron/email-queue-drain',
@@ -76,6 +77,7 @@ describe('vercel.json schema (CRON-07, D-20)', () => {
       '/api/cron/order-expiration',
       '/api/cron/outbox-drain',
       '/api/cron/scheduled-deposits',
+      '/api/cron/subscription-expiration',
       '/api/cron/verification-cleanup',
       '/api/cron/webhook-log-purge',
     ]);
