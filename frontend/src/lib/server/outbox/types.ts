@@ -13,7 +13,9 @@ export type OutboxEvent =
   | NotificationPaymentReceivedEvent
   | EmailPaymentConfirmationEvent
   | EmailVerificationCodeEvent
-  | EmailPasswordResetEvent;
+  | EmailPasswordResetEvent
+  | NotificationPlanActivatedEvent
+  | NotificationPlanExpiredEvent;
 
 export interface NotificationPaymentReceivedEvent {
   kind: 'notification.payment_received';
@@ -58,6 +60,25 @@ export interface EmailPasswordResetEvent {
     to: string;
     code: string;
     expiresAt: string;
+  };
+}
+
+/** Emitted by subscriptions/reconcile.ts when a Chariow payment credits a plan. */
+export interface NotificationPlanActivatedEvent {
+  kind: 'notification.plan_activated';
+  payload: {
+    userId: string;
+    orderId: string;
+    plan: string;
+    expiresAt: string;
+  };
+}
+
+/** Emitted by subscriptions/expire.ts (cron) when a plan's 30-day window lapses. */
+export interface NotificationPlanExpiredEvent {
+  kind: 'notification.plan_expired';
+  payload: {
+    userId: string;
   };
 }
 
