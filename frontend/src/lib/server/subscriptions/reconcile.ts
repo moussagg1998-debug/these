@@ -12,8 +12,18 @@
  *   §5.4 — amount anti-fraude, 5% tolerance against the configured plan
  *     price; a mismatch logs a warning and credits nothing.
  *   §5.2 — idempotence via `updateMany` guarded on
- *     `status IN (PENDING, FAILED)`; a `count === 0` result means another
- *     concurrent reconcile already won — treated as success, not an error.
+ *     `status IN (PENDING, FAILED, EXPIRED)`; a `count === 0` result means
+ *     another concurrent reconcile already won — treated as success, not an
+ *     error.
+ *
+ * EXPIRED is deliberately re-checkable: checkout stamps `expiresAt` 2h out and
+ * the generic `order-expiration` cron flips any still-PENDING order past that
+ * deadline. A mobile-money settlement (or a webhook retry) landing after that
+ * window would otherwise hit a terminal state and be dropped on the floor —
+ * losing a plan credit the customer actually paid for. Widening the *local*
+ * eligibility does not weaken any verification: the remote `GET /sales/{id}`
+ * re-pull, the plan-metadata check and the amount anti-fraude guard all still
+ * have to pass before anything is credited.
  */
 import 'server-only';
 import type { PrismaClient, Order } from '@prisma/client';
@@ -30,6 +40,23 @@ const AMOUNT_TOLERANCE = 0.05;
 export type ReconcileOutcome = 'PAID' | 'PENDING' | 'FAILED';
 
 export type ReconcileTxClient = Pick<PrismaClient, 'order' | 'user' | 'outboxEvent'>;
+
+/**
+ * Local order states this function is still willing to re-verify against
+ * Chariow. Doubles as the `updateMany` status guard so a concurrent reconcile
+ * that already moved the row loses the write (`count === 0`) instead of
+ * double-crediting.
+ */
+export const RECHECKABLE_STATUSES = ['PENDING', 'FAILED', 'EXPIRED'] as const;
+
+function isRecheckable(status: string): boolean {
+  return (RECHECKABLE_STATUSES as readonly string[]).includes(status);
+}
+
+/** Fresh array per call — Prisma's `in` filter expects a mutable `string[]`. */
+function recheckableWhere(orderId: string) {
+  return { id: orderId, status: { in: [...RECHECKABLE_STATUSES] } };
+}
 
 function amountWithinTolerance(actual: number, expected: number): boolean {
   if (expected === 0) return actual === 0;
@@ -52,8 +79,15 @@ export async function reconcileChariowOrderCore(
   opts: { pullTimeoutMs?: number } = {},
 ): Promise<ReconcileOutcome> {
   if (order.status === 'PAID') return 'PAID';
-  if (order.status !== 'PENDING' && order.status !== 'FAILED') {
-    // EXPIRED / REFUNDED — terminal states this function does not revisit.
+  if (!isRecheckable(order.status)) {
+    // REFUNDED (or any future state) — genuinely terminal, this function will
+    // not revisit it. Never return 'FAILED' from here silently: an operator
+    // has to be able to see that a Chariow event landed on an order we
+    // refused to re-verify.
+    logger.error('[Chariow] Order in a terminal state — reconciliation skipped, NOT re-pulled', {
+      orderId: order.id,
+      status: order.status,
+    });
     return 'FAILED';
   }
   if (!order.providerChargeId) return 'PENDING';
@@ -66,9 +100,13 @@ export async function reconcileChariowOrderCore(
   if (mapped === 'pending') return 'PENDING';
 
   if (mapped === 'failed' || mapped === 'abandoned') {
-    if (order.status !== 'FAILED') {
+    // Only PENDING is worth writing down. An already-FAILED row needs no
+    // write, and an EXPIRED one is deliberately left EXPIRED: rewriting it
+    // would both erase why it closed and bump `updatedAt`, restarting the
+    // cron's `CHARIOW_RECONCILE_CATCHUP_DAYS` window on a dead order.
+    if (order.status === 'PENDING') {
       await tx.order.updateMany({
-        where: { id: order.id, status: { in: ['PENDING', 'FAILED'] } },
+        where: recheckableWhere(order.id),
         data: { status: 'FAILED' },
       });
     }
@@ -108,7 +146,7 @@ export async function reconcileChariowOrderCore(
   }
 
   const updated = await tx.order.updateMany({
-    where: { id: order.id, status: { in: ['PENDING', 'FAILED'] } },
+    where: recheckableWhere(order.id),
     data: { status: 'PAID', paidAt: remote.paidAt ?? order.createdAt },
   });
   if (updated.count === 0) {

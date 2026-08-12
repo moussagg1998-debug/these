@@ -55,22 +55,25 @@ describe('POST /api/cron/chariow-reconcile', () => {
     expect(res.status).toBe(401);
   });
 
-  it('reconciles every PENDING chariow order and recently-FAILED ones within the catch-up window', async () => {
+  it('reconciles every PENDING chariow order and recently-FAILED/EXPIRED ones within the catch-up window', async () => {
     orderFindMany.mockResolvedValueOnce([
       { id: 'o1', status: 'PENDING' },
       { id: 'o2', status: 'FAILED' },
+      { id: 'o3', status: 'EXPIRED' },
     ]);
     const { POST } = await import('./route');
     const res = await POST(makeReq());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.processed).toBe(2);
-    expect(reconcileMock).toHaveBeenCalledTimes(2);
+    expect(body.processed).toBe(3);
+    expect(reconcileMock).toHaveBeenCalledTimes(3);
     const whereArg = orderFindMany.mock.calls[0]![0].where;
     expect(whereArg.provider).toBe('chariow');
     expect(whereArg.OR).toEqual([
       { status: 'PENDING' },
       { status: 'FAILED', updatedAt: { gte: expect.any(Date) } },
+      // A settlement landing after checkout's 2h expiry must still be caught.
+      { status: 'EXPIRED', updatedAt: { gte: expect.any(Date) } },
     ]);
   });
 

@@ -1,5 +1,29 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// `reconcile.ts` calls `createLogger()` once at module scope, so the spy has
+// to be installed before the module is imported — hence `vi.hoisted`.
+const { loggerErrorSpy, loggerWarnSpy } = vi.hoisted(() => ({
+  loggerErrorSpy: vi.fn(),
+  loggerWarnSpy: vi.fn(),
+}));
+vi.mock('../logger', () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: loggerWarnSpy,
+    error: loggerErrorSpy,
+  }),
+}));
+
 import { reconcileChariowOrderCore, reconcileChariowOrder } from './reconcile';
+
+/** Status guard shared by every `updateMany` in `reconcile.ts`. */
+const RECHECKABLE = { in: ['PENDING', 'FAILED', 'EXPIRED'] };
+
+beforeEach(() => {
+  loggerErrorSpy.mockClear();
+  loggerWarnSpy.mockClear();
+});
 
 function baseOrder(over: Record<string, unknown> = {}) {
   return {
@@ -75,7 +99,7 @@ describe('reconcileChariowOrderCore', () => {
     const result = await reconcileChariowOrderCore(tx as never, baseOrder(), provider);
     expect(result).toBe('FAILED');
     expect(orderUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'order_1', status: { in: ['PENDING', 'FAILED'] } },
+      where: { id: 'order_1', status: RECHECKABLE },
       data: { status: 'FAILED' },
     });
   });
@@ -92,7 +116,7 @@ describe('reconcileChariowOrderCore', () => {
     const result = await reconcileChariowOrderCore(tx as never, baseOrder(), provider);
     expect(result).toBe('PAID');
     expect(orderUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'order_1', status: { in: ['PENDING', 'FAILED'] } },
+      where: { id: 'order_1', status: RECHECKABLE },
       data: { status: 'PAID', paidAt: new Date('2026-08-11T09:00:00Z') },
     });
     expect(userUpdate).toHaveBeenCalledWith({
@@ -118,7 +142,7 @@ describe('reconcileChariowOrderCore', () => {
     };
     await reconcileChariowOrderCore(tx as never, baseOrder(), provider);
     expect(orderUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'order_1', status: { in: ['PENDING', 'FAILED'] } },
+      where: { id: 'order_1', status: RECHECKABLE },
       data: { status: 'PAID', paidAt: new Date('2026-08-01T00:00:00Z') },
     });
   });
@@ -168,6 +192,127 @@ describe('reconcileChariowOrderCore', () => {
     const result = await reconcileChariowOrderCore(tx as never, baseOrder(), provider);
     expect(result).toBe('PAID');
     expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it('credits an EXPIRED order whose remote Chariow status is succeeded (late settlement)', async () => {
+    const { tx, orderUpdateMany, userUpdate, outboxCreate } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'settled',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: new Date('2026-08-11T09:00:00Z'),
+      })),
+    };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'EXPIRED' }),
+      provider,
+    );
+    expect(result).toBe('PAID');
+    // The re-pull is the whole point — never concluded from local state.
+    expect(provider.getSaleStatus).toHaveBeenCalledWith('sale_1', {});
+    expect(orderUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'order_1', status: RECHECKABLE },
+      data: { status: 'PAID', paidAt: new Date('2026-08-11T09:00:00Z') },
+    });
+    expect(userUpdate).toHaveBeenCalledOnce();
+    expect(outboxCreate).toHaveBeenCalledOnce();
+  });
+
+  it('still enforces the amount anti-fraude guard on an EXPIRED order', async () => {
+    const { tx, orderUpdateMany, userUpdate } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'settled',
+        amount: { value: 100, currency: 'XOF' }, // way under the 5900 expected
+        paidAt: new Date('2026-08-11T09:00:00Z'),
+      })),
+    };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'EXPIRED' }),
+      provider,
+    );
+    expect(result).toBe('PENDING');
+    expect(orderUpdateMany).not.toHaveBeenCalled();
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(loggerWarnSpy).toHaveBeenCalled();
+  });
+
+  it('still dedupes an EXPIRED order a concurrent reconcile already credited', async () => {
+    const { tx, orderUpdateMany, userUpdate, outboxCreate } = makeTx();
+    orderUpdateMany.mockResolvedValueOnce({ count: 0 });
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'settled',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: new Date('2026-08-11T09:00:00Z'),
+      })),
+    };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'EXPIRED' }),
+      provider,
+    );
+    expect(result).toBe('PAID');
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(outboxCreate).not.toHaveBeenCalled();
+  });
+
+  it('leaves an EXPIRED order uncredited (and unwritten) when Chariow still reports it unpaid', async () => {
+    const { tx, orderUpdateMany, userUpdate } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'processing',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: null,
+      })),
+    };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'EXPIRED' }),
+      provider,
+    );
+    expect(result).toBe('PENDING');
+    expect(orderUpdateMany).not.toHaveBeenCalled();
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it('does NOT rewrite an EXPIRED order to FAILED when Chariow confirms the failure', async () => {
+    const { tx, orderUpdateMany } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'cancelled',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: null,
+      })),
+    };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'EXPIRED' }),
+      provider,
+    );
+    expect(result).toBe('FAILED');
+    // Rewriting would bump `updatedAt` and restart the cron catch-up window
+    // on a dead order, and erase why the order actually closed.
+    expect(orderUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('logs an error instead of silently returning FAILED for a genuinely terminal state', async () => {
+    const { tx, orderUpdateMany } = makeTx();
+    const provider = { getSaleStatus: vi.fn() };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'REFUNDED' }),
+      provider,
+    );
+    expect(result).toBe('FAILED');
+    expect(provider.getSaleStatus).not.toHaveBeenCalled();
+    expect(orderUpdateMany).not.toHaveBeenCalled();
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('terminal state'),
+      expect.objectContaining({ orderId: 'order_1', status: 'REFUNDED' }),
+    );
   });
 
   it('does not call the provider when providerChargeId is missing', async () => {

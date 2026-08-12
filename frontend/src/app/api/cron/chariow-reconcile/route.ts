@@ -50,7 +50,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const candidates = await prisma.order.findMany({
         where: {
           provider: 'chariow',
-          OR: [{ status: 'PENDING' }, { status: 'FAILED', updatedAt: { gte: since } }],
+          OR: [
+            { status: 'PENDING' },
+            { status: 'FAILED', updatedAt: { gte: since } },
+            // A mobile-money settlement can land after checkout's 2h
+            // `expiresAt`, by which point the generic `order-expiration` cron
+            // has already flipped the row to EXPIRED. Without this branch that
+            // late payment is never re-pulled and the customer silently loses
+            // the plan they paid for. Same catch-up window as FAILED.
+            { status: 'EXPIRED', updatedAt: { gte: since } },
+          ],
         },
         orderBy: { createdAt: 'asc' },
         take: BATCH_SIZE,
