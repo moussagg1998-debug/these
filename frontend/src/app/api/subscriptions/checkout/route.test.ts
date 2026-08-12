@@ -235,4 +235,29 @@ describe('POST /api/subscriptions/checkout', () => {
       data: { status: 'FAILED' },
     });
   });
+
+  it('returns 502 PAYMENT_FAILED and does NOT mark the Order FAILED when only the post-charge Order update fails', async () => {
+    // charge() succeeded — Chariow already created a live checkout session.
+    // If persisting providerChargeId/paymentUrl then fails (e.g. transient
+    // DB error), the Order must stay PENDING with no paymentUrl so a retry
+    // correctly hits the PAYMENT_IN_FLIGHT guard instead of creating a
+    // second, disconnected Chariow session.
+    prismaOrderUpdate.mockRejectedValueOnce(new Error('DB write timeout'));
+    const res = await POST(makeReq(validBody));
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('PAYMENT_FAILED');
+    expect(prismaOrderUpdate).toHaveBeenCalledTimes(1);
+    expect(prismaOrderUpdate).toHaveBeenCalledWith({
+      where: { id: 'order-1' },
+      data: {
+        providerChargeId: 'sale_1',
+        paymentUrl: 'https://chariow.test/pay/sale_1',
+        amount: 5900,
+        currency: 'XOF',
+      },
+    });
+    expect(prismaOrderUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'FAILED' }) }),
+    );
+  });
 });

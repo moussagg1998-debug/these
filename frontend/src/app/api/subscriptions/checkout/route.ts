@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { log } from '@/lib/server/observability/log';
 import { prisma } from '@/lib/server/prisma';
 import { CircuitOpenError } from '@/lib/server/payments/circuit-breaker';
 import {
@@ -153,8 +154,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       throw err;
     }
 
+    let result;
     try {
-      const result = await chariowBreaker.execute(() =>
+      result = await chariowBreaker.execute(() =>
         provider.charge({
           amount: price,
           currency: 'XOF',
@@ -171,21 +173,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           failureUrl: `${publicUrl}/subscribe/return?orderId=${order.id}&status=failed`,
           externalRef: order.id,
         }),
-      );
-
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          providerChargeId: result.providerChargeId,
-          paymentUrl: result.paymentUrl,
-          amount: result.amount ?? price,
-          currency: result.currency ?? 'XOF',
-        },
-      });
-
-      return NextResponse.json(
-        { orderId: order.id, paymentUrl: result.paymentUrl },
-        { status: 201, headers: { 'x-request-id': ctx.requestId } },
       );
     } catch (err) {
       if (err instanceof CircuitOpenError) {
@@ -209,5 +196,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 502, headers: { 'x-request-id': ctx.requestId } },
       );
     }
+
+    // Chariow has already created a real, live checkout session at this
+    // point (`result.providerChargeId` is a real charge on their side). If
+    // persisting that reference fails here, we must NOT mark the Order
+    // FAILED — doing so would let a user retry sail past the
+    // PAYMENT_IN_FLIGHT guard (which only trips on a PENDING order with no
+    // paymentUrl) and create a second, disconnected Chariow session,
+    // orphaning the first one with no providerChargeId on record anywhere
+    // to reconcile it later. Leaving status PENDING with paymentUrl still
+    // null is what makes the retry correctly hit PAYMENT_IN_FLIGHT instead.
+    try {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          providerChargeId: result.providerChargeId,
+          paymentUrl: result.paymentUrl,
+          amount: result.amount ?? price,
+          currency: result.currency ?? 'XOF',
+        },
+      });
+    } catch (err) {
+      log.error('subscriptions/checkout: post-charge Order update failed', {
+        orderId: order.id,
+        providerChargeId: result.providerChargeId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return NextResponse.json(
+        { error: 'PAYMENT_FAILED', message: 'Failed to persist payment reference' },
+        { status: 502, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    return NextResponse.json(
+      { orderId: order.id, paymentUrl: result.paymentUrl },
+      { status: 201, headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }
