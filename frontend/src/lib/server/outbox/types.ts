@@ -79,6 +79,7 @@ export interface NotificationPlanExpiredEvent {
   kind: 'notification.plan_expired';
   payload: {
     userId: string;
+    expiredAt: string;
   };
 }
 

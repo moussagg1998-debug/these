@@ -75,6 +75,18 @@ export async function reconcileChariowOrderCore(
     return 'FAILED';
   }
 
+  if (mapped !== 'succeeded') {
+    // Defensive guard — mapChariowStatus's return union currently only has
+    // 4 literals and the other 3 are handled above, so this should never
+    // trigger today. Protects against silently crediting a plan if that
+    // union is ever widened with a 5th value without updating this file.
+    logger.error('[Chariow] Unexpected mapped status reached credit path', {
+      orderId: order.id,
+      mapped,
+    });
+    return 'PENDING';
+  }
+
   // mapped === 'succeeded'
   const plan = (order.metadata as { plan?: string } | null)?.plan;
   if (plan !== 'ESSENTIEL') {

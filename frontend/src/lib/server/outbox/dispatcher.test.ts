@@ -142,4 +142,53 @@ describe('drainOutbox (TEST-02)', () => {
     expect(stats).toEqual({ processed: 0, succeeded: 0, failed: 0, dead: 0 });
     expect(prismaMock.outboxEvent.updateMany).not.toHaveBeenCalled();
   });
+
+  it('dispatches notification.plan_activated via createNotification with the correct payload', async () => {
+    const row = makeRow({
+      kind: 'notification.plan_activated',
+      payload: {
+        userId: 'u_1',
+        orderId: 'o_1',
+        plan: 'ESSENTIEL',
+        expiresAt: '2026-09-10T00:00:00.000Z',
+      },
+    });
+    prismaMock.outboxEvent.findMany.mockResolvedValue([{ id: 'oe_1' }] as never);
+    prismaMock.outboxEvent.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.outboxEvent.findUnique.mockResolvedValue(row as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    prismaMock.outboxEvent.update.mockResolvedValue({} as never);
+
+    const stats = await drainOutbox({ prisma: prismaMock });
+
+    expect(stats.succeeded).toBe(1);
+    const createArgs = prismaMock.notification.create.mock.calls[0]?.[0];
+    expect(createArgs?.data).toMatchObject({
+      userId: 'u_1',
+      type: 'PLAN_ACTIVATED',
+      dedupeKey: 'plan-activated:o_1',
+    });
+  });
+
+  it('dispatches notification.plan_expired via createNotification using the payload-carried expiredAt (Finding 1 fix — never regenerated at dispatch time)', async () => {
+    const row = makeRow({
+      kind: 'notification.plan_expired',
+      payload: { userId: 'u_1', expiredAt: '2026-09-11T00:00:00.000Z' },
+    });
+    prismaMock.outboxEvent.findMany.mockResolvedValue([{ id: 'oe_1' }] as never);
+    prismaMock.outboxEvent.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.outboxEvent.findUnique.mockResolvedValue(row as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    prismaMock.outboxEvent.update.mockResolvedValue({} as never);
+
+    const stats = await drainOutbox({ prisma: prismaMock });
+
+    expect(stats.succeeded).toBe(1);
+    const createArgs = prismaMock.notification.create.mock.calls[0]?.[0];
+    expect(createArgs?.data).toMatchObject({
+      userId: 'u_1',
+      type: 'PLAN_EXPIRED',
+      dedupeKey: 'plan-expired:u_1:2026-09-11T00:00:00.000Z',
+    });
+  });
 });

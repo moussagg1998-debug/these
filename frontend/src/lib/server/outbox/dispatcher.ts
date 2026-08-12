@@ -136,8 +136,8 @@ async function dispatchEvent(deps: OutboxDispatcherDeps, event: OutboxEvent): Pr
       return;
     }
     case 'notification.plan_expired': {
-      const { userId } = event.payload;
-      await createNotification(deps.prisma, planExpired(userId, new Date().toISOString()));
+      const { userId, expiredAt } = event.payload;
+      await createNotification(deps.prisma, planExpired(userId, expiredAt));
       return;
     }
     case 'email.payment_confirmation': {
