@@ -10,6 +10,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/ui/Icon';
+import { UpgradeModal } from './UpgradeModal';
 import type { ThesisListItem } from '@/lib/theses';
 
 const STAGES = ['Rédaction', 'En attente', 'Révision', 'Bloqué', 'Soutenance'] as const;
@@ -35,6 +36,8 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
   const [deadlineAt, setDeadlineAt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -59,7 +62,11 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
       onCreated(thesis);
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(ERROR_MESSAGES[err.code] ?? err.message);
+        if (err.code === 'STUDENT_LIMIT_REACHED') {
+          setLimitReached(true);
+        } else {
+          setError(ERROR_MESSAGES[err.code] ?? err.message);
+        }
       } else {
         setError('Une erreur est survenue.');
       }
@@ -165,10 +172,26 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
               </div>
             </label>
 
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
+            {limitReached ? (
+              <div className="flex flex-col gap-3 rounded-md border border-border bg-input p-4 text-center">
+                <p className="text-sm text-foreground">
+                  Limite d&apos;étudiants atteinte pour votre plan. Passez au plan Essentiel pour
+                  ajouter davantage d&apos;étudiants.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setUpgradeModalOpen(true)}
+                  className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  Voir l&apos;offre Essentiel
+                </button>
+              </div>
+            ) : (
+              error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )
             )}
           </div>
 
@@ -190,6 +213,7 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
           </div>
         </form>
       </div>
+      {upgradeModalOpen && <UpgradeModal onClose={() => setUpgradeModalOpen(false)} />}
     </div>
   );
 }
