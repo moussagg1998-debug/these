@@ -212,7 +212,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         data: {
           providerChargeId: result.providerChargeId,
           paymentUrl: result.paymentUrl,
-          amount: result.amount ?? price,
+          // Order.amount is an Int column — an unrounded provider amount
+          // throws here, which (correctly) does NOT mark the order FAILED
+          // (see the catch below), leaving it wedged behind
+          // PAYMENT_IN_FLIGHT for the full 2h expiry with an orphaned live
+          // Chariow session. Round defensively rather than trust the
+          // provider response to already be an integer.
+          amount: result.amount !== undefined ? Math.round(result.amount) : price,
           currency: result.currency ?? 'XOF',
         },
       });

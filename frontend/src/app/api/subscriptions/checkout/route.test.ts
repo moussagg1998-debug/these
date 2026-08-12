@@ -134,6 +134,26 @@ describe('POST /api/subscriptions/checkout', () => {
     });
   });
 
+  it('rounds a non-integer amount from the provider response before persisting (Order.amount is an Int column)', async () => {
+    chargeMock.mockResolvedValueOnce({
+      providerChargeId: 'sale_1',
+      paymentUrl: 'https://chariow.test/pay/sale_1',
+      amount: 5900.4,
+      currency: 'XOF',
+    });
+    const res = await POST(makeReq(validBody));
+    expect(res.status).toBe(201);
+    expect(prismaOrderUpdate).toHaveBeenCalledWith({
+      where: { id: 'order-1' },
+      data: {
+        providerChargeId: 'sale_1',
+        paymentUrl: 'https://chariow.test/pay/sale_1',
+        amount: 5900,
+        currency: 'XOF',
+      },
+    });
+  });
+
   it('rejects 400 PHONE_INVALID before ever creating an Order', async () => {
     const res = await POST(makeReq({ ...validBody, phone: 'nope', phoneLocal: '' }));
     expect(res.status).toBe(400);

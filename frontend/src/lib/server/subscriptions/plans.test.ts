@@ -1,5 +1,18 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+
+// `plans.ts` calls `createLogger()` once at module scope, so the spy has to
+// be installed before the module is imported — same pattern as
+// subscriptions/reconcile.test.ts.
+const { loggerWarnSpy } = vi.hoisted(() => ({ loggerWarnSpy: vi.fn() }));
+vi.mock('../logger', () => ({
+  createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: loggerWarnSpy, error: vi.fn() }),
+}));
+
 import { expectedPriceFcfa, planDurationDays } from './plans';
+
+beforeEach(() => {
+  loggerWarnSpy.mockClear();
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -21,6 +34,15 @@ describe('expectedPriceFcfa', () => {
     expect(expectedPriceFcfa('ESSENTIEL')).toBe(5900);
     vi.stubEnv('CHARIOW_ESSENTIEL_PRICE_FCFA', '-100');
     expect(expectedPriceFcfa('ESSENTIEL')).toBe(5900);
+  });
+
+  it('truncates and warns on a non-integer override — FCFA has no decimals and Order.amount is an Int column', () => {
+    vi.stubEnv('CHARIOW_ESSENTIEL_PRICE_FCFA', '5900.5');
+    expect(expectedPriceFcfa('ESSENTIEL')).toBe(5900);
+    expect(loggerWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('not an integer'),
+      expect.objectContaining({ raw: '5900.5', truncated: 5900 }),
+    );
   });
 });
 
