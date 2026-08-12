@@ -37,7 +37,17 @@ describe('expirePlans', () => {
       data: { plan: 'FREE', planExpiresAt: null },
     });
     expect(outboxCreate).toHaveBeenCalledOnce();
-    expect(outboxCreate.mock.calls[0]![0].data.kind).toBe('notification.plan_expired');
+    const call = outboxCreate.mock.calls[0]![0];
+    expect(call.data.kind).toBe('notification.plan_expired');
+    const payload = call.data.payload as { userId: string; expiredAt: string };
+    expect(payload.userId).toBe('u1');
+    expect(typeof payload.expiredAt).toBe('string');
+    expect(() => new Date(payload.expiredAt)).not.toThrow();
+    // Confirms it's a genuine ISO string, not just any string — this is the
+    // guarantee the expiredAt-captured-at-enqueue-time fix (Task 7 review)
+    // is meant to lock in: a regression that hoists `new Date()` out of the
+    // per-row loop or drops the field would fail this assertion.
+    expect(new Date(payload.expiredAt).toISOString()).toBe(payload.expiredAt);
   });
 
   it('is a no-op when no ESSENTIEL user has expired', async () => {
