@@ -32,6 +32,7 @@ import { enqueueOutbox } from '../outbox';
 import { mapChariowStatus } from '../payments/chariow';
 import type { ChariowProviderHandle } from '../payments/chariow';
 import { expectedPriceFcfa, planDurationDays, type PlanId } from './plans';
+import { lockSubscriptionTx } from './lock';
 
 const logger = createLogger();
 
@@ -39,7 +40,10 @@ const AMOUNT_TOLERANCE = 0.05;
 
 export type ReconcileOutcome = 'PAID' | 'PENDING' | 'FAILED';
 
-export type ReconcileTxClient = Pick<PrismaClient, 'order' | 'user' | 'outboxEvent'>;
+export type ReconcileTxClient = Pick<
+  PrismaClient,
+  'order' | 'user' | 'outboxEvent' | '$executeRawUnsafe'
+>;
 
 /**
  * Local order states this function is still willing to re-verify against
@@ -79,6 +83,19 @@ export async function reconcileChariowOrderCore(
   opts: { pullTimeoutMs?: number } = {},
 ): Promise<ReconcileOutcome> {
   if (order.status === 'PAID') return 'PAID';
+
+  // The webhook (onPaid) and the user-return poll (`/verify`) both funnel
+  // into this function, independently, close together on nearly every
+  // successful payment. Without this, both open a Serializable transaction
+  // and race to UPDATE the same Order row — the loser gets a 40001/P2034
+  // serialization failure instead of the clean "someone else already
+  // credited it" no-op the `updateMany` guard below is designed to produce.
+  // The advisory lock makes the second caller block until the first commits,
+  // so it observes the post-credit row state instead of racing it.
+  if (order.userId) {
+    await lockSubscriptionTx(tx, order.userId);
+  }
+
   if (!isRecheckable(order.status)) {
     // REFUNDED (or any future state) — genuinely terminal, this function will
     // not revisit it. Never return 'FAILED' from here silently: an operator

@@ -138,6 +138,23 @@ describe('POST /api/subscriptions/verify', () => {
     expect(res.status).toBe(401);
   });
 
+  it('returns a graceful PENDING (not a 500) when reconcile hits a P2034 serialization conflict with the webhook', async () => {
+    orderFindUnique.mockResolvedValueOnce({ id: 'o1', userId: 'user-1', provider: 'chariow' });
+    reconcileMock.mockRejectedValueOnce(
+      Object.assign(new Error('Transaction failed due to a write conflict'), { code: 'P2034' }),
+    );
+    const res = await POST(makeReq({ orderId: 'o1' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('PENDING');
+  });
+
+  it('does not swallow a non-P2034 error from reconcile', async () => {
+    orderFindUnique.mockResolvedValueOnce({ id: 'o1', userId: 'user-1', provider: 'chariow' });
+    reconcileMock.mockRejectedValueOnce(new Error('Chariow API unreachable'));
+    await expect(POST(makeReq({ orderId: 'o1' }))).rejects.toThrow('Chariow API unreachable');
+  });
+
   it('returns 503 PAYMENT_PROVIDER_UNCONFIGURED when Chariow env is missing', async () => {
     orderFindUnique.mockResolvedValueOnce({ id: 'o1', userId: 'user-1', provider: 'chariow' });
     const { ChariowProviderUnconfiguredError } =

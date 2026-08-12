@@ -65,7 +65,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       throw err;
     }
 
-    const status = await reconcileChariowOrder({ prisma, order, provider });
+    let status: Awaited<ReturnType<typeof reconcileChariowOrder>>;
+    try {
+      status = await reconcileChariowOrder({ prisma, order, provider });
+    } catch (err) {
+      // P2034 — Serializable isolation aborted because the webhook (holding
+      // the same advisory lock) committed a credit concurrently. This poller
+      // retries every 3s regardless, so surface a plain PENDING rather than
+      // a 500 for what is an expected, benign race, not a real failure.
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: unknown }).code === 'P2034'
+      ) {
+        status = 'PENDING';
+      } else {
+        throw err;
+      }
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: auth.user.sub },

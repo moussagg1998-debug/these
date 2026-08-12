@@ -46,22 +46,25 @@ function makeTx() {
   const userFindUnique = vi.fn().mockResolvedValue({ planExpiresAt: null });
   const userUpdate = vi.fn().mockResolvedValue({});
   const outboxCreate = vi.fn().mockResolvedValue({ id: 'ob1' });
+  const executeRawUnsafe = vi.fn().mockResolvedValue(0);
   return {
     tx: {
       order: { updateMany: orderUpdateMany },
       user: { findUnique: userFindUnique, update: userUpdate },
       outboxEvent: { create: outboxCreate },
+      $executeRawUnsafe: executeRawUnsafe,
     },
     orderUpdateMany,
     userFindUnique,
     userUpdate,
     outboxCreate,
+    executeRawUnsafe,
   };
 }
 
 describe('reconcileChariowOrderCore', () => {
   it('is a no-op when the order is already PAID', async () => {
-    const { tx, orderUpdateMany } = makeTx();
+    const { tx, orderUpdateMany, executeRawUnsafe } = makeTx();
     const provider = { getSaleStatus: vi.fn() };
     const result = await reconcileChariowOrderCore(
       tx as never,
@@ -71,6 +74,42 @@ describe('reconcileChariowOrderCore', () => {
     expect(result).toBe('PAID');
     expect(provider.getSaleStatus).not.toHaveBeenCalled();
     expect(orderUpdateMany).not.toHaveBeenCalled();
+    // Already settled — nothing to serialize against, so no lock needed.
+    expect(executeRawUnsafe).not.toHaveBeenCalled();
+  });
+
+  it('takes the subscription advisory lock, namespaced to the order owner, before doing anything else', async () => {
+    const { tx, executeRawUnsafe } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'processing',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: null,
+      })),
+    };
+    await reconcileChariowOrderCore(tx as never, baseOrder({ userId: 'user_42' }), provider);
+    expect(executeRawUnsafe).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      'subscription:user_42',
+    );
+    // Locked before the remote pull — the whole point is to serialize with
+    // the webhook path around that same network call.
+    expect(executeRawUnsafe.mock.invocationCallOrder[0]).toBeLessThan(
+      provider.getSaleStatus.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('does not attempt to take a lock for a guest order (no userId)', async () => {
+    const { tx, executeRawUnsafe } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn(async () => ({
+        status: 'processing',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: null,
+      })),
+    };
+    await reconcileChariowOrderCore(tx as never, baseOrder({ userId: null }), provider);
+    expect(executeRawUnsafe).not.toHaveBeenCalled();
   });
 
   it('leaves the order PENDING when Chariow reports a pending sale', async () => {

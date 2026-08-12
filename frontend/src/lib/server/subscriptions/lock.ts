@@ -10,10 +10,11 @@
  */
 import type { Prisma } from '@prisma/client';
 
-export type SubscriptionTxClient = Omit<
-  Prisma.TransactionClient,
-  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
->;
+// Narrowed to exactly what this function uses (`$executeRawUnsafe`) rather
+// than the full transaction client, so callers whose own tx type is a
+// smaller Pick (e.g. subscriptions/reconcile.ts's `ReconcileTxClient`) don't
+// need an unsound cast to pass their `tx` through.
+export type SubscriptionTxClient = Pick<Prisma.TransactionClient, '$executeRawUnsafe'>;
 
 export async function lockSubscriptionTx(tx: SubscriptionTxClient, userId: string): Promise<void> {
   await tx.$executeRawUnsafe(
