@@ -46,7 +46,9 @@ The `essentielActive` / `essentielExpiredUnswept` split reuses the same expiry-a
 
 ### `GET /api/admin/subscriptions`
 
-New file: `frontend/src/app/api/admin/subscriptions/route.ts`. Mirrors `frontend/src/app/api/admin/users/route.ts`'s list shape: `requireAdmin('ADMIN')` → rate limit → cursor pagination (`clampLimit`/`decodeCursor`/`buildPage`, the same shared pagination helper every list route in this codebase uses) → optional `q` search on name/email (same search-clause construction as the users route) → `where: { plan: 'ESSENTIEL' }` (always — this route is exclusively "who is or was recently Essentiel," not a general user list) → `orderBy: [{ planExpiresAt: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }]` — Prisma's `nulls: 'last'` ordering modifier (GA since Prisma 4.16, no preview flag needed; this project is on Prisma 5.22) puts `planExpiresAt: null` rows (lifetime/no-expiry Essentiel accounts) after every row with a real date, so the soonest-expiring real date always sorts first.
+New file: `frontend/src/app/api/admin/subscriptions/route.ts`. `requireAdmin('ADMIN')` → rate limit → optional `q` search on name/email (same search-clause construction as `/api/admin/users`) → `where: { plan: 'ESSENTIEL', ...searchClause }` (always includes the plan filter — this route is exclusively "who is or was recently Essentiel," not a general user list) → `orderBy: [{ planExpiresAt: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }]` (Prisma's `nulls: 'last'` ordering modifier, GA since Prisma 4.16, no preview flag needed; this project is on Prisma 5.22 — puts `planExpiresAt: null` rows after every row with a real date, so the soonest-expiring real date always sorts first) → `take: 200`, **no cursor pagination**.
+
+This deliberately does NOT reuse the generic `clampLimit`/`decodeCursor`/`buildPage` helper from `pagination/paginate.ts` — that helper's cursor codec is hardcoded to `{ createdAt, id }` descending order (see `lib/server/notifications/cursor.ts`), which doesn't fit `planExpiresAt` ascending with nulls-last. Rather than build a bespoke cursor codec for one route, this follows the existing, direct precedent set by `GET /api/admin/institutions` and `GET /api/deadlines` in this same codebase: a capped `take` with no cursor, documented there as "good enough for v1" for a cross-cutting admin aggregate rather than an end-user paginated feed. `take: 200` matches `GET /api/deadlines`'s existing cap. No "Charger plus" button on the frontend for this route — if a deployment ever exceeds 200 concurrent Essentiel subscribers, that is a good problem to have and cursor pagination can be added then.
 
 Row shape:
 
@@ -77,7 +79,7 @@ New file: `frontend/src/app/admin/subscriptions/page.tsx`, `'use client'`. Struc
   - `Expire bientôt` (amber) — in the future but within 7 days.
   - `Expiré — non traité` (red, `bg-danger/15 text-danger`) — in the past (the `essentielExpiredUnswept` rows surfaced individually).
 - Skeleton rows while loading, empty-state message when the search yields nothing (matching `admin/users/page.tsx`'s exact copy pattern, adapted: "Aucun abonné ne correspond à cette recherche.").
-- "Charger plus" cursor-pagination button, identical mechanics to the users page (`extraItems`/`extraCursor`/`loadMore`).
+- No "Charger plus" button — the list route returns a single capped batch (see Architecture), matching `/api/admin/institutions`'s existing "aggregate, not a paginated feed" precedent.
 - No row actions — read-only per the approved scope.
 
 ### Nav wiring
@@ -101,14 +103,14 @@ This drops the now-false "no subscription model exists" claim, keeps the two sti
 Both new routes follow this codebase's existing admin-route error shape exactly — no new error codes invented:
 - Unauthenticated/non-admin → whatever `requireAdmin('ADMIN')` already returns (401/403), unchanged.
 - Rate-limited → whatever `enforceAdminRateLimit` already returns, unchanged.
-- No plan-specific error cases exist — these are pure reads with no user input beyond `q`/`cursor`/`limit`, all already validated by the shared pagination helpers used elsewhere.
+- No plan-specific error cases exist — these are pure reads. The stats route takes no input at all; the list route takes only `q`, trimmed and length-capped the same way `/api/admin/users` already does.
 
 Frontend: on a fetch error, `useApi`'s existing error surfaces exactly as it does on `/admin/users` today (no bespoke handling needed) — this spec doesn't change that hook.
 
 ## Testing plan
 
 - `frontend/src/app/api/admin/subscriptions/stats/route.test.ts` (new): admin-auth guard (401/403), rate-limit guard, the active/stale-expired/free counting split (including the boundary — `planExpiresAt` exactly `now` and both directions around it), `mrrFcfa` arithmetic including a `CHARIOW_ESSENTIEL_PRICE_FCFA` override case.
-- `frontend/src/app/api/admin/subscriptions/route.test.ts` (new): admin-auth guard, rate-limit guard, `plan: 'ESSENTIEL'` filter is always applied, `q` search matches the users route's search behavior, cursor pagination, `planExpiresAt` ascending order with nulls last.
+- `frontend/src/app/api/admin/subscriptions/route.test.ts` (new): admin-auth guard, rate-limit guard, `plan: 'ESSENTIEL'` filter is always applied, `q` search matches the users route's search behavior, `take: 200` cap, `planExpiresAt` ascending order with nulls last.
 - No new `.test.tsx` — this repo has no component test infrastructure (`vitest.config.ts` is `src/**/*.test.ts` only, node environment; documented precedent in the 2026-08-12 entitlements plan). The new page and the sidebar link are verified manually against `pnpm dev`: as SUPERADMIN, confirm "Abonnements" is a real (non-inert) link, the KPI row renders real numbers, the subscriber table lists Essentiel users sorted soonest-expiring-first with correct status badges, search filters correctly, and "Charger plus" paginates. Also confirm the dashboard footnote no longer claims no subscription model exists.
 
 ## Files touched
