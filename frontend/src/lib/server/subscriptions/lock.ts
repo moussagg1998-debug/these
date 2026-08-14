@@ -22,3 +22,16 @@ export async function lockSubscriptionTx(tx: SubscriptionTxClient, userId: strin
     `subscription:${userId}`,
   );
 }
+
+/**
+ * Advisory lock scoped to a coupon CODE (not id — no lookup needed before
+ * locking). Serializes every redemption of the same coupon against each
+ * other, regardless of which user is redeeming, so `Coupon.maxRedemptions`
+ * is exact under concurrency: two different users redeeming the same coupon
+ * at once still can't both slip in under the cap. Always taken AFTER
+ * `lockSubscriptionTx` in the checkout route (see subscriptions/coupons.ts)
+ * — one canonical lock order avoids any deadlock risk between the two.
+ */
+export async function lockCouponTx(tx: SubscriptionTxClient, code: string): Promise<void> {
+  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `coupon:${code}`);
+}
