@@ -50,17 +50,12 @@ export function AdminSidebar({ email, role }: AdminSidebarProps) {
   return (
     <div className="hidden lg:flex flex-col w-56 shrink-0 bg-surface border-r border-border h-full">
       <div className="px-6 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-primary rounded-sm flex items-center justify-center">
-            <Icon i="book-open" size={14} className="text-primary-foreground" />
+        <div className="flex items-center gap-2.5">
+          <div className="shrink-0 rounded-md bg-white p-1.5">
+            <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
           </div>
-          <div>
-            <div className="font-headings font-semibold text-sm text-foreground leading-tight">
-              ThèseFacile
-            </div>
-            <div className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Administration
-            </div>
+          <div className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Administration
           </div>
         </div>
       </div>

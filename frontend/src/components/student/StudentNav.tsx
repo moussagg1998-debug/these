@@ -46,13 +46,8 @@ export function StudentNav({ name, active }: StudentNavProps) {
         >
           <Icon i="menu" size={20} />
         </button>
-        <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
-          <div className="w-7 h-7 bg-primary rounded-sm flex items-center justify-center">
-            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-          </div>
-          <span className="hidden sm:inline text-base font-semibold font-headings text-foreground">
-            ThèseFacile
-          </span>
+        <Link href="/dashboard" className="flex items-center shrink-0">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </Link>
       </div>
 
@@ -98,7 +93,7 @@ export function StudentNav({ name, active }: StudentNavProps) {
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="w-64 bg-surface flex flex-col motion-safe:animate-slide-in-left">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <span className="font-headings font-semibold text-foreground">ThèseFacile</span>
+              <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}

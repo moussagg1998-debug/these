@@ -1,10 +1,18 @@
 import { ImageResponse } from 'next/og';
+import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
-// Favicon, generated natively (no image asset to ship/maintain). Mirrors the
-// brand mark already used in MarketingNav/MarketingFooter (primary-green
-// square + wordmark initial) rather than introducing a new logo.
+// Favicon, generated from the real logo asset (public/logo.jpg) via the
+// Node.js runtime + local-asset pattern documented for next/og (base64 data
+// URI embedded in an <img>). The logo is a wide wordmark with no separate
+// cropped icon mark available, so it's letterboxed (object-fit: contain) on
+// a white canvas matching the source image's own white background.
+export const runtime = 'nodejs';
 export const size = { width: 32, height: 32 };
 export const contentType = 'image/png';
+
+const logoData = await readFile(join(process.cwd(), 'public', 'logo.jpg'), 'base64');
+const logoSrc = `data:image/jpeg;base64,${logoData}`;
 
 export default function Icon() {
   return new ImageResponse(
@@ -15,15 +23,10 @@ export default function Icon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#4ade80',
-        borderRadius: 6,
-        color: '#0f1f17',
-        fontSize: 20,
-        fontWeight: 700,
-        fontFamily: 'sans-serif',
+        background: '#ffffff',
       }}
     >
-      T
+      <img src={logoSrc} width={32} height={32} style={{ objectFit: 'contain' }} />
     </div>,
     { ...size },
   );

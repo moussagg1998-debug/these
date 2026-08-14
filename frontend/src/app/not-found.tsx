@@ -1,14 +1,11 @@
 // Branded 404. Next.js sets the response status to 404 automatically for
 // this file — no explicit status handling needed here.
 import Link from 'next/link';
-import { Icon } from '@/components/ui/Icon';
 
 export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-primary">
-        <Icon i="graduation-cap" size={22} className="text-primary-foreground" />
-      </div>
+      <img src="/logo.jpg" alt="ThèseFacile" className="h-12 w-auto" />
       <h1 className="font-headings text-2xl font-semibold text-foreground">Page introuvable</h1>
       <p className="max-w-sm text-sm text-muted-foreground">
         La page que vous cherchez n&apos;existe pas ou a été déplacée.

@@ -40,11 +40,8 @@ function AuthErrorBody() {
   return (
     <div className="flex min-h-screen bg-background font-body">
       <main className="mx-auto flex w-full max-w-md flex-col justify-center gap-6 px-4">
-        <div className="mb-2 flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-          </div>
-          <span className="font-headings text-base font-semibold text-foreground">ThèseFacile</span>
+        <div className="mb-2 flex items-center">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </div>
 
         <div className="flex items-start gap-3 rounded-sm border border-border bg-input p-4">

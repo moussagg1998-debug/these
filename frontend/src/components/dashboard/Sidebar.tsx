@@ -35,13 +35,8 @@ export function Sidebar({ name, subtitle = 'Encadrant' }: SidebarProps) {
   return (
     <div className="hidden lg:flex flex-col w-56 shrink-0 bg-surface border-r border-border h-full">
       <div className="px-6 py-5 border-b border-border">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-accent rounded-sm flex items-center justify-center">
-            <Icon i="book-open" size={14} className="text-accent-foreground" />
-          </div>
-          <span className="font-headings font-semibold text-base text-foreground tracking-tight">
-            ThèseFacile
-          </span>
+        <Link href="/dashboard" className="flex items-center">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </Link>
       </div>
 

@@ -79,13 +79,8 @@ export default function SignupPage() {
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-12">
         <div className="flex min-h-full items-center justify-center">
           <div className="w-full max-w-sm py-2">
-            <div className="mb-4 flex items-center gap-2.5 lg:hidden">
-              <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-                <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-              </div>
-              <span className="font-headings text-base font-semibold text-foreground">
-                ThèseFacile
-              </span>
+            <div className="mb-4 lg:hidden">
+              <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
             </div>
 
             <div className="mb-5">

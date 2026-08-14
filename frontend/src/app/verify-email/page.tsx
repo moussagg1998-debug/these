@@ -80,11 +80,8 @@ function VerifyEmailForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-14 font-body sm:px-8">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-6 flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-          </div>
-          <span className="font-headings text-base font-semibold text-foreground">ThèseFacile</span>
+        <Link href="/" className="mb-6 flex items-center">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </Link>
 
         <div className="mb-8">

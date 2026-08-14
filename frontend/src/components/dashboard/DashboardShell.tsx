@@ -33,7 +33,7 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div className="w-64 bg-surface flex flex-col motion-safe:animate-slide-in-left">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <span className="font-headings font-semibold text-foreground">ThèseFacile</span>
+              <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
@@ -86,7 +86,7 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
           >
             <Icon i="sliders" size={18} className="text-foreground" />
           </button>
-          <span className="font-headings font-semibold text-sm text-foreground">ThèseFacile</span>
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
           <div className="w-[18px]" />
         </div>
         {header && <div className="shrink-0">{header}</div>}

@@ -7,11 +7,8 @@ import { Icon } from '@/components/ui/Icon';
 export function AuthBrandingPanel() {
   return (
     <div className="hidden w-2/5 shrink-0 flex-col justify-between bg-surface px-12 py-14 lg:flex">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-primary">
-          <Icon i="graduation-cap" size={18} className="text-primary-foreground" />
-        </div>
-        <span className="font-headings text-lg font-semibold text-foreground">ThèseFacile</span>
+      <div className="flex items-center">
+        <img src="/logo.jpg" alt="ThèseFacile" className="h-9 w-auto" />
       </div>
 
       <div>

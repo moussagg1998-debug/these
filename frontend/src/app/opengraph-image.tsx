@@ -1,11 +1,21 @@
 import { ImageResponse } from 'next/og';
+import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 // Default OG/Twitter share image for every route (root-level convention —
 // individual routes can override with their own opengraph-image.tsx).
-// Generated natively at request time, no image asset to ship/maintain.
+// Generated from the real logo asset (public/logo.jpg) via the Node.js
+// runtime + local-asset pattern documented for next/og (base64 data URI
+// embedded in an <img>). The logo sits in a white card since the source
+// JPEG carries its own white background — placing it directly on the dark
+// canvas would show a hard white rectangle with no visual framing.
+export const runtime = 'nodejs';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const alt = 'ThèseFacile — Le suivi de thèses, enfin clair';
+
+const logoData = await readFile(join(process.cwd(), 'public', 'logo.jpg'), 'base64');
+const logoSrc = `data:image/jpeg;base64,${logoData}`;
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -23,24 +33,17 @@ export default function OpengraphImage() {
         fontFamily: 'sans-serif',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 10,
-            background: '#4ade80',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#0f1f17',
-            fontSize: 28,
-            fontWeight: 700,
-          }}
-        >
-          T
-        </div>
-        <div style={{ display: 'flex', fontSize: 32, fontWeight: 600 }}>ThèseFacile</div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          background: '#ffffff',
+          borderRadius: 16,
+          padding: '20px 32px',
+          marginBottom: 48,
+        }}
+      >
+        <img src={logoSrc} height={64} style={{ objectFit: 'contain' }} />
       </div>
       <div
         style={{ display: 'flex', fontSize: 56, fontWeight: 600, lineHeight: 1.15, maxWidth: 900 }}

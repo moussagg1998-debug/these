@@ -20,13 +20,8 @@ export function MarketingNav() {
   return (
     <nav className="border-b border-border bg-background px-4 py-4 sm:px-8 lg:px-16">
       <div className="flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5 sm:gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary sm:h-8 sm:w-8">
-            <Icon i="graduation-cap" size={16} className="text-primary-foreground" />
-          </div>
-          <span className="font-headings text-base font-semibold text-foreground sm:text-lg">
-            ThèseFacile
-          </span>
+        <Link href="/" className="flex items-center">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto sm:h-9" />
         </Link>
 
         <div className="hidden items-center gap-8 text-sm font-medium text-muted-foreground lg:flex">

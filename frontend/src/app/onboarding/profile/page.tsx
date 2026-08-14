@@ -83,11 +83,8 @@ export default function ProfileSelectionPage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background font-body">
       <nav className="shrink-0 flex items-center justify-between border-b border-border px-4 py-3 sm:px-12">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-          </div>
-          <span className="font-headings text-base font-semibold text-foreground">ThèseFacile</span>
+        <div className="flex items-center">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </div>
       </nav>
 
