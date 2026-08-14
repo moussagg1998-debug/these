@@ -257,6 +257,13 @@ export default function AdminSubscriptionsPage() {
             </div>
           </div>
         </div>
+
+        {items.length === 200 && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Icon i="info" size={12} />
+            Affichage limité aux 200 premiers abonnés.
+          </p>
+        )}
       </div>
     </AdminShell>
   );
