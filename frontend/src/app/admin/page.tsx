@@ -139,8 +139,8 @@ export default function AdminDashboardPage() {
 
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Icon i="info" size={12} />
-          MRR, statut/plan par établissement et alertes automatiques ne sont pas encore disponibles
-          — aucun modèle d&apos;abonnement n&apos;existe dans le produit aujourd&apos;hui.
+          Statut/plan par établissement et alertes automatiques d&apos;abonnement ne sont pas encore
+          disponibles — voir la page Abonnements pour le MRR et le détail des abonnés.
         </p>
       </div>
     </AdminShell>

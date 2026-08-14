@@ -31,7 +31,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { icon: 'building-2', label: 'Universités' },
   { href: '/admin/users?profileType=ENCADRANT', icon: 'user-check', label: 'Encadrants' },
   { href: '/admin/users?profileType=ETUDIANT', icon: 'users', label: 'Étudiants' },
-  { icon: 'credit-card', label: 'Abonnements' },
+  { href: '/admin/subscriptions', icon: 'credit-card', label: 'Abonnements' },
   { icon: 'bar-chart-2', label: 'Analytiques' },
   { href: '/admin/alerts', icon: 'bell', label: 'Alertes' },
   { href: '/admin/security', icon: 'shield', label: 'Sécurité' },
