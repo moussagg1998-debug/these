@@ -80,6 +80,7 @@ model User {
   notifications     Notification[]
   notifPrefs        NotificationPreferences?
   orders            Order[]
+  couponRedemptions CouponRedemption[]
   withdrawals       Withdrawal[]
   oauthAccounts     OAuthAccount[]
   adminActions      AdminAction[]
@@ -462,6 +463,7 @@ model Order {
   providerChargeId String? @unique
   paymentUrl       String? // checkout/redirect URL returned by provider
   paymentMethod    String? // WAVE | ORANGE_MONEY | FREE_MONEY (set on PAID by webhook)
+  couponRedemption CouponRedemption?
 
   // Optional commission (for marketplace-style apps)
   commissionAmount Int?
@@ -499,6 +501,50 @@ model Withdrawal {
   @@index([userId, requestedAt])
   @@index([status, requestedAt])
   @@index([provider, providerPayoutId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Discount coupons — percentage-off codes applied at subscription checkout.
+// A coupon redemption bypasses the payment provider entirely (see
+// lib/server/subscriptions/coupons.ts): Chariow's hosted checkout can't
+// accept a per-transaction amount, so a validated coupon creates the Order
+// directly PAID (provider "coupon") and activates the plan synchronously.
+// `redemptions` is the source of truth for usage counts — no denormalized
+// counter on Coupon itself, to avoid a second field that could drift out of
+// sync with the actual redemption rows.
+// ───────────────────────────────────────────────────────────────────────
+model Coupon {
+  id              String             @id @default(cuid())
+  code            String             @unique // stored uppercase, e.g. "THESIS"
+  discountPercent Int // 1-100
+  isActive        Boolean            @default(true)
+  maxRedemptions  Int? // null = unlimited
+  expiresAt       DateTime? // null = never
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  redemptions     CouponRedemption[]
+
+  @@index([code])
+}
+
+// One row per successful redemption. `@@unique([couponId, userId])` is a
+// DB-level backstop for the "one use per user" rule — the primary
+// enforcement is the `coupon:{code}` advisory lock held around the whole
+// checkout transaction (lib/server/subscriptions/lock.ts), which already
+// makes a same-coupon race impossible; the constraint just documents the
+// invariant and catches any future bypass of that lock.
+model CouponRedemption {
+  id         String   @id @default(cuid())
+  couponId   String
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  redeemedAt DateTime @default(now())
+
+  @@unique([couponId, userId])
+  @@index([userId])
 }
 
 // ───────────────────────────────────────────────────────────────────────
