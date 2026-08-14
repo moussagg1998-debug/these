@@ -10,11 +10,16 @@ mockNextCookies();
 vi.mock('@/lib/server/middleware', () => ({
   requireAuth: vi.fn(),
 }));
+vi.mock('@/lib/server/withdrawals/lock', () => ({
+  lockUserTx: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { requireAuth } from '@/lib/server/middleware';
+import { lockUserTx } from '@/lib/server/withdrawals/lock';
 import { GET, POST } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
+const mockLockUserTx = vi.mocked(lockUserTx);
 
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 
@@ -40,6 +45,15 @@ beforeEach(() => {
   vi.clearAllMocks();
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
+  mockLockUserTx.mockResolvedValue(undefined);
+  // Default $transaction passthrough — runs the callback against the same
+  // prismaMock, matching every other transaction-using route test in this repo.
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(undefined);
+  });
 });
 
 describe('GET /api/theses', () => {
@@ -315,5 +329,54 @@ describe('POST /api/theses', () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe('STUDENT_LIMIT_REACHED');
+  });
+
+  it('the cap check and create run inside a Serializable transaction, locked by encadrant id first', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'ESSENTIEL', planExpiresAt: null } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.thesis.count.mockResolvedValue(0);
+    prismaMock.thesis.create.mockResolvedValue({
+      id: 'thesis-1',
+      topic: 'x',
+      stage: 'En attente',
+      progress: 0,
+      studentId: 'stu-1',
+      encadrantId: 'user-1',
+    } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+
+    const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
+    expect(res.status).toBe(201);
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    const opts = prismaMock.$transaction.mock.calls[0]?.[1] as
+      | { isolationLevel?: string }
+      | undefined;
+    expect(opts?.isolationLevel).toBe('Serializable');
+
+    expect(mockLockUserTx).toHaveBeenCalledWith(expect.anything(), 'user-1');
+    // Lock must be acquired before the count read it protects.
+    const lockOrder = mockLockUserTx.mock.invocationCallOrder[0];
+    const countOrder = prismaMock.thesis.count.mock.invocationCallOrder[0];
+    expect(lockOrder).toBeLessThan(countOrder as number);
+  });
+
+  it('a Serializable conflict (P2034) → 409 TRANSIENT_CONFLICT, no thesis created', async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ profileType: 'ENCADRANT' } as never)
+      .mockResolvedValueOnce({ id: 'stu-1', profileType: null } as never)
+      .mockResolvedValueOnce({ plan: 'ESSENTIEL', planExpiresAt: null } as never);
+    prismaMock.thesis.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockRejectedValueOnce(
+      Object.assign(new Error('conflict'), { code: 'P2034' }),
+    );
+    const res = await POST(makePost({ studentEmail: 'a@b.com', topic: 'x' }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('TRANSIENT_CONFLICT');
+    expect(prismaMock.thesis.create).not.toHaveBeenCalled();
   });
 });
