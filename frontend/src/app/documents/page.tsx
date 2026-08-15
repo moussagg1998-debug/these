@@ -237,7 +237,7 @@ function DocumentsLibraryContent() {
               <div className="flex-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Format
               </div>
-              <div className="shrink-0 w-28" />
+              <div className="shrink-0 w-32" />
             </div>
             {filtered.map((doc) => (
               <DocumentRow

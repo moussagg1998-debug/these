@@ -7,7 +7,14 @@
 // `replyToDocumentId` is set is a correction the encadrant sent, not a
 // deposit awaiting review — the commented/pending pill doesn't apply, so it
 // shows a distinct "De votre encadrant" badge instead.
-import { documentDisplayName, formatDate, formatFileSize, type ThesisDocument } from '@/lib/theses';
+import Link from 'next/link';
+import {
+  documentDisplayName,
+  documentFormat,
+  formatDate,
+  formatFileSize,
+  type ThesisDocument,
+} from '@/lib/theses';
 import { Icon } from '@/components/ui/Icon';
 import { Skeleton } from '@/components/ui/Skeleton';
 
@@ -19,6 +26,7 @@ interface StudentDocumentRowProps {
 export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) {
   const isPendingSchedule = !!doc.scheduledAt && new Date(doc.scheduledAt).getTime() > Date.now();
   const isCorrection = doc.replyToDocumentId != null;
+  const isPdf = documentFormat(doc).toLowerCase() === 'pdf';
 
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 border-b border-border last:border-0 transition-colors duration-150 hover:bg-input/40">
@@ -52,6 +60,15 @@ export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) 
         >
           {commented ? 'Commenté' : 'En attente de retour'}
         </div>
+      )}
+      {isPdf && (
+        <Link
+          href={`/documents/${doc.id}/view`}
+          className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
+          aria-label="Ouvrir"
+        >
+          <Icon i="external-link" size={14} />
+        </Link>
       )}
       <a
         href={doc.fileUrl}

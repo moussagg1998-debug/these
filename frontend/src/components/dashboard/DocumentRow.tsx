@@ -4,6 +4,7 @@
 // where `replyToDocumentId` is set is an encadrant correction, not a
 // student deposit — it shows a badge instead of the "send correction"
 // action (you can't reply to a reply).
+import Link from 'next/link';
 import {
   STAGE_COLORS,
   displayName,
@@ -26,6 +27,7 @@ interface DocumentRowProps {
 export function DocumentRow({ doc, onSendCorrection, replyToLabel }: DocumentRowProps) {
   const stageClass = STAGE_COLORS[doc.thesis.stage] || 'bg-muted text-muted-foreground';
   const isCorrection = doc.replyToDocumentId != null;
+  const isPdf = documentFormat(doc).toLowerCase() === 'pdf';
 
   return (
     <div className="flex flex-col gap-2 px-5 py-3 border-b border-border last:border-0 transition-colors duration-150 hover:bg-surface lg:flex-row lg:items-center lg:gap-4">
@@ -53,7 +55,7 @@ export function DocumentRow({ doc, onSendCorrection, replyToLabel }: DocumentRow
         <div className="lg:w-20 lg:shrink-0">{formatFileSize(doc.sizeBytes)}</div>
         <div className="lg:flex-1 uppercase font-medium">{documentFormat(doc)}</div>
       </div>
-      <div className="flex items-center justify-end gap-2 lg:shrink-0 lg:w-28">
+      <div className="flex items-center justify-end gap-2 lg:shrink-0 lg:w-32">
         {isCorrection ? (
           <span className="text-xs font-medium px-2 py-1 rounded-sm bg-accent/10 text-accent">
             Correction
@@ -67,6 +69,15 @@ export function DocumentRow({ doc, onSendCorrection, replyToLabel }: DocumentRow
           >
             <Icon i="send" size={14} />
           </button>
+        )}
+        {isPdf && (
+          <Link
+            href={`/documents/${doc.id}/view`}
+            aria-label="Ouvrir"
+            className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
+          >
+            <Icon i="external-link" size={14} />
+          </Link>
         )}
         <a
           href={doc.fileUrl}
@@ -96,7 +107,7 @@ export function DocumentRowSkeleton() {
         <Skeleton className="h-3.5 w-10 lg:w-20" />
         <Skeleton className="h-3.5 w-10 lg:flex-1" />
       </div>
-      <div className="flex items-center justify-end lg:shrink-0 lg:w-28">
+      <div className="flex items-center justify-end lg:shrink-0 lg:w-32">
         <Skeleton className="h-3.5 w-3.5" />
       </div>
     </div>
