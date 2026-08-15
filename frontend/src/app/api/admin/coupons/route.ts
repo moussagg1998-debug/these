@@ -21,8 +21,12 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 const CreateBody = z.object({
   code: z.string().trim().min(3).max(40),
   discountPercent: z.number().int().min(1).max(100),
-  maxRedemptions: z.number().int().positive().optional(),
-  expiresAt: z.coerce.date().optional(),
+  // .nullable() matters here, not just .optional(): CouponFormModal always
+  // sends an explicit `null` (not an omitted key) for an unset cap/expiry —
+  // z.coerce.date() would otherwise coerce a bare `null` to the 1970 epoch
+  // and pass validation, silently creating an already-expired coupon.
+  maxRedemptions: z.number().int().positive().nullable().optional(),
+  expiresAt: z.coerce.date().nullable().optional(),
 });
 
 export async function GET(req: NextRequest): Promise<NextResponse> {

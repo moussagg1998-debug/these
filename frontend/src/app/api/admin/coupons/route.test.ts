@@ -115,6 +115,18 @@ describe('POST /api/admin/coupons', () => {
     );
   });
 
+  it('accepts an explicit null maxRedemptions/expiresAt (what CouponFormModal actually sends for an unset cap/expiry, not an omitted key)', async () => {
+    prismaMock.coupon.findUnique.mockResolvedValue(null);
+    prismaMock.coupon.create.mockResolvedValue(couponRow as never);
+    const res = await POST(
+      makePost({ code: 'thesis', discountPercent: 95, maxRedemptions: null, expiresAt: null }),
+    );
+    expect(res.status).toBe(201);
+    expect(prismaMock.coupon.create).toHaveBeenCalledWith({
+      data: { code: 'THESIS', discountPercent: 95, maxRedemptions: null, expiresAt: null },
+    });
+  });
+
   it('returns 409 COUPON_CODE_TAKEN when the code already exists', async () => {
     prismaMock.coupon.findUnique.mockResolvedValue(couponRow as never);
     const res = await POST(makePost({ code: 'THESIS', discountPercent: 95 }));
