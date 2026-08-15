@@ -3,7 +3,10 @@
 // `commented` is a real derivation (≥1 Comment linked to this document),
 // replacing Banani's 3-state status pill (En cours de révision/Commenté/
 // Validé) — no schema field backs a "validated" verdict, only whether
-// feedback exists (see phase-7-dashboard-etudiant.md).
+// feedback exists (see phase-7-dashboard-etudiant.md). A row where
+// `replyToDocumentId` is set is a correction the encadrant sent, not a
+// deposit awaiting review — the commented/pending pill doesn't apply, so it
+// shows a distinct "De votre encadrant" badge instead.
 import { documentDisplayName, formatDate, formatFileSize, type ThesisDocument } from '@/lib/theses';
 import { Icon } from '@/components/ui/Icon';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -15,6 +18,7 @@ interface StudentDocumentRowProps {
 
 export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) {
   const isPendingSchedule = !!doc.scheduledAt && new Date(doc.scheduledAt).getTime() > Date.now();
+  const isCorrection = doc.replyToDocumentId != null;
 
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 border-b border-border last:border-0 transition-colors duration-150 hover:bg-input/40">
@@ -33,6 +37,10 @@ export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) 
         <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-sm shrink-0 bg-accent/10 text-accent">
           <Icon i="clock" size={11} />
           Programmé · {formatDate(doc.scheduledAt as string)}
+        </div>
+      ) : isCorrection ? (
+        <div className="text-xs font-medium px-2 py-1 rounded-sm shrink-0 bg-accent/10 text-accent">
+          De votre encadrant
         </div>
       ) : (
         <div
