@@ -654,6 +654,13 @@ model Comment {
   // Encadrant-only triage fields for "Commentaires — Vue d'ensemble".
   resolved   Boolean   @default(false)
   priority   String    @default("medium") // "low" | "medium" | "high"
+  // PDF page number this comment is anchored to (the /documents/[id]/view
+  // viewer). Only meaningful on a top-level comment (parentId: null) that
+  // is also scoped to a document (documentId non-null) — enforced in the
+  // POST /api/theses/[id]/comments handler, not at the DB level. A reply
+  // in a thread has no page of its own; it inherits its parent's. Null =
+  // an ordinary general comment (today's only kind), unchanged.
+  page       Int?
   createdAt  DateTime  @default(now())
 
   @@index([thesisId, createdAt])
