@@ -82,3 +82,35 @@ export function planExpired(userId: string, expiredAt: string): CreateNotificati
     dedupeKey: `plan-expired:${userId}:${expiredAt}`,
   };
 }
+
+export function documentSubmitted(
+  encadrantId: string,
+  thesisId: string,
+  documentId: string,
+  chapter: string | null,
+): CreateNotificationInput {
+  return {
+    userId: encadrantId,
+    type: 'DOCUMENT_SUBMITTED',
+    title: 'Nouveau document déposé',
+    body: chapter ? `Nouveau dépôt : ${chapter}` : 'Nouveau document déposé',
+    data: { thesisId, documentId },
+    dedupeKey: `document-submitted:${documentId}`,
+  };
+}
+
+export function documentReceived(
+  studentId: string,
+  thesisId: string,
+  documentId: string,
+  chapter: string | null,
+): CreateNotificationInput {
+  return {
+    userId: studentId,
+    type: 'DOCUMENT_RECEIVED',
+    title: 'Nouveau fichier de votre encadrant',
+    body: chapter ? `Correction reçue : ${chapter}` : 'Votre encadrant vous a envoyé un fichier',
+    data: { thesisId, documentId },
+    dedupeKey: `document-received:${documentId}`,
+  };
+}
