@@ -28,11 +28,11 @@
 import 'server-only';
 import type { PrismaClient, Order } from '@prisma/client';
 import { createLogger } from '../logger';
-import { enqueueOutbox } from '../outbox';
 import { mapChariowStatus } from '../payments/chariow';
 import type { ChariowProviderHandle } from '../payments/chariow';
-import { expectedPriceFcfa, planDurationDays, type PlanId } from './plans';
+import { expectedPriceFcfa, type PlanId } from './plans';
 import { lockSubscriptionTx } from './lock';
+import { activatePlanFromOrder } from './activate';
 
 const logger = createLogger();
 
@@ -65,10 +65,6 @@ function recheckableWhere(orderId: string) {
 function amountWithinTolerance(actual: number, expected: number): boolean {
   if (expected === 0) return actual === 0;
   return Math.abs(actual - expected) / expected <= AMOUNT_TOLERANCE;
-}
-
-function addDays(base: Date, days: number): Date {
-  return new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
 /**
@@ -179,22 +175,10 @@ export async function reconcileChariowOrderCore(
 
   if (!order.userId) return 'PAID'; // guest order — nothing to credit (should not occur for subscriptions)
 
-  const user = await tx.user.findUnique({
-    where: { id: order.userId },
-    select: { planExpiresAt: true },
-  });
-  const now = new Date();
-  const base = user?.planExpiresAt && user.planExpiresAt > now ? user.planExpiresAt : now;
-  const newExpiry = addDays(base, planDurationDays(plan as PlanId));
-
-  await tx.user.update({
-    where: { id: order.userId },
-    data: { plan, planExpiresAt: newExpiry },
-  });
-
-  await enqueueOutbox(tx, {
-    kind: 'notification.plan_activated',
-    payload: { userId: order.userId, orderId: order.id, plan, expiresAt: newExpiry.toISOString() },
+  await activatePlanFromOrder(tx, {
+    userId: order.userId,
+    orderId: order.id,
+    plan: plan as PlanId,
   });
 
   return 'PAID';
