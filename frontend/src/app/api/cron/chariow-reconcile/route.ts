@@ -79,10 +79,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         where: {
           provider: 'chariow',
           // Without a Chariow sale reference there is nothing to re-pull, so
-          // such an order can never be credited. Superseded checkouts (the
-          // user re-clicked "upgrade" while a prior order was still PENDING)
-          // are exactly this shape, and being the oldest rows they used to
-          // sort to the front of every batch and crowd out real work.
+          // such an order can never be credited — e.g. a checkout abandoned
+          // before charge() ever returned. (A *superseded* order — the user
+          // re-clicked "upgrade", or redeemed a coupon, while a prior order
+          // was still PENDING with a live paymentUrl — DOES carry a
+          // providerChargeId; `reconcileChariowOrderCore` refuses to
+          // re-verify those via their `cancelledReason: 'superseded'`
+          // metadata stamp instead, not via this filter.) Rows with no
+          // charge reference are the oldest and used to sort to the front
+          // of every batch, crowding out real work.
           providerChargeId: { not: null },
           OR: [
             { status: 'PENDING' },
