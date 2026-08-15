@@ -81,3 +81,42 @@ export async function enforceAdminRateLimit(userId: string): Promise<NextRespons
   }
   return null;
 }
+
+const COUPON_PREVIEW_PREFIX = 'rl:coupon-preview:userid:';
+const COUPON_PREVIEW_WINDOW_MS = 60_000;
+const COUPON_PREVIEW_MAX_HITS = 30;
+
+/**
+ * Enforce a per-userId rate limit on GET /api/subscriptions/coupon-preview.
+ * Without this, an authenticated user could probe the coupon-code
+ * namespace (admin-chosen, likely short words, direct monetary value) at
+ * unlimited rate with nothing logged. 30/min comfortably covers legitimate
+ * typing/re-checking while capping enumeration.
+ *
+ * Unlike `enforceAdminRateLimit`, this fails OPEN even in production when
+ * redis is absent — this is a user-facing checkout-adjacent endpoint, and
+ * blocking a real customer over a rate-limit backend outage is worse than
+ * a temporary unmetered window on a preview-only, read-only lookup. Same
+ * default-open stance as `createEmailLimiter`'s user-facing auth routes.
+ */
+export async function enforceCouponPreviewRateLimit(userId: string): Promise<NextResponse | null> {
+  if (!redis) return null;
+  const store = new RedisRateLimitStore({ redis, prefix: '', windowMs: COUPON_PREVIEW_WINDOW_MS });
+  const { totalHits, resetTime } = await store.increment(`${COUPON_PREVIEW_PREFIX}${userId}`);
+  if (totalHits > COUPON_PREVIEW_MAX_HITS) {
+    const retryAfter = Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: 'TOO_MANY_REQUESTS', message: 'Too many coupon checks; retry shortly.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfter),
+          'X-RateLimit-Limit': String(COUPON_PREVIEW_MAX_HITS),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(Math.ceil(resetTime.getTime() / 1000)),
+        },
+      },
+    );
+  }
+  return null;
+}

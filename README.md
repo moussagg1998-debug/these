@@ -33,6 +33,7 @@ pnpm db:migrate:deploy                           # applique les migrations versi
 pnpm dev                                         # http://localhost:3000
 # dans un autre terminal, après le premier signup :
 pnpm db:make-superadmin you@example.com
+pnpm db:seed-coupon-thesis                       # crée le coupon THESIS (-95%, ThèseFacile) — idempotent
 pnpm smoke:auth                                  # vérifie le happy path auth de bout en bout
 ```
 

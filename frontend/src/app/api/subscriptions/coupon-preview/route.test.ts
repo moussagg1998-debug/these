@@ -6,6 +6,10 @@ vi.mock('@/lib/server/middleware', () => ({
   requireAuth: vi.fn(),
 }));
 
+vi.mock('@/lib/server/middleware/rate-limit-by-userid', () => ({
+  enforceCouponPreviewRateLimit: vi.fn(),
+}));
+
 const { validateCouponMock } = vi.hoisted(() => ({ validateCouponMock: vi.fn() }));
 vi.mock('@/lib/server/subscriptions/coupons', () => ({
   normalizeCouponCode: (s: string) => s.trim().toUpperCase(),
@@ -15,6 +19,7 @@ vi.mock('@/lib/server/subscriptions/coupons', () => ({
 }));
 
 import { requireAuth } from '@/lib/server/middleware';
+import { enforceCouponPreviewRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { GET } from './route';
 
 function makeGet(url: string): NextRequest {
@@ -25,6 +30,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('CHARIOW_ESSENTIEL_PRICE_FCFA', '5900');
   vi.mocked(requireAuth).mockResolvedValue({ user: { sub: 'user-1', email: 'me@example.com' } });
+  vi.mocked(enforceCouponPreviewRateLimit).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -79,5 +85,19 @@ describe('GET /api/subscriptions/coupon-preview', () => {
     );
     const res = await GET(makeGet('http://test/api/subscriptions/coupon-preview?code=THESIS'));
     expect(res.status).toBe(401);
+  });
+
+  it('returns 429 when the per-user rate limit is exceeded, without calling validateCoupon', async () => {
+    vi.mocked(enforceCouponPreviewRateLimit).mockResolvedValueOnce(
+      NextResponse.json({ error: 'TOO_MANY_REQUESTS' }, { status: 429 }),
+    );
+    const res = await GET(makeGet('http://test/api/subscriptions/coupon-preview?code=THESIS'));
+    expect(res.status).toBe(429);
+    expect(validateCouponMock).not.toHaveBeenCalled();
+  });
+
+  it('checks the rate limit for the authenticated user, after auth but before validation', async () => {
+    await GET(makeGet('http://test/api/subscriptions/coupon-preview?code=THESIS'));
+    expect(enforceCouponPreviewRateLimit).toHaveBeenCalledWith('user-1');
   });
 });

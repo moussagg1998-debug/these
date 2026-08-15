@@ -73,6 +73,40 @@ class CouponValidationFailedError extends Error {
   }
 }
 
+type CheckoutTxClient = Pick<Prisma.TransactionClient, 'order'>;
+
+/**
+ * Guards a user's checkout slot against a still-live Chariow attempt.
+ * Shared by both branches below: without this, a coupon redemption could
+ * leave an abandoned-but-still-completable Chariow PENDING order sitting
+ * around — if the user (or a stale tab) later finished that checkout, the
+ * webhook would credit a second time on top of the coupon's synchronous
+ * activation, extending the plan by another paid period for free.
+ */
+async function supersedeInFlightChariowOrder(tx: CheckoutTxClient, userId: string): Promise<void> {
+  const existing = await tx.order.findFirst({
+    where: { userId, provider: 'chariow', status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!existing) return;
+  // WR-01-equivalent (see /api/orders) — a still-in-flight prior attempt
+  // (crashed between its own tx commit and its charge() return) must not
+  // be silently superseded.
+  if (!existing.paymentUrl) {
+    throw new SubscriptionInFlightError();
+  }
+  await tx.order.update({
+    where: { id: existing.id },
+    data: {
+      status: 'FAILED',
+      metadata: {
+        ...((existing.metadata as Record<string, unknown> | null) ?? {}),
+        cancelledReason: 'superseded',
+      } as Prisma.InputJsonValue,
+    },
+  });
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
   return withRequestContext(ctx, async () => {
@@ -106,6 +140,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         outcome = await prisma.$transaction(
           async (tx) => {
             await lockSubscriptionTx(tx, userId);
+            await supersedeInFlightChariowOrder(tx, userId);
             await lockCouponTx(tx, code);
 
             const validation = await validateCoupon(tx, code, userId);
@@ -162,13 +197,59 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           // transaction — matches the Serializable convention every other
           // advisory-lock-guarded money-path transaction in this codebase
           // uses (withdrawals/route.ts, admin/withdrawals/[id]/cancel,
-          // subscriptions/reconcile.ts).
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+          // subscriptions/reconcile.ts). Timeout widened to match
+          // reconcile.ts's own fix for the exact bug class this reopens
+          // (commit 29630b6): Prisma's 5s default is too tight once a
+          // transaction can block behind other holders of the *same*
+          // code-scoped lock during a burst of redemptions.
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            timeout: 35_000,
+          },
         );
       } catch (err) {
         if (err instanceof CouponValidationFailedError) {
           return NextResponse.json(
             { error: err.reason, message: 'Coupon invalide ou déjà utilisé' },
+            { status: 422, headers: { 'x-request-id': ctx.requestId } },
+          );
+        }
+        if (err instanceof SubscriptionInFlightError) {
+          return NextResponse.json(
+            {
+              error: 'PAYMENT_IN_FLIGHT',
+              message: 'Prior attempt did not complete; retry shortly.',
+            },
+            { status: 503, headers: { 'x-request-id': ctx.requestId, 'Retry-After': '5' } },
+          );
+        }
+        const code =
+          typeof err === 'object' && err !== null && 'code' in err
+            ? (err as { code: unknown }).code
+            : undefined;
+        // P2034 — Serializable isolation aborted because another redeemer
+        // of the same code committed concurrently (see reconcile.ts's
+        // identical reasoning for why this is a benign, expected race, not
+        // a real failure). P2028 — the transaction itself timed out, which
+        // can happen while blocked on the code-scoped lock behind another
+        // redeemer. Both are retryable: the client can safely resubmit.
+        if (code === 'P2034' || code === 'P2028') {
+          return NextResponse.json(
+            {
+              error: 'COUPON_REDEMPTION_CONFLICT',
+              message: 'Une autre tentative est en cours pour ce code promo. Réessayez.',
+            },
+            { status: 503, headers: { 'x-request-id': ctx.requestId, 'Retry-After': '3' } },
+          );
+        }
+        // P2002 — the schema's @@unique([couponId, userId]) backstop fired.
+        // The lock should make this unreachable in the common case, but a
+        // stale-snapshot redeemer that unblocks after another commits (see
+        // reconcile.ts:86-96 for the identical SSI reasoning) can still hit
+        // it — surface the same COUPON_ALREADY_USED a pre-check would have.
+        if (code === 'P2002') {
+          return NextResponse.json(
+            { error: 'COUPON_ALREADY_USED', message: 'Vous avez déjà utilisé ce code promo.' },
             { status: 422, headers: { 'x-request-id': ctx.requestId } },
           );
         }
@@ -221,29 +302,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       order = await prisma.$transaction(async (tx) => {
         await lockSubscriptionTx(tx, userId);
-
-        const existing = await tx.order.findFirst({
-          where: { userId, provider: 'chariow', status: 'PENDING' },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (existing) {
-          // WR-01-equivalent (see /api/orders) — a still-in-flight prior
-          // attempt (crashed between its own tx commit and its charge()
-          // return) must not be silently superseded.
-          if (!existing.paymentUrl) {
-            throw new SubscriptionInFlightError();
-          }
-          await tx.order.update({
-            where: { id: existing.id },
-            data: {
-              status: 'FAILED',
-              metadata: {
-                ...((existing.metadata as Record<string, unknown> | null) ?? {}),
-                cancelledReason: 'superseded',
-              } as Prisma.InputJsonValue,
-            },
-          });
-        }
+        await supersedeInFlightChariowOrder(tx, userId);
 
         return tx.order.create({
           data: {

@@ -359,16 +359,76 @@ describe('POST /api/subscriptions/checkout — with a coupon code', () => {
     expect(couponLockOrder).toBeLessThan(validateOrder!);
   });
 
-  it('opens the coupon transaction with Serializable isolation', async () => {
+  it('opens the coupon transaction with Serializable isolation and a widened timeout', async () => {
     await POST(makeReq(bodyWithCoupon));
     // lockCouponTx is keyed by coupon code (shared across every user
     // redeeming it, unlike the per-user subscription lock), so this
     // transaction follows the same Serializable convention as every other
     // advisory-lock-guarded money-path transaction in this codebase
     // (withdrawals/route.ts, admin/withdrawals/[id]/cancel/route.ts,
-    // subscriptions/reconcile.ts).
-    const opts = $transaction.mock.calls[0]?.[1] as { isolationLevel?: string } | undefined;
+    // subscriptions/reconcile.ts). The timeout is widened to match
+    // reconcile.ts's own fix for the same class of bug (commit 29630b6) —
+    // Prisma's 5s default is too tight once a transaction can block behind
+    // other holders of the same code-scoped lock.
+    const opts = $transaction.mock.calls[0]?.[1] as
+      | { isolationLevel?: string; timeout?: number }
+      | undefined;
     expect(opts?.isolationLevel).toBe('Serializable');
+    expect(opts?.timeout).toBe(35_000);
+  });
+
+  it('returns 503 PAYMENT_IN_FLIGHT and redeems nothing when a prior Chariow attempt has no paymentUrl yet', async () => {
+    txOrder.findFirst.mockResolvedValueOnce({
+      id: 'order-inflight',
+      status: 'PENDING',
+      paymentUrl: null,
+      metadata: { plan: 'ESSENTIEL' },
+    });
+    const res = await POST(makeReq(bodyWithCoupon));
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe('PAYMENT_IN_FLIGHT');
+    expect(txOrder.create).not.toHaveBeenCalled();
+    expect(txCouponRedemption.create).not.toHaveBeenCalled();
+    expect(activatePlanFromOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('supersedes an abandoned-but-completable Chariow order before redeeming the coupon', async () => {
+    txOrder.findFirst.mockResolvedValueOnce({
+      id: 'order-old',
+      status: 'PENDING',
+      paymentUrl: 'https://chariow.test/pay/old',
+      metadata: { plan: 'ESSENTIEL' },
+    });
+    const res = await POST(makeReq(bodyWithCoupon));
+    expect(res.status).toBe(201);
+    // Superseding it here is what stops the abandoned Chariow session from
+    // later being completed and crediting the plan a second time on top of
+    // the coupon's synchronous activation.
+    expect(txOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'order-old' },
+        data: expect.objectContaining({ status: 'FAILED' }),
+      }),
+    );
+    expect(txCouponRedemption.create).toHaveBeenCalledOnce();
+  });
+
+  it('returns 503 COUPON_REDEMPTION_CONFLICT when the transaction aborts on a concurrent redemption (P2034/P2028)', async () => {
+    for (const code of ['P2034', 'P2028']) {
+      $transaction.mockRejectedValueOnce(Object.assign(new Error('tx aborted'), { code }));
+      const res = await POST(makeReq(bodyWithCoupon));
+      expect(res.status).toBe(503);
+      expect((await res.json()).error).toBe('COUPON_REDEMPTION_CONFLICT');
+    }
+  });
+
+  it('returns 422 COUPON_ALREADY_USED when the unique-constraint backstop fires (P2002)', async () => {
+    $transaction.mockRejectedValueOnce(
+      Object.assign(new Error('unique violation'), { code: 'P2002' }),
+    );
+    const res = await POST(makeReq(bodyWithCoupon));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe('COUPON_ALREADY_USED');
   });
 
   it('creates the Order as PAID with provider "coupon" and the discounted amount', async () => {

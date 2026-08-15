@@ -99,10 +99,11 @@ export default function GroupRemindersPage() {
   } = useApi<ThesesResponse>('/api/theses?limit=50', {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
-  const { data: subStatus, loading: subLoading } = useApi<SubscriptionStatus>(
-    '/api/subscriptions/status',
-    { skip: !user },
-  );
+  const {
+    data: subStatus,
+    loading: subLoading,
+    refresh: refreshSubStatus,
+  } = useApi<SubscriptionStatus>('/api/subscriptions/status', { skip: !user });
 
   const items = useMemo(() => theses?.items ?? [], [theses]);
 
@@ -192,7 +193,13 @@ export default function GroupRemindersPage() {
           <UpgradeModal
             defaultFirstName={upgradeFirstName}
             defaultLastName={upgradeLastName}
-            onClose={() => setUpgradeModalOpen(false)}
+            onClose={() => {
+              setUpgradeModalOpen(false);
+              // A coupon redemption activates the plan synchronously (no
+              // redirect) — refresh so `isEssentiel` reflects it without
+              // waiting on useApi's 2-minute stale window.
+              void refreshSubStatus();
+            }}
           />
         )}
       </DashboardShell>

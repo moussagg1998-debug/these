@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/middleware';
+import { enforceCouponPreviewRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { prisma } from '@/lib/server/prisma';
 import {
   normalizeCouponCode,
@@ -22,6 +23,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return withRequestContext(ctx, async () => {
     const auth = await requireAuth();
     if (auth instanceof NextResponse) return auth;
+
+    const limited = await enforceCouponPreviewRateLimit(auth.user.sub);
+    if (limited) return limited;
 
     const raw = req.nextUrl.searchParams.get('code') ?? '';
     if (!raw.trim()) {
