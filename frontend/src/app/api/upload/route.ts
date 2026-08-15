@@ -45,7 +45,7 @@ import { prisma } from '@/lib/server/prisma';
 import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/cloudinary-client';
 import { logUploadError, type UploadErrorCode } from '@/lib/server/upload/log-error';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
-import { verifyMagicBytes } from '@/lib/server/upload/sniff';
+import { MIME_EXTENSIONS, verifyMagicBytes } from '@/lib/server/upload/sniff';
 
 const HEIC_MIMES = new Set(['image/heic', 'image/heif']);
 
@@ -174,10 +174,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Cloudinary stores `public_id` without extension by convention; we keep
-    // the {userId}/{uuid} form (no extension) so the path semantics match the
-    // R2 era and the stored `key` remains a stable unique opaque string.
-    const publicId = `${auth.user.sub}/${randomUUID()}`;
+    // The public_id carries the verified extension (see MIME_EXTENSIONS) so
+    // Cloudinary's raw-resource delivery URL isn't extensionless — external
+    // URL-based viewers (Microsoft's Office Online embed for DOCX) rely on
+    // that extension to recognize the file. Falls back to no extension for
+    // an operator-allowed MIME we don't sniff (unchanged prior behavior).
+    const ext = MIME_EXTENSIONS[storedMime] ?? '';
+    const publicId = `${auth.user.sub}/${randomUUID()}${ext}`;
 
     let uploaded;
     try {
