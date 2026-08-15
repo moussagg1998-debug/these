@@ -1,7 +1,10 @@
 // "Passer au plan Essentiel" mini-modal — collects the phone/name fields
 // Chariow's checkout API requires (see subscriptions/phone.ts) and starts
 // the checkout. No new profile fields are persisted; this data only feeds
-// the Chariow checkout call.
+// the Chariow checkout call. An optional coupon code can bypass Chariow
+// entirely (see api/subscriptions/checkout/route.ts) — when it does, the
+// response carries no paymentUrl and the plan is already active, so this
+// modal shows a success state instead of redirecting.
 'use client';
 
 import { useState, type FormEvent } from 'react';
@@ -16,6 +19,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   PAYMENT_IN_FLIGHT: 'Une tentative précédente est en cours. Réessayez dans quelques secondes.',
   PAYMENT_FAILED: 'Le paiement a échoué. Réessayez.',
   VALIDATION_FAILED: 'Vérifiez les champs du formulaire.',
+  COUPON_NOT_FOUND: "Ce code promo n'existe pas.",
+  COUPON_INACTIVE: "Ce code promo n'est plus actif.",
+  COUPON_EXPIRED: 'Ce code promo a expiré.',
+  COUPON_MAX_REDEMPTIONS: "Ce code promo a atteint son nombre maximal d'utilisations.",
+  COUPON_ALREADY_USED: 'Vous avez déjà utilisé ce code promo.',
 };
 
 const COUNTRIES = [
@@ -28,6 +36,21 @@ const COUNTRIES = [
   { code: 'BF', label: 'Burkina Faso (+226)', dial: '226' },
 ];
 
+interface CouponPreview {
+  valid: true;
+  code: string;
+  discountPercent: number;
+  originalAmount: number;
+  finalAmount: number;
+}
+
+interface CouponInvalid {
+  valid: false;
+  reason: string;
+}
+
+const NUMBER_FORMAT = new Intl.NumberFormat('fr-FR');
+
 interface UpgradeModalProps {
   defaultFirstName?: string;
   defaultLastName?: string;
@@ -39,8 +62,35 @@ export function UpgradeModal({ defaultFirstName, defaultLastName, onClose }: Upg
   const [lastName, setLastName] = useState(defaultLastName ?? '');
   const [phoneCountry, setPhoneCountry] = useState('SN');
   const [phoneLocal, setPhoneLocal] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [activated, setActivated] = useState<CouponPreview | null>(null);
+
+  async function checkCoupon() {
+    const trimmed = couponCode.trim();
+    if (!trimmed) return;
+    setCouponChecking(true);
+    setCouponError(null);
+    setCouponPreview(null);
+    try {
+      const res = await api<CouponPreview | CouponInvalid>(
+        `/api/subscriptions/coupon-preview?code=${encodeURIComponent(trimmed)}`,
+      );
+      if (res.valid) {
+        setCouponPreview(res);
+      } else {
+        setCouponError(ERROR_MESSAGES[res.reason] ?? 'Ce code promo est invalide.');
+      }
+    } catch {
+      setCouponError('Impossible de vérifier ce code pour le moment.');
+    } finally {
+      setCouponChecking(false);
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -53,21 +103,43 @@ export function UpgradeModal({ defaultFirstName, defaultLastName, onClose }: Upg
     setSubmitting(true);
     try {
       const dial = COUNTRIES.find((c) => c.code === phoneCountry)?.dial ?? '';
-      const res = await api<{ orderId: string; paymentUrl: string }>(
-        '/api/subscriptions/checkout',
-        {
-          method: 'POST',
-          body: {
-            plan: 'ESSENTIEL',
-            firstName,
-            lastName,
-            phone: `+${dial}${digits}`,
-            phoneCountry,
-            phoneLocal: digits,
-          },
+      const trimmedCoupon = couponCode.trim();
+      const res = await api<{
+        orderId: string;
+        paymentUrl: string | null;
+        coupon?: {
+          code: string;
+          discountPercent: number;
+          originalAmount: number;
+          finalAmount: number;
+        };
+      }>('/api/subscriptions/checkout', {
+        method: 'POST',
+        body: {
+          plan: 'ESSENTIEL',
+          firstName,
+          lastName,
+          phone: `+${dial}${digits}`,
+          phoneCountry,
+          phoneLocal: digits,
+          ...(trimmedCoupon ? { couponCode: trimmedCoupon } : {}),
         },
-      );
-      window.location.href = res.paymentUrl;
+      });
+      if (res.paymentUrl) {
+        window.location.href = res.paymentUrl;
+        return;
+      }
+      // Coupon path — plan is already active, nothing to redirect to.
+      if (res.coupon) {
+        setActivated({
+          valid: true,
+          code: res.coupon.code,
+          discountPercent: res.coupon.discountPercent,
+          originalAmount: res.coupon.originalAmount,
+          finalAmount: res.coupon.finalAmount,
+        });
+      }
+      setSubmitting(false);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -76,6 +148,29 @@ export function UpgradeModal({ defaultFirstName, defaultLastName, onClose }: Upg
       );
       setSubmitting(false);
     }
+  }
+
+  if (activated) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="w-full max-w-sm rounded-md border border-border bg-surface p-6 text-center">
+          <h3 className="mb-2 font-headings text-base font-semibold text-foreground">
+            Abonnement Essentiel activé !
+          </h3>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Le code <strong>{activated.code}</strong> a été appliqué (-{activated.discountPercent}
+            %). Votre abonnement est actif dès maintenant.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-sm bg-primary py-2.5 text-sm font-medium text-primary-foreground"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -132,13 +227,57 @@ export function UpgradeModal({ defaultFirstName, defaultLastName, onClose }: Upg
               className="flex-1 rounded-sm border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
+
+          <div className="flex gap-2">
+            <input
+              value={couponCode}
+              onChange={(e) => {
+                setCouponCode(e.target.value);
+                setCouponPreview(null);
+                setCouponError(null);
+              }}
+              placeholder="Code promo (optionnel)"
+              className="flex-1 rounded-sm border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={() => void checkCoupon()}
+              disabled={couponChecking || !couponCode.trim()}
+              className="rounded-sm border border-border px-3 py-2 text-sm font-medium text-foreground disabled:opacity-50"
+            >
+              {couponChecking ? '…' : 'Appliquer'}
+            </button>
+          </div>
+          {couponPreview && (
+            <div className="rounded-sm border border-border bg-input px-3 py-2 text-xs text-foreground">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Prix normal</span>
+                <span>{NUMBER_FORMAT.format(couponPreview.originalAmount)} FCFA</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Réduction (-{couponPreview.discountPercent}%)
+                </span>
+                <span>
+                  -{NUMBER_FORMAT.format(couponPreview.originalAmount - couponPreview.finalAmount)}{' '}
+                  FCFA
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between border-t border-border pt-1 font-semibold">
+                <span>Total à payer</span>
+                <span>{NUMBER_FORMAT.format(couponPreview.finalAmount)} FCFA</span>
+              </div>
+            </div>
+          )}
+          {couponError && <p className="text-xs text-danger">{couponError}</p>}
+
           {error && <p className="text-xs text-danger">{error}</p>}
           <button
             type="submit"
             disabled={submitting}
             className="mt-1 rounded-sm bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
-            {submitting ? 'Redirection vers Chariow…' : 'Payer avec Chariow'}
+            {submitting ? 'Traitement…' : 'Payer avec Chariow'}
           </button>
         </form>
       </div>
