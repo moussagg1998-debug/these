@@ -32,6 +32,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/users?profileType=ENCADRANT', icon: 'user-check', label: 'Encadrants' },
   { href: '/admin/users?profileType=ETUDIANT', icon: 'users', label: 'Étudiants' },
   { href: '/admin/subscriptions', icon: 'credit-card', label: 'Abonnements' },
+  { href: '/admin/coupons', icon: 'percent', label: 'Coupons' },
   { icon: 'bar-chart-2', label: 'Analytiques' },
   { href: '/admin/alerts', icon: 'bell', label: 'Alertes' },
   { href: '/admin/security', icon: 'shield', label: 'Sécurité' },
