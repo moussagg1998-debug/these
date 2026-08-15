@@ -193,13 +193,11 @@ export default function GroupRemindersPage() {
           <UpgradeModal
             defaultFirstName={upgradeFirstName}
             defaultLastName={upgradeLastName}
-            onClose={() => {
-              setUpgradeModalOpen(false);
-              // A coupon redemption activates the plan synchronously (no
-              // redirect) — refresh so `isEssentiel` reflects it without
-              // waiting on useApi's 2-minute stale window.
-              void refreshSubStatus();
-            }}
+            onClose={() => setUpgradeModalOpen(false)}
+            // A coupon redemption activates the plan synchronously (no
+            // redirect) — refresh so `isEssentiel` reflects it without
+            // waiting on useApi's 2-minute stale window.
+            onActivated={() => void refreshSubStatus()}
           />
         )}
       </DashboardShell>

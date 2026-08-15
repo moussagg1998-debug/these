@@ -354,6 +354,48 @@ describe('reconcileChariowOrderCore', () => {
     );
   });
 
+  it('refuses to re-verify a FAILED order stamped cancelledReason: superseded, even though FAILED is otherwise recheckable', async () => {
+    const { tx, orderUpdateMany } = makeTx();
+    const provider = { getSaleStatus: vi.fn() };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({
+        status: 'FAILED',
+        metadata: { plan: 'ESSENTIEL', cancelledReason: 'superseded' },
+      }),
+      provider,
+    );
+    expect(result).toBe('FAILED');
+    // Not re-pulled and not re-written — a superseded order was abandoned
+    // in favor of an attempt that already credited the plan (e.g. a coupon
+    // redemption); re-verifying it here would double-credit on top of that.
+    expect(provider.getSaleStatus).not.toHaveBeenCalled();
+    expect(orderUpdateMany).not.toHaveBeenCalled();
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('superseded'),
+      expect.objectContaining({ orderId: 'order_1' }),
+    );
+  });
+
+  it('still re-verifies a genuinely-FAILED order without cancelledReason: superseded (recheckability preserved)', async () => {
+    const { tx, orderUpdateMany } = makeTx();
+    const provider = {
+      getSaleStatus: vi.fn().mockResolvedValue({
+        status: 'settled',
+        amount: { value: 5900, currency: 'XOF' },
+        paidAt: new Date('2026-08-02T00:00:00Z'),
+      }),
+    };
+    const result = await reconcileChariowOrderCore(
+      tx as never,
+      baseOrder({ status: 'FAILED' }),
+      provider,
+    );
+    expect(result).toBe('PAID');
+    expect(provider.getSaleStatus).toHaveBeenCalledOnce();
+    expect(orderUpdateMany).toHaveBeenCalledOnce();
+  });
+
   it('does not call the provider when providerChargeId is missing', async () => {
     const { tx } = makeTx();
     const provider = { getSaleStatus: vi.fn() };

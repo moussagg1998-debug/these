@@ -216,13 +216,8 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
       </div>
       {upgradeModalOpen && (
         <UpgradeModal
-          onClose={() => {
-            setUpgradeModalOpen(false);
-            // A coupon redemption activates the plan synchronously (no
-            // redirect) — reset the stale limit-reached panel so a
-            // successful upgrade doesn't keep blocking the form.
-            setLimitReached(false);
-          }}
+          onClose={() => setUpgradeModalOpen(false)}
+          onActivated={() => setLimitReached(false)}
         />
       )}
     </div>

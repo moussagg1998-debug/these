@@ -81,7 +81,11 @@ type CheckoutTxClient = Pick<Prisma.TransactionClient, 'order'>;
  * leave an abandoned-but-still-completable Chariow PENDING order sitting
  * around — if the user (or a stale tab) later finished that checkout, the
  * webhook would credit a second time on top of the coupon's synchronous
- * activation, extending the plan by another paid period for free.
+ * activation, extending the plan by another paid period for free. Marking
+ * it FAILED alone isn't enough to close that loop — FAILED is deliberately
+ * re-checkable (see reconcile.ts's own doc comment) — so
+ * `reconcileChariowOrderCore` additionally refuses to re-verify any order
+ * stamped `cancelledReason: 'superseded'` here.
  */
 async function supersedeInFlightChariowOrder(tx: CheckoutTxClient, userId: string): Promise<void> {
   const existing = await tx.order.findFirst({

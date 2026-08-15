@@ -24,6 +24,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   COUPON_EXPIRED: 'Ce code promo a expiré.',
   COUPON_MAX_REDEMPTIONS: "Ce code promo a atteint son nombre maximal d'utilisations.",
   COUPON_ALREADY_USED: 'Vous avez déjà utilisé ce code promo.',
+  COUPON_REDEMPTION_CONFLICT: 'Une autre tentative est en cours pour ce code promo. Réessayez.',
 };
 
 const COUNTRIES = [
@@ -55,9 +56,20 @@ interface UpgradeModalProps {
   defaultFirstName?: string;
   defaultLastName?: string;
   onClose: () => void;
+  // Fires only when a coupon redemption activates the plan synchronously —
+  // distinct from onClose, which also fires on a plain cancel. Callers with
+  // local state gated on the old (pre-upgrade) plan — a "limit reached"
+  // panel, a cached subscription-status fetch — should refresh it here, not
+  // in onClose, so cancelling the modal doesn't touch that state.
+  onActivated?: () => void;
 }
 
-export function UpgradeModal({ defaultFirstName, defaultLastName, onClose }: UpgradeModalProps) {
+export function UpgradeModal({
+  defaultFirstName,
+  defaultLastName,
+  onClose,
+  onActivated,
+}: UpgradeModalProps) {
   const [firstName, setFirstName] = useState(defaultFirstName ?? '');
   const [lastName, setLastName] = useState(defaultLastName ?? '');
   const [phoneCountry, setPhoneCountry] = useState('SN');
@@ -138,6 +150,7 @@ export function UpgradeModal({ defaultFirstName, defaultLastName, onClose }: Upg
           originalAmount: res.coupon.originalAmount,
           finalAmount: res.coupon.finalAmount,
         });
+        onActivated?.();
       }
       setSubmitting(false);
     } catch (err) {

@@ -109,6 +109,25 @@ export async function reconcileChariowOrderCore(
     });
     return 'FAILED';
   }
+
+  // A FAILED order stamped `cancelledReason: 'superseded'` (see
+  // checkout/route.ts's `supersedeInFlightChariowOrder`) was deliberately
+  // abandoned in favor of a different attempt for the same user that has
+  // ALREADY credited the plan — most notably a coupon redemption, which
+  // activates synchronously and has no further reconcile step of its own.
+  // Unlike a genuine transient FAILED (which this function's FAILED
+  // re-checkability exists to recover), re-crediting a superseded order
+  // would double the plan period on top of whatever superseded it. Terminal
+  // and NOT re-pulled, same operator-visibility logging as the general
+  // terminal-state guard above.
+  if ((order.metadata as { cancelledReason?: string } | null)?.cancelledReason === 'superseded') {
+    logger.error(
+      '[Chariow] Order was superseded by a later checkout attempt — reconciliation skipped, NOT re-pulled',
+      { orderId: order.id },
+    );
+    return 'FAILED';
+  }
+
   if (!order.providerChargeId) return 'PENDING';
 
   const remote = await provider.getSaleStatus(order.providerChargeId, {
