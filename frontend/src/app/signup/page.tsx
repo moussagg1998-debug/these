@@ -98,7 +98,7 @@ export default function SignupPage() {
               href={googleSignInHref}
               className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
             >
-              <Icon i="chrome" size={16} className="text-muted-foreground" />
+              <Icon i="google" size={16} />
               S&apos;inscrire avec Google
             </a>
 
