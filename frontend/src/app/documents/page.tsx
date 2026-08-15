@@ -20,9 +20,11 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DocumentRow, DocumentRowSkeleton } from '@/components/dashboard/DocumentRow';
+import { SendCorrectionModal } from '@/components/dashboard/SendCorrectionModal';
 import { StudentDocumentsContent } from '@/components/student/StudentDocumentsContent';
 import {
   displayName,
+  documentDisplayName,
   documentFormat,
   type DocumentListItem,
   type ThesisListItem,
@@ -55,6 +57,7 @@ function DocumentsLibraryContent() {
   const [extraItems, setExtraItems] = useState<DocumentListItem[]>([]);
   const [extraCursor, setExtraCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [sendCorrectionDoc, setSendCorrectionDoc] = useState<DocumentListItem | null>(null);
 
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
@@ -62,7 +65,11 @@ function DocumentsLibraryContent() {
   const apiPath = studentIdFilter
     ? `/api/documents?studentId=${encodeURIComponent(studentIdFilter)}`
     : '/api/documents';
-  const { data: docsRes, loading: docsLoading } = useApi<DocumentsResponse>(apiPath, {
+  const {
+    data: docsRes,
+    loading: docsLoading,
+    refresh: refreshDocs,
+  } = useApi<DocumentsResponse>(apiPath, {
     skip: !user || profile?.profileType !== 'ENCADRANT',
   });
   const { data: theses } = useApi<ThesesResponse>('/api/theses', {
@@ -76,6 +83,17 @@ function DocumentsLibraryContent() {
 
   const items = useMemo(() => [...(docsRes?.items ?? []), ...extraItems], [docsRes, extraItems]);
   const cursor = extraCursor !== null ? extraCursor : (docsRes?.nextCursor ?? null);
+  const byId = useMemo(() => {
+    const map = new Map<string, DocumentListItem>();
+    for (const d of items) map.set(d.id, d);
+    return map;
+  }, [items]);
+
+  function replyToLabelFor(doc: DocumentListItem): string | null {
+    if (!doc.replyToDocumentId) return null;
+    const target = byId.get(doc.replyToDocumentId);
+    return target ? documentDisplayName(target) : null;
+  }
 
   async function loadMore() {
     if (!cursor) return;
@@ -219,10 +237,15 @@ function DocumentsLibraryContent() {
               <div className="flex-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Format
               </div>
-              <div className="shrink-0 w-16" />
+              <div className="shrink-0 w-28" />
             </div>
             {filtered.map((doc) => (
-              <DocumentRow key={doc.id} doc={doc} />
+              <DocumentRow
+                key={doc.id}
+                doc={doc}
+                onSendCorrection={setSendCorrectionDoc}
+                replyToLabel={replyToLabelFor(doc)}
+              />
             ))}
           </div>
         )}
@@ -247,6 +270,19 @@ function DocumentsLibraryContent() {
           </p>
         </div>
       </div>
+      {sendCorrectionDoc && (
+        <SendCorrectionModal
+          thesisId={sendCorrectionDoc.thesis.id}
+          replyToDocumentId={sendCorrectionDoc.id}
+          chapterHint={sendCorrectionDoc.chapter}
+          onClose={() => setSendCorrectionDoc(null)}
+          onSent={() => {
+            setSendCorrectionDoc(null);
+            void refreshDocs();
+            toast('Correction envoyée avec succès', 'success');
+          }}
+        />
+      )}
     </DashboardShell>
   );
 }
