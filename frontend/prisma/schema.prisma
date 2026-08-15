@@ -460,7 +460,7 @@ model Order {
 
   // Provider reference
   provider         String // e.g. "bictorys"
-  providerChargeId String? @unique
+  providerChargeId String?           @unique
   paymentUrl       String? // checkout/redirect URL returned by provider
   paymentMethod    String? // WAVE | ORANGE_MONEY | FREE_MONEY (set on PAID by webhook)
   couponRedemption CouponRedemption?
@@ -592,29 +592,39 @@ model Thesis {
 }
 
 model Document {
-  id          String    @id @default(cuid())
-  thesisId    String
-  thesis      Thesis    @relation(fields: [thesisId], references: [id], onDelete: Cascade)
-  chapter     String? // e.g. "Chapitre 3"
+  id                String     @id @default(cuid())
+  thesisId          String
+  thesis            Thesis     @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  chapter           String? // e.g. "Chapitre 3"
   // Cloudinary URL — produced by the existing /api/upload flow, not a new
   // storage path. See CLAUDE.md "Files Claude SHOULD modify" — upload/sniff.ts.
-  fileUrl     String
+  fileUrl           String
   // Both optional: Cloudinary's upload response carries `original_filename`/
   // `bytes`, populated by the student upload flow (Phase 8) — older rows
   // (or any created another way) fall back to deriving a display name from
   // `chapter`/`fileUrl` and omitting size when these are null.
-  fileName    String?
-  sizeBytes   Int?
-  uploadedAt  DateTime  @default(now())
+  fileName          String?
+  sizeBytes         Int?
+  uploadedAt        DateTime   @default(now())
   // "Programmer le dépôt" — file is uploaded to storage immediately, but the
   // Document only becomes visible to the encadrant (and DOCUMENT_SUBMITTED
   // fires) once the scheduled-deposits cron releases it at this time. Null
   // means an ordinary, immediately-visible deposit — the common case.
-  scheduledAt DateTime?
-  comments    Comment[]
+  scheduledAt       DateTime?
+  // Set only on an encadrant-authored correction — points at the student
+  // deposit it replies to. Null = ordinary student deposit (the only kind
+  // that existed before this field, so no backfill is needed). This field,
+  // not a separate "author" field, is what distinguishes who sent a
+  // Document row — see docs/superpowers/specs/
+  // 2026-08-15-encadrant-document-corrections-design.md.
+  replyToDocumentId String?
+  replyTo           Document?  @relation("DocumentReplies", fields: [replyToDocumentId], references: [id], onDelete: SetNull)
+  replies           Document[] @relation("DocumentReplies")
+  comments          Comment[]
 
   @@index([thesisId, uploadedAt])
   @@index([scheduledAt])
+  @@index([replyToDocumentId])
 }
 
 model Comment {
