@@ -21,9 +21,34 @@ vi.mock('@/lib/server/middleware', () => ({
 // it guarantees the wrapped values are assigned before any `vi.mock()`
 // factory can observe them. No test behavior/assertions differ from the
 // task brief — only this declaration mechanism.
-const { lockSpy } = vi.hoisted(() => ({ lockSpy: vi.fn() }));
+const { lockSpy, lockCouponSpy } = vi.hoisted(() => ({ lockSpy: vi.fn(), lockCouponSpy: vi.fn() }));
 vi.mock('@/lib/server/subscriptions/lock', () => ({
   lockSubscriptionTx: lockSpy,
+  lockCouponTx: lockCouponSpy,
+}));
+
+const { normalizeCouponCodeMock, validateCouponMock, computeDiscountedAmountMock } = vi.hoisted(
+  () => ({
+    normalizeCouponCodeMock: vi.fn((s: string) => s.trim().toUpperCase()),
+    validateCouponMock: vi.fn(),
+    computeDiscountedAmountMock: vi.fn((amount: number, pct: number) =>
+      Math.round((amount * (100 - pct)) / 100),
+    ),
+  }),
+);
+vi.mock('@/lib/server/subscriptions/coupons', () => ({
+  normalizeCouponCode: normalizeCouponCodeMock,
+  validateCoupon: validateCouponMock,
+  computeDiscountedAmount: computeDiscountedAmountMock,
+}));
+
+const { activatePlanFromOrderMock } = vi.hoisted(() => ({
+  activatePlanFromOrderMock: vi.fn(async () => ({
+    planExpiresAt: new Date('2026-09-11T00:00:00Z'),
+  })),
+}));
+vi.mock('@/lib/server/subscriptions/activate', () => ({
+  activatePlanFromOrder: activatePlanFromOrderMock,
 }));
 
 const { chargeMock, getChariowProviderMock, executeMock } = vi.hoisted(() => {
@@ -45,17 +70,20 @@ interface MockOrder {
   metadata: Record<string, unknown> | null;
 }
 
-const { txOrder, $transaction, prismaOrderUpdate } = vi.hoisted(() => {
+const { txOrder, txCouponRedemption, $transaction, prismaOrderUpdate } = vi.hoisted(() => {
   const txOrder = {
     findFirst: vi.fn(async (_args?: unknown): Promise<MockOrder | null> => null),
     update: vi.fn(async (_args?: unknown) => ({})),
     create: vi.fn(async (_args: { data: Record<string, unknown> }) => ({ id: 'order-1' })),
   };
+  const txCouponRedemption = {
+    create: vi.fn(async (_args?: unknown) => ({ id: 'redemption-1' })),
+  };
   const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-    fn({ order: txOrder, $executeRawUnsafe: vi.fn() }),
+    fn({ order: txOrder, couponRedemption: txCouponRedemption, $executeRawUnsafe: vi.fn() }),
   );
   const prismaOrderUpdate = vi.fn(async () => ({}));
-  return { txOrder, $transaction, prismaOrderUpdate };
+  return { txOrder, txCouponRedemption, $transaction, prismaOrderUpdate };
 });
 vi.mock('@/lib/server/prisma', () => ({
   prisma: { $transaction, order: { update: prismaOrderUpdate } },
@@ -100,6 +128,19 @@ beforeEach(() => {
     amount: 5900,
     currency: 'XOF',
   });
+  txCouponRedemption.create.mockResolvedValue({ id: 'redemption-1' });
+  validateCouponMock.mockResolvedValue({
+    ok: true,
+    coupon: {
+      id: 'coupon-1',
+      code: 'THESIS',
+      discountPercent: 95,
+      isActive: true,
+      maxRedemptions: null,
+      expiresAt: null,
+    },
+  });
+  activatePlanFromOrderMock.mockResolvedValue({ planExpiresAt: new Date('2026-09-11T00:00:00Z') });
 });
 
 afterEach(() => {
@@ -279,5 +320,88 @@ describe('POST /api/subscriptions/checkout', () => {
     expect(prismaOrderUpdate).not.toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'FAILED' }) }),
     );
+  });
+});
+
+describe('POST /api/subscriptions/checkout — with a coupon code', () => {
+  const bodyWithCoupon = { ...validBody, couponCode: 'thesis' };
+
+  it('bypasses Chariow entirely and returns a PAID order with the discount breakdown', async () => {
+    const res = await POST(makeReq(bodyWithCoupon));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body).toEqual({
+      orderId: 'order-1',
+      paymentUrl: null,
+      coupon: { code: 'THESIS', discountPercent: 95, originalAmount: 5900, finalAmount: 295 },
+      plan: 'ESSENTIEL',
+      planExpiresAt: '2026-09-11T00:00:00.000Z',
+    });
+    expect(getChariowProviderMock).not.toHaveBeenCalled();
+    expect(chargeMock).not.toHaveBeenCalled();
+  });
+
+  it('normalizes the code, then locks user and coupon before validating', async () => {
+    await POST(makeReq(bodyWithCoupon));
+    expect(normalizeCouponCodeMock).toHaveBeenCalledWith('thesis');
+    expect(lockSpy).toHaveBeenCalledWith(expect.anything(), 'user-1');
+    expect(lockCouponSpy).toHaveBeenCalledWith(expect.anything(), 'THESIS');
+    expect(validateCouponMock).toHaveBeenCalledWith(expect.anything(), 'THESIS', 'user-1');
+  });
+
+  it('creates the Order as PAID with provider "coupon" and the discounted amount', async () => {
+    await POST(makeReq(bodyWithCoupon));
+    const createArgs = txOrder.create.mock.calls[0]![0];
+    expect(createArgs.data).toMatchObject({
+      userId: 'user-1',
+      provider: 'coupon',
+      status: 'PAID',
+      amount: 295,
+      currency: 'XOF',
+      metadata: {
+        plan: 'ESSENTIEL',
+        couponCode: 'THESIS',
+        originalAmount: 5900,
+        discountPercent: 95,
+      },
+    });
+    expect(createArgs.data.paidAt).toBeInstanceOf(Date);
+  });
+
+  it('creates a CouponRedemption row linking the coupon, user, and order', async () => {
+    await POST(makeReq(bodyWithCoupon));
+    expect(txCouponRedemption.create).toHaveBeenCalledWith({
+      data: { couponId: 'coupon-1', userId: 'user-1', orderId: 'order-1' },
+    });
+  });
+
+  it('activates the plan via the shared helper', async () => {
+    await POST(makeReq(bodyWithCoupon));
+    expect(activatePlanFromOrderMock).toHaveBeenCalledWith(expect.anything(), {
+      userId: 'user-1',
+      orderId: 'order-1',
+      plan: 'ESSENTIEL',
+    });
+  });
+
+  it.each([
+    ['COUPON_NOT_FOUND'],
+    ['COUPON_INACTIVE'],
+    ['COUPON_EXPIRED'],
+    ['COUPON_MAX_REDEMPTIONS'],
+    ['COUPON_ALREADY_USED'],
+  ])('returns 422 %s and creates nothing when validation fails', async (error) => {
+    validateCouponMock.mockResolvedValueOnce({ ok: false, error });
+    const res = await POST(makeReq(bodyWithCoupon));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe(error);
+    expect(txOrder.create).not.toHaveBeenCalled();
+    expect(txCouponRedemption.create).not.toHaveBeenCalled();
+    expect(activatePlanFromOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('never calls the Chariow provider lookup for a coupon checkout', async () => {
+    await POST(makeReq(bodyWithCoupon));
+    expect(getChariowProviderMock).not.toHaveBeenCalled();
   });
 });

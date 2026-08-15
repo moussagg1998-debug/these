@@ -1,9 +1,16 @@
 // POST /api/subscriptions/checkout — start a Chariow checkout for the
-// Essentiel plan. Mirrors /api/orders' guard ordering (CSRF → auth →
-// validation → provider lookup → PUBLIC_URL guard → DB write → charge)
-// but the price/product are ALWAYS server-derived (subscriptions/plans.ts)
-// — never taken from the request body, per spec's anti-tampering
-// requirement ("un utilisateur ne peut pas modifier lui-même son plan").
+// Essentiel plan, OR — when a valid `couponCode` is supplied — bypass
+// Chariow entirely and activate the plan synchronously. Chariow's hosted
+// checkout can't accept a per-transaction amount (see
+// lib/server/payments/chariow.ts's header comment: price is always
+// configured on their dashboard per product_id), so a coupon-covered
+// checkout can't route through it — the Order is created directly PAID
+// with provider "coupon" instead. Mirrors /api/orders' guard ordering
+// (CSRF → auth → validation → provider lookup → PUBLIC_URL guard → DB
+// write → charge) for the non-coupon path; the price/product are ALWAYS
+// server-derived (subscriptions/plans.ts) — never taken from the request
+// body, per spec's anti-tampering requirement ("un utilisateur ne peut pas
+// modifier lui-même son plan").
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -22,8 +29,15 @@ import {
   ChariowProviderUnconfiguredError,
 } from '@/lib/server/payments/chariow-singleton';
 import { resolveChariowPhone } from '@/lib/server/subscriptions/phone';
-import { lockSubscriptionTx } from '@/lib/server/subscriptions/lock';
+import { lockSubscriptionTx, lockCouponTx } from '@/lib/server/subscriptions/lock';
 import { expectedPriceFcfa } from '@/lib/server/subscriptions/plans';
+import {
+  normalizeCouponCode,
+  validateCoupon,
+  computeDiscountedAmount,
+  type CouponValidationError,
+} from '@/lib/server/subscriptions/coupons';
+import { activatePlanFromOrder } from '@/lib/server/subscriptions/activate';
 
 const Body = z.object({
   plan: z.literal('ESSENTIEL'),
@@ -38,6 +52,10 @@ const Body = z.object({
   // generic VALIDATION_FAILED instead of the more specific PHONE_INVALID
   // that resolveChariowPhone's null return produces.
   phoneLocal: z.string().trim().max(30),
+  // Optional — same request shape whether or not a coupon is applied. The
+  // coupon path below ignores firstName/lastName/phone*; those fields exist
+  // to keep the client form identical either way (UpgradeModal.tsx).
+  couponCode: z.string().trim().min(1).max(40).optional(),
 });
 
 // Chariow.md §9 default (MOBILE_MONEY_EXPIRE_HOURS) — the generic
@@ -47,6 +65,13 @@ const ORDER_EXPIRY_MS = 2 * 60 * 60 * 1000;
 
 /** Sentinel thrown from inside the transaction to short-circuit to 503 PAYMENT_IN_FLIGHT. */
 class SubscriptionInFlightError extends Error {}
+
+/** Sentinel thrown from inside the coupon transaction to short-circuit to 422 + the validation reason. */
+class CouponValidationFailedError extends Error {
+  constructor(public readonly reason: CouponValidationError) {
+    super(reason);
+  }
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -69,6 +94,91 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const userId = auth.user.sub;
+    const price = expectedPriceFcfa('ESSENTIEL');
+
+    // ── Coupon-covered checkout — bypasses Chariow entirely ──
+    if (parsed.data.couponCode) {
+      const code = normalizeCouponCode(parsed.data.couponCode);
+
+      let outcome;
+      try {
+        outcome = await prisma.$transaction(async (tx) => {
+          await lockSubscriptionTx(tx, userId);
+          await lockCouponTx(tx, code);
+
+          const validation = await validateCoupon(tx, code, userId);
+          if (!validation.ok) throw new CouponValidationFailedError(validation.error);
+
+          const finalAmount = computeDiscountedAmount(price, validation.coupon.discountPercent);
+
+          const order = await tx.order.create({
+            data: {
+              userId,
+              amount: finalAmount,
+              currency: 'XOF',
+              provider: 'coupon',
+              status: 'PAID',
+              paidAt: new Date(),
+              // No real "pending" window for a synchronously-resolved
+              // coupon order — `expiresAt` is required by the schema but
+              // unused for anything but PENDING rows (the order-expiration
+              // cron only sweeps status: PENDING).
+              expiresAt: new Date(),
+              customerEmail: auth.user.email,
+              metadata: {
+                plan: 'ESSENTIEL',
+                couponCode: validation.coupon.code,
+                originalAmount: price,
+                discountPercent: validation.coupon.discountPercent,
+              },
+            },
+          });
+
+          await tx.couponRedemption.create({
+            data: { couponId: validation.coupon.id, userId, orderId: order.id },
+          });
+
+          const { planExpiresAt } = await activatePlanFromOrder(tx, {
+            userId,
+            orderId: order.id,
+            plan: 'ESSENTIEL',
+          });
+
+          return {
+            orderId: order.id,
+            coupon: {
+              code: validation.coupon.code,
+              discountPercent: validation.coupon.discountPercent,
+              originalAmount: price,
+              finalAmount,
+            },
+            planExpiresAt,
+          };
+        });
+      } catch (err) {
+        if (err instanceof CouponValidationFailedError) {
+          return NextResponse.json(
+            { error: err.reason, message: 'Coupon invalide ou déjà utilisé' },
+            { status: 422, headers: { 'x-request-id': ctx.requestId } },
+          );
+        }
+        throw err;
+      }
+
+      return NextResponse.json(
+        {
+          orderId: outcome.orderId,
+          paymentUrl: null,
+          coupon: outcome.coupon,
+          plan: 'ESSENTIEL',
+          planExpiresAt: outcome.planExpiresAt.toISOString(),
+        },
+        { status: 201, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    // ── Existing Chariow flow, unchanged below ──
     if (!resolveChariowPhone(parsed.data)) {
       return NextResponse.json(
         { error: 'PHONE_INVALID', message: 'Invalid phone number' },
@@ -97,9 +207,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
     const publicUrl = envPublicUrl ?? 'http://localhost:3000';
-
-    const price = expectedPriceFcfa('ESSENTIEL');
-    const userId = auth.user.sub;
 
     let order;
     try {
