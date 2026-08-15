@@ -28,7 +28,7 @@ function thesisRow(
   };
 }
 
-function documentRow(overrides: Partial<{ thesisId: string }> = {}) {
+function documentRow(overrides: Partial<{ thesisId: string; scheduledAt: Date | null }> = {}) {
   return {
     id: 'doc-1',
     thesisId: overrides.thesisId ?? 'thesis-1',
@@ -37,7 +37,7 @@ function documentRow(overrides: Partial<{ thesisId: string }> = {}) {
     fileName: 'doc-1.pdf',
     sizeBytes: 1024,
     uploadedAt: new Date().toISOString(),
-    scheduledAt: null,
+    scheduledAt: overrides.scheduledAt ?? null,
     replyToDocumentId: null,
   };
 }
@@ -82,5 +82,24 @@ describe('GET /api/documents/[id]', () => {
     prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ studentId: 'user-1' }) as never);
     const res = await GET(makeGet(), { params });
     expect(res.status).toBe(200);
+  });
+
+  it('scheduled deposit not yet released → 404 for the encadrant, 200 for the student', async () => {
+    const futureScheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const scheduledDoc = documentRow({ scheduledAt: futureScheduledAt }) as never;
+
+    prismaMock.document.findUnique.mockResolvedValue(scheduledDoc);
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    const encadrantRes = await GET(makeGet(), { params });
+    expect(encadrantRes.status).toBe(404);
+    const encadrantBody = await encadrantRes.json();
+    expect(encadrantBody.error).toBe('DOCUMENT_NOT_FOUND');
+
+    prismaMock.document.findUnique.mockResolvedValue(scheduledDoc);
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ studentId: 'user-1' }) as never);
+    const studentRes = await GET(makeGet(), { params });
+    expect(studentRes.status).toBe(200);
+    const studentBody = await studentRes.json();
+    expect(studentBody.id).toBe('doc-1');
   });
 });

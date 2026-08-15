@@ -37,6 +37,23 @@ export async function GET(req: NextRequest, { params }: RouteParams): Promise<Ne
     const access = await resolveThesisAccess(prisma, document.thesisId, auth.user.sub);
     if (access instanceof NextResponse) return access;
 
+    // The encadrant doesn't see a scheduled deposit until it's released — the
+    // student (uploader) can always see their own, pending or not. Mirrors
+    // GET /api/documents and GET /api/theses/[id]/documents: from the
+    // encadrant's point of view a not-yet-released document simply doesn't
+    // exist, so this returns the identical 404 shape rather than a
+    // distinguishable "forbidden" error.
+    if (
+      access.encadrantId === auth.user.sub &&
+      document.scheduledAt &&
+      document.scheduledAt > new Date()
+    ) {
+      return NextResponse.json(
+        { error: 'DOCUMENT_NOT_FOUND', message: 'Document not found' },
+        { status: 404, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
     return NextResponse.json(document, { headers: { 'x-request-id': ctx.requestId } });
   });
 }
