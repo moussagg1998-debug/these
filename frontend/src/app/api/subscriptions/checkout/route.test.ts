@@ -79,8 +79,9 @@ const { txOrder, txCouponRedemption, $transaction, prismaOrderUpdate } = vi.hois
   const txCouponRedemption = {
     create: vi.fn(async (_args?: unknown) => ({ id: 'redemption-1' })),
   };
-  const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-    fn({ order: txOrder, couponRedemption: txCouponRedemption, $executeRawUnsafe: vi.fn() }),
+  const $transaction = vi.fn(
+    async (fn: (tx: unknown) => Promise<unknown>, _opts?: { isolationLevel?: string }) =>
+      fn({ order: txOrder, couponRedemption: txCouponRedemption, $executeRawUnsafe: vi.fn() }),
   );
   const prismaOrderUpdate = vi.fn(async () => ({}));
   return { txOrder, txCouponRedemption, $transaction, prismaOrderUpdate };
@@ -347,6 +348,27 @@ describe('POST /api/subscriptions/checkout — with a coupon code', () => {
     expect(lockSpy).toHaveBeenCalledWith(expect.anything(), 'user-1');
     expect(lockCouponSpy).toHaveBeenCalledWith(expect.anything(), 'THESIS');
     expect(validateCouponMock).toHaveBeenCalledWith(expect.anything(), 'THESIS', 'user-1');
+    // Canonical lock order (deadlock avoidance): user lock, then coupon
+    // lock, then validation — never reversed. Compare via
+    // mock.invocationCallOrder, same pattern as withdrawals/route.test.ts's
+    // "lockUserTx first" assertion.
+    const userLockOrder = lockSpy.mock.invocationCallOrder[0];
+    const couponLockOrder = lockCouponSpy.mock.invocationCallOrder[0];
+    const validateOrder = validateCouponMock.mock.invocationCallOrder[0];
+    expect(userLockOrder).toBeLessThan(couponLockOrder!);
+    expect(couponLockOrder).toBeLessThan(validateOrder!);
+  });
+
+  it('opens the coupon transaction with Serializable isolation', async () => {
+    await POST(makeReq(bodyWithCoupon));
+    // lockCouponTx is keyed by coupon code (shared across every user
+    // redeeming it, unlike the per-user subscription lock), so this
+    // transaction follows the same Serializable convention as every other
+    // advisory-lock-guarded money-path transaction in this codebase
+    // (withdrawals/route.ts, admin/withdrawals/[id]/cancel/route.ts,
+    // subscriptions/reconcile.ts).
+    const opts = $transaction.mock.calls[0]?.[1] as { isolationLevel?: string } | undefined;
+    expect(opts?.isolationLevel).toBe('Serializable');
   });
 
   it('creates the Order as PAID with provider "coupon" and the discounted amount', async () => {

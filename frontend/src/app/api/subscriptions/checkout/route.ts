@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
@@ -103,59 +103,68 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       let outcome;
       try {
-        outcome = await prisma.$transaction(async (tx) => {
-          await lockSubscriptionTx(tx, userId);
-          await lockCouponTx(tx, code);
+        outcome = await prisma.$transaction(
+          async (tx) => {
+            await lockSubscriptionTx(tx, userId);
+            await lockCouponTx(tx, code);
 
-          const validation = await validateCoupon(tx, code, userId);
-          if (!validation.ok) throw new CouponValidationFailedError(validation.error);
+            const validation = await validateCoupon(tx, code, userId);
+            if (!validation.ok) throw new CouponValidationFailedError(validation.error);
 
-          const finalAmount = computeDiscountedAmount(price, validation.coupon.discountPercent);
+            const finalAmount = computeDiscountedAmount(price, validation.coupon.discountPercent);
 
-          const order = await tx.order.create({
-            data: {
-              userId,
-              amount: finalAmount,
-              currency: 'XOF',
-              provider: 'coupon',
-              status: 'PAID',
-              paidAt: new Date(),
-              // No real "pending" window for a synchronously-resolved
-              // coupon order — `expiresAt` is required by the schema but
-              // unused for anything but PENDING rows (the order-expiration
-              // cron only sweeps status: PENDING).
-              expiresAt: new Date(),
-              customerEmail: auth.user.email,
-              metadata: {
-                plan: 'ESSENTIEL',
-                couponCode: validation.coupon.code,
-                originalAmount: price,
-                discountPercent: validation.coupon.discountPercent,
+            const order = await tx.order.create({
+              data: {
+                userId,
+                amount: finalAmount,
+                currency: 'XOF',
+                provider: 'coupon',
+                status: 'PAID',
+                paidAt: new Date(),
+                // No real "pending" window for a synchronously-resolved
+                // coupon order — `expiresAt` is required by the schema but
+                // unused for anything but PENDING rows (the order-expiration
+                // cron only sweeps status: PENDING).
+                expiresAt: new Date(),
+                customerEmail: auth.user.email,
+                metadata: {
+                  plan: 'ESSENTIEL',
+                  couponCode: validation.coupon.code,
+                  originalAmount: price,
+                  discountPercent: validation.coupon.discountPercent,
+                },
               },
-            },
-          });
+            });
 
-          await tx.couponRedemption.create({
-            data: { couponId: validation.coupon.id, userId, orderId: order.id },
-          });
+            await tx.couponRedemption.create({
+              data: { couponId: validation.coupon.id, userId, orderId: order.id },
+            });
 
-          const { planExpiresAt } = await activatePlanFromOrder(tx, {
-            userId,
-            orderId: order.id,
-            plan: 'ESSENTIEL',
-          });
+            const { planExpiresAt } = await activatePlanFromOrder(tx, {
+              userId,
+              orderId: order.id,
+              plan: 'ESSENTIEL',
+            });
 
-          return {
-            orderId: order.id,
-            coupon: {
-              code: validation.coupon.code,
-              discountPercent: validation.coupon.discountPercent,
-              originalAmount: price,
-              finalAmount,
-            },
-            planExpiresAt,
-          };
-        });
+            return {
+              orderId: order.id,
+              coupon: {
+                code: validation.coupon.code,
+                discountPercent: validation.coupon.discountPercent,
+                originalAmount: price,
+                finalAmount,
+              },
+              planExpiresAt,
+            };
+          },
+          // lockCouponTx is keyed by coupon code, not per-user, so a promo
+          // blast serializes many concurrent redeemers behind this one
+          // transaction — matches the Serializable convention every other
+          // advisory-lock-guarded money-path transaction in this codebase
+          // uses (withdrawals/route.ts, admin/withdrawals/[id]/cancel,
+          // subscriptions/reconcile.ts).
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
       } catch (err) {
         if (err instanceof CouponValidationFailedError) {
           return NextResponse.json(
