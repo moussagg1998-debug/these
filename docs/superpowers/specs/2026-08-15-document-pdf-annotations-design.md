@@ -166,7 +166,31 @@ construire dans cette itération.
 - Édition réelle du contenu du fichier (rejeté en clarification — c'est
   une annotation, pas un éditeur).
 - Position exacte (pin x/y) sur la page (rejeté — numéro de page seul).
-- Annotation de `.docx`/`.odt` (rejeté — PDF uniquement, pas de conversion
-  à la volée).
+- Annotation de `.odt` (pas de viewer in-app pour ce format — voir
+  addendum ci-dessous pour `.docx`).
 - Masquer le bouton de téléchargement natif du navigateur (nécessiterait
   un rendu PDF.js personnalisé, explicitement écarté).
+
+## Addendum (2026-08-15) — support `.docx` dans le viewer
+
+Demande de suite : "je veux que le bouton ouvrir fonctionne aussi pour le
+format docx". Le viewer natif `<iframe src={fileUrl}>` ne peut pas rendre
+un `.docx` (aucun navigateur ne sait l'afficher). Décision : pour ce
+format uniquement, l'`<iframe>` pointe vers l'intégration Microsoft Office
+Online (`https://view.officeapps.live.com/op/view.aspx?src=<fileUrl>`) au
+lieu du fichier directement — PDF reste inchangé (rendu natif). Alternative
+écartée : Google Docs Viewer (endpoint non-officiel, moins fiable dans la
+durée). Conversion serveur DOCX→PDF également écartée (ajoute une brique
+d'infra pour un gain marginal face à l'intégration Microsoft, déjà
+gratuite et sans dépendance à installer).
+
+Compromis accepté : le fichier transite par un service tiers Microsoft
+(l'URL Cloudinary — déjà publique, comme pour le lien de téléchargement
+existant — lui est passée en paramètre). `.odt` reste hors périmètre : ni
+rendu natif ni intégration Office ne le couvrent bien.
+
+`DocumentRow`/`StudentDocumentRow` : le gate `isPdf` devient `isViewable`
+(`['pdf', 'docx'].includes(...)`, même dérivation via `documentFormat()`).
+`/documents/[id]/view` : le `src` de l'`<iframe>` est calculé
+conditionnellement (`viewerSrc`), le reste de la page (panneau de
+commentaires, garde d'accès, etc.) est inchangé.

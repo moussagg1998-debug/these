@@ -27,7 +27,10 @@ interface DocumentRowProps {
 export function DocumentRow({ doc, onSendCorrection, replyToLabel }: DocumentRowProps) {
   const stageClass = STAGE_COLORS[doc.thesis.stage] || 'bg-muted text-muted-foreground';
   const isCorrection = doc.replyToDocumentId != null;
-  const isPdf = documentFormat(doc).toLowerCase() === 'pdf';
+  // PDF renders natively in the viewer's <iframe>; DOCX goes through the
+  // Microsoft Office Online embed (see /documents/[id]/view) — everything
+  // else (.odt) stays download-only, no in-app viewer exists for it.
+  const isViewable = ['pdf', 'docx'].includes(documentFormat(doc).toLowerCase());
 
   return (
     <div className="flex flex-col gap-2 px-5 py-3 border-b border-border last:border-0 transition-colors duration-150 hover:bg-surface lg:flex-row lg:items-center lg:gap-4">
@@ -70,7 +73,7 @@ export function DocumentRow({ doc, onSendCorrection, replyToLabel }: DocumentRow
             <Icon i="send" size={14} />
           </button>
         )}
-        {isPdf && (
+        {isViewable && (
           <Link
             href={`/documents/${doc.id}/view`}
             aria-label="Ouvrir"

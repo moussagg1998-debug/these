@@ -1,9 +1,12 @@
-// PDF viewer with page-anchored comments — Banani has no source screen for
-// this (it's new scope beyond the original design import). Reuses the
-// native browser PDF renderer (<iframe>) rather than a custom pdf.js
-// integration — see docs/superpowers/specs/
+// PDF/DOCX viewer with page-anchored comments — Banani has no source screen
+// for this (it's new scope beyond the original design import). PDF renders
+// natively in the <iframe> (no pdf.js) — see docs/superpowers/specs/
 // 2026-08-15-document-pdf-annotations-design.md for the accepted
-// trade-offs (no x/y pin, PDF-only, native download button stays visible).
+// trade-offs (no x/y pin, native download button stays visible). DOCX has
+// no native browser renderer, so it goes through the Microsoft Office
+// Online embed (view.officeapps.live.com) instead — see the spec's
+// addendum. .odt still has no in-app viewer (DocumentRow/StudentDocumentRow
+// never link here for it).
 'use client';
 
 import { use } from 'react';
@@ -20,7 +23,7 @@ import {
   DocumentCommentPanel,
   type DocumentComment,
 } from '@/components/documents/DocumentCommentPanel';
-import { documentDisplayName } from '@/lib/theses';
+import { documentDisplayName, documentFormat } from '@/lib/theses';
 
 interface ProfileResponse {
   profileType: 'ENCADRANT' | 'ETUDIANT' | null;
@@ -99,11 +102,20 @@ export default function DocumentViewPage({ params }: { params: Promise<{ id: str
 
   const comments = (commentsRes?.items ?? []).filter((c) => c.document?.id === id);
 
+  // DOCX has no native browser renderer — route it through Microsoft's
+  // Office Online embed, which fetches the (publicly reachable, same as
+  // the existing download link) Cloudinary URL server-side and renders it.
+  // PDF keeps the native browser renderer, unchanged.
+  const isDocx = documentFormat(doc).toLowerCase() === 'docx';
+  const viewerSrc = isDocx
+    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.fileUrl)}`
+    : doc.fileUrl;
+
   const content = (
     <div className="flex flex-col lg:flex-row gap-0 min-w-0">
       <div className="flex-1 min-w-0 border-b lg:border-b-0 lg:border-r border-border">
         <iframe
-          src={doc.fileUrl}
+          src={viewerSrc}
           title={documentDisplayName(doc)}
           className="w-full h-[75vh] border-0 bg-muted"
         />

@@ -26,7 +26,10 @@ interface StudentDocumentRowProps {
 export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) {
   const isPendingSchedule = !!doc.scheduledAt && new Date(doc.scheduledAt).getTime() > Date.now();
   const isCorrection = doc.replyToDocumentId != null;
-  const isPdf = documentFormat(doc).toLowerCase() === 'pdf';
+  // PDF renders natively in the viewer's <iframe>; DOCX goes through the
+  // Microsoft Office Online embed (see /documents/[id]/view) — everything
+  // else (.odt) stays download-only, no in-app viewer exists for it.
+  const isViewable = ['pdf', 'docx'].includes(documentFormat(doc).toLowerCase());
 
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 border-b border-border last:border-0 transition-colors duration-150 hover:bg-input/40">
@@ -61,7 +64,7 @@ export function StudentDocumentRow({ doc, commented }: StudentDocumentRowProps) 
           {commented ? 'Commenté' : 'En attente de retour'}
         </div>
       )}
-      {isPdf && (
+      {isViewable && (
         <Link
           href={`/documents/${doc.id}/view`}
           className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
