@@ -3,8 +3,11 @@
 // "Bibliothèque de documents" (encadrant) + "Dépôt de fichier étudiant".
 // Storage itself is NOT reinvented here — the client uploads to Cloudinary
 // via the existing /api/upload route first, then POSTs the resulting URL
-// here to attach it to the thesis. Only the student deposits documents in
-// the Banani flow; the encadrant reads them.
+// here to attach it to the thesis. The student deposits documents; the
+// encadrant can reply to one specific deposit with a correction file
+// (`replyToDocumentId`) — both land in the same list, distinguished only
+// by that field. See docs/superpowers/specs/
+// 2026-08-15-encadrant-document-corrections-design.md.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -16,6 +19,7 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { resolveThesisAccess } from '@/lib/server/theses/guards';
 import { createNotification } from '@/lib/server/notifications';
+import { documentSubmitted, documentReceived } from '@/lib/server/notifications/templates';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const CreateBody = z.object({
@@ -28,8 +32,11 @@ const CreateBody = z.object({
   // "Programmer le dépôt" — file uploads to storage now regardless, but a
   // future scheduledAt defers visibility to the encadrant + the
   // DOCUMENT_SUBMITTED notification until the scheduled-deposits cron
-  // releases it (see that route).
+  // releases it (see that route). Student uploads only.
   scheduledAt: z.string().datetime().optional(),
+  // Set only by the encadrant — the student deposit this correction replies
+  // to. Required for an encadrant upload, forbidden for a student upload.
+  replyToDocumentId: z.string().min(1).optional(),
 });
 
 interface RouteParams {
@@ -75,18 +82,6 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     const { id } = await params;
     const access = await resolveThesisAccess(prisma, id, auth.user.sub);
     if (access instanceof NextResponse) return access;
-    if (access.studentId !== auth.user.sub) {
-      return NextResponse.json(
-        { error: 'STUDENT_ONLY', message: 'Only the student can deposit documents' },
-        { status: 403, headers: { 'x-request-id': ctx.requestId } },
-      );
-    }
-    if (access.stage === 'Bloqué') {
-      return NextResponse.json(
-        { error: 'THESIS_BLOCKED', message: 'The encadrant has blocked this thesis' },
-        { status: 403, headers: { 'x-request-id': ctx.requestId } },
-      );
-    }
 
     const parsed = CreateBody.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
@@ -100,12 +95,61 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       );
     }
 
-    const scheduledAt = parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null;
-    if (scheduledAt && scheduledAt.getTime() <= Date.now()) {
-      return NextResponse.json(
-        { error: 'SCHEDULED_AT_IN_PAST', message: 'scheduledAt must be in the future' },
-        { status: 400, headers: { 'x-request-id': ctx.requestId } },
-      );
+    const isStudent = access.studentId === auth.user.sub;
+    let scheduledAt: Date | null = null;
+
+    if (isStudent) {
+      if (parsed.data.replyToDocumentId) {
+        return NextResponse.json(
+          { error: 'VALIDATION_FAILED', message: 'Only the encadrant can reply to a document' },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      if (access.stage === 'Bloqué') {
+        return NextResponse.json(
+          { error: 'THESIS_BLOCKED', message: 'The encadrant has blocked this thesis' },
+          { status: 403, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      scheduledAt = parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null;
+      if (scheduledAt && scheduledAt.getTime() <= Date.now()) {
+        return NextResponse.json(
+          { error: 'SCHEDULED_AT_IN_PAST', message: 'scheduledAt must be in the future' },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+    } else {
+      // resolveThesisAccess already guarantees student-or-encadrant, so this
+      // branch is the encadrant.
+      if (!parsed.data.replyToDocumentId) {
+        return NextResponse.json(
+          {
+            error: 'VALIDATION_FAILED',
+            message: 'replyToDocumentId is required for encadrant uploads',
+          },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      if (parsed.data.scheduledAt) {
+        return NextResponse.json(
+          {
+            error: 'VALIDATION_FAILED',
+            message: 'scheduledAt is not supported for encadrant uploads',
+          },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      // Target must exist, belong to this thesis, and not itself already be
+      // a reply — keeps corrections one level deep.
+      const target = await prisma.document.findFirst({
+        where: { id: parsed.data.replyToDocumentId, thesisId: id, replyToDocumentId: null },
+      });
+      if (!target) {
+        return NextResponse.json(
+          { error: 'INVALID_REPLY_TARGET', message: 'This document cannot be replied to' },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
     }
 
     const document = await prisma.document.create({
@@ -116,24 +160,30 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         ...(parsed.data.fileName !== undefined ? { fileName: parsed.data.fileName } : {}),
         ...(parsed.data.sizeBytes !== undefined ? { sizeBytes: parsed.data.sizeBytes } : {}),
         ...(scheduledAt ? { scheduledAt } : {}),
+        ...(parsed.data.replyToDocumentId
+          ? { replyToDocumentId: parsed.data.replyToDocumentId }
+          : {}),
       },
     });
 
     // A scheduled deposit stays invisible to the encadrant until the
     // scheduled-deposits cron releases it — that's when this same
     // notification fires instead.
-    if (!scheduledAt) {
+    if (isStudent && !scheduledAt) {
       try {
-        await createNotification(prisma, {
-          userId: access.encadrantId,
-          type: 'DOCUMENT_SUBMITTED',
-          title: 'Nouveau document déposé',
-          body: parsed.data.chapter
-            ? `Nouveau dépôt : ${parsed.data.chapter}`
-            : 'Nouveau document déposé',
-          data: { thesisId: id, documentId: document.id },
-          dedupeKey: `document-submitted:${document.id}`,
-        });
+        await createNotification(
+          prisma,
+          documentSubmitted(access.encadrantId, id, document.id, parsed.data.chapter ?? null),
+        );
+      } catch {
+        // Notification is best-effort — the document is already committed.
+      }
+    } else if (!isStudent) {
+      try {
+        await createNotification(
+          prisma,
+          documentReceived(access.studentId, id, document.id, parsed.data.chapter ?? null),
+        );
       } catch {
         // Notification is best-effort — the document is already committed.
       }

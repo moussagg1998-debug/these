@@ -23,6 +23,8 @@ export interface ThesisDocument {
   uploadedAt: string;
   /** "Programmer le dépôt" — set + in the future while pending release. */
   scheduledAt: string | null;
+  /** Set only on an encadrant correction — the student deposit it replies to. */
+  replyToDocumentId: string | null;
 }
 
 /** Cross-thesis row from GET /api/documents ("Bibliothèque de documents"). */
