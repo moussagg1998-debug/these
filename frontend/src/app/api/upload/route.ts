@@ -80,7 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    const maxBytes = Number.parseInt(process.env.UPLOAD_MAX_BYTES ?? '10485760', 10);
+    const maxBytes = Number.parseInt(process.env.UPLOAD_MAX_BYTES ?? '52428800', 10);
 
     // Probe Cloudinary configuration BEFORE consuming the request body — we
     // want STORAGE_NOT_CONFIGURED to be a cheap 503, not a body-parse-after.

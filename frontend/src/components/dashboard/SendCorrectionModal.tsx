@@ -16,13 +16,13 @@ const ACCEPTED_ATTR =
   '.pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text';
 // Client-side pre-check only, for UX — the server remains the real trust
 // boundary via UPLOAD_ALLOWED_MIME + magic-byte sniffing.
-const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_SIZE_BYTES = 50 * 1024 * 1024;
 
 const ERROR_MESSAGES: Record<string, string> = {
   STORAGE_NOT_CONFIGURED:
     "Le stockage de fichiers n'est pas encore configuré par votre établissement.",
   UPLOAD_MISSING_FILE: 'Aucun fichier reçu — réessayez.',
-  FILE_TOO_LARGE: 'Le fichier dépasse la taille maximale autorisée (10 Mo).',
+  FILE_TOO_LARGE: 'Le fichier dépasse la taille maximale autorisée (50 Mo).',
   INVALID_MIME: "Ce type de fichier n'est pas accepté (formats acceptés : PDF, DOCX, ODT).",
   MAGIC_BYTE_MISMATCH: 'Le contenu du fichier ne correspond pas au format déclaré.',
   UPLOAD_FAILED: 'Le téléversement a échoué — réessayez.',
@@ -54,7 +54,7 @@ export function SendCorrectionModal({
 
   function validateAndSetFile(f: File) {
     if (f.size > MAX_SIZE_BYTES) {
-      setError('Le fichier dépasse la taille maximale autorisée (10 Mo).');
+      setError('Le fichier dépasse la taille maximale autorisée (50 Mo).');
       return;
     }
     const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
@@ -186,7 +186,7 @@ export function SendCorrectionModal({
               />
             </label>
             <p className="text-xs text-muted-foreground mt-2">
-              Max 10 Mo — Formats : .docx, .pdf, .odt
+              Max 50 Mo — Formats : .docx, .pdf, .odt
             </p>
           </div>
 
