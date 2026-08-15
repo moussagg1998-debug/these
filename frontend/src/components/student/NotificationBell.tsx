@@ -39,6 +39,7 @@ const TYPE_DESTINATION: Record<string, string> = {
   COMMENT_ADDED: '/comments',
   DEADLINE_ADDED: '/deadlines',
   DOCUMENT_SUBMITTED: '/documents',
+  DOCUMENT_RECEIVED: '/documents',
   MESSAGE_RECEIVED: '/messages',
   THESIS_ASSIGNED: '/dashboard',
   REMINDER: '/messages',

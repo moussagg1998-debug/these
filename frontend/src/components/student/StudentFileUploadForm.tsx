@@ -44,7 +44,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_MIME: "Ce type de fichier n'est pas accepté (formats acceptés : PDF, DOCX, ODT).",
   MAGIC_BYTE_MISMATCH: 'Le contenu du fichier ne correspond pas au format déclaré.',
   UPLOAD_FAILED: 'Le téléversement a échoué — réessayez.',
-  STUDENT_ONLY: "Seul l'étudiant peut déposer un document.",
   VALIDATION_FAILED: 'Vérifiez les champs du formulaire.',
   SCHEDULED_AT_IN_PAST: 'La date programmée doit être dans le futur.',
 };

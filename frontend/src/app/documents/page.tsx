@@ -265,8 +265,8 @@ function DocumentsLibraryContent() {
         <div className="mt-8 p-4 bg-surface border border-border rounded-md flex items-start gap-3">
           <Icon i="info" size={16} className="text-muted-foreground shrink-0 mt-0.5" />
           <p className="text-sm text-muted-foreground">
-            Tous les documents soumis par vos étudiants sont archivés ici. Cliquez sur l&apos;icône
-            de téléchargement pour ouvrir un fichier.
+            Tous les documents de vos thèses — dépôts de vos étudiants et corrections envoyées —
+            sont archivés ici. Cliquez sur l&apos;icône de téléchargement pour ouvrir un fichier.
           </p>
         </div>
       </div>

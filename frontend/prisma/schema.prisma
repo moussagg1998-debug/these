@@ -617,6 +617,13 @@ model Document {
   // not a separate "author" field, is what distinguishes who sent a
   // Document row — see docs/superpowers/specs/
   // 2026-08-15-encadrant-document-corrections-design.md.
+  // NOTE: onDelete: SetNull mirrors the Comment.documentId precedent below,
+  // but here it's a landmine — replyToDocumentId being non-null is the ONLY
+  // signal that a Document is a correction. If a document-delete feature is
+  // ever added, deleting a reply target must not silently reclassify its
+  // corrections as student deposits — either cascade-delete replies or
+  // block deletion of a document that has any. Nothing in this codebase
+  // deletes a Document today, so this cannot happen yet.
   replyToDocumentId String?
   replyTo           Document?  @relation("DocumentReplies", fields: [replyToDocumentId], references: [id], onDelete: SetNull)
   replies           Document[] @relation("DocumentReplies")
