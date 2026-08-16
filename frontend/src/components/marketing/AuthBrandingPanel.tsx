@@ -39,9 +39,7 @@ export function AuthBrandingPanel() {
         </div>
       </div>
 
-      <div className="text-xs text-muted-foreground">
-        © 2025 ThèseFacile — Conçu pour l&apos;Afrique francophone
-      </div>
+      <div />
     </div>
   );
 }
