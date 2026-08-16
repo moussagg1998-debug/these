@@ -102,7 +102,7 @@ const PLANS = [
       { icon: 'archive', label: 'Archivage permanent' },
     ],
     excluded: ['Rappels groupés', 'Support prioritaire'],
-    reassurance: 'Aucune carte bancaire requise',
+    reassurance: '',
     recommended: false,
     cta: 'Commencer gratuitement',
   },
@@ -186,8 +186,7 @@ export default function LandingPage() {
               <Avatar name="Joseph Atangana" className="h-8 w-8 border-2 border-background" />
             </div>
             <div className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">+340 encadrants</span> au Sénégal,
-              Côte d&apos;Ivoire &amp; Cameroun
+              <span className="font-semibold text-foreground">+340 encadrants</span>
             </div>
           </div>
         </div>
@@ -406,10 +405,12 @@ export default function LandingPage() {
                 >
                   {p.cta}
                 </PricingCTA>
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                  <Icon i="lock" size={11} />
-                  {p.reassurance}
-                </div>
+                {p.reassurance && (
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Icon i="lock" size={11} />
+                    {p.reassurance}
+                  </div>
+                )}
               </div>
             </div>
           ))}
