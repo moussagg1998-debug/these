@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { StudentShell } from './StudentShell';
-import { StudentDeadlineCard } from './StudentDeadlineCard';
+import { StudentDeadlineCard, StudentDeadlineCardSkeleton } from './StudentDeadlineCard';
 import {
   daysUntil,
   deadlineUrgencyBucket,
@@ -57,6 +57,14 @@ const SECTIONS: {
     badgeClass: 'text-secondary-foreground bg-secondary',
     iconClass: 'text-secondary-foreground',
   },
+  {
+    buckets: ['done'],
+    icon: 'check-circle',
+    label: 'Respectées',
+    headingClass: 'text-success',
+    badgeClass: 'text-success bg-success/10',
+    iconClass: 'text-success',
+  },
 ];
 
 interface StudentCalendarContentProps {
@@ -78,14 +86,18 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
     return items.map((deadline) => ({
       deadline,
       daysLeft: daysUntil(deadline.dueAt),
-      bucket: deadlineUrgencyBucket(deadline.dueAt),
+      bucket: deadlineUrgencyBucket(deadline.dueAt, deadline.completedAt),
     }));
   }, [deadlinesRes]);
 
   if (thesesLoading && !thesesRes) {
     return (
       <StudentShell name={name} active="deadlines">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="px-4 py-6 sm:px-8 flex flex-col gap-2">
+          <StudentDeadlineCardSkeleton />
+          <StudentDeadlineCardSkeleton />
+          <StudentDeadlineCardSkeleton />
+        </div>
       </StudentShell>
     );
   }
@@ -93,7 +105,7 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
   if (!thesis) {
     return (
       <StudentShell name={name} active="deadlines">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center motion-safe:animate-fade-in">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
@@ -105,7 +117,11 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
   if (!deadlinesRes && !deadlinesError) {
     return (
       <StudentShell name={name} active="deadlines">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="px-4 py-6 sm:px-8 flex flex-col gap-2">
+          <StudentDeadlineCardSkeleton />
+          <StudentDeadlineCardSkeleton />
+          <StudentDeadlineCardSkeleton />
+        </div>
       </StudentShell>
     );
   }
@@ -114,7 +130,7 @@ export function StudentCalendarContent({ name }: StudentCalendarContentProps) {
     <StudentShell name={name} active="deadlines">
       <div className="px-4 py-6 sm:px-8">
         {withBucket.length === 0 ? (
-          <div className="border border-dashed border-border rounded-md p-8 text-center">
+          <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
             <p className="text-sm text-muted-foreground">Aucune échéance à venir.</p>
           </div>
         ) : (

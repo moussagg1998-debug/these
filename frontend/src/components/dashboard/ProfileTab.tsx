@@ -193,7 +193,7 @@ export function ProfileTab({ profile, onSaved }: ProfileTabProps) {
                     type="button"
                     onClick={() => removeSpecialty(s)}
                     aria-label={`Retirer ${s}`}
-                    className="text-secondary-foreground/70 hover:text-secondary-foreground"
+                    className="text-secondary-foreground/70 transition duration-150 hover:text-secondary-foreground motion-safe:active:scale-90"
                   >
                     <Icon i="x" size={10} />
                   </button>
@@ -232,14 +232,14 @@ export function ProfileTab({ profile, onSaved }: ProfileTabProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm"
+          className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm transition-colors duration-150 hover:bg-input"
         >
           Annuler
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50"
+          className="px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
         >
           {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
         </button>

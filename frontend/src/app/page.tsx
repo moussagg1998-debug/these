@@ -2,11 +2,36 @@
 // See .planning/banani/phase-2-auth-onboarding.md for the full plan.
 // Server component: no client state needed at this level (MarketingNav
 // carries its own 'use client' for the mobile menu toggle).
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { MarketingNav } from '@/components/marketing/MarketingNav';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
+import { PricingCTA } from '@/components/marketing/PricingCTA';
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
+
+// SoftwareApplication structured data: only real, already-displayed facts
+// (name, description, the 3 real FCFA price tiers). No AggregateRating/
+// Review block — the testimonials above aren't verified customer reviews,
+// and fabricating a rating signal would be exactly the kind of "invented
+// trust signal" SEO must never introduce.
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'ThèseFacile',
+  description:
+    "Le suivi de thèses pensé pour les encadrants d'Afrique francophone : dépôt et versioning des documents, commentaires contextuels, échéances et tableau de bord en temps réel.",
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  offers: [
+    { '@type': 'Offer', name: 'Gratuit', price: '0', priceCurrency: 'XOF' },
+    { '@type': 'Offer', name: 'Essentiel', price: '5900', priceCurrency: 'XOF' },
+  ],
+};
 
 const FEATURES = [
   {
@@ -64,49 +89,40 @@ const TESTIMONIALS = [
 
 const PLANS = [
   {
-    name: 'Essentiel',
-    price: '5 900 FCFA',
-    period: '/ mois',
-    desc: 'Pour les encadrants qui débutent',
-    features: [
-      "Jusqu'à 5 étudiants",
-      'Versioning de documents',
-      'Commentaires basiques',
-      'Support par email',
-    ],
-    primary: false,
-    cta: 'Démarrer gratuitement',
-  },
-  {
-    name: 'Pro',
-    price: '12 500 FCFA',
-    period: '/ mois',
-    desc: 'Le plan préféré des enseignants-chercheurs',
-    features: [
-      "Jusqu'à 15 étudiants",
-      'Commentaires contextuels avancés',
-      "Rappels d'échéances automatiques",
-      'Tableau de bord analytique',
-      'Paiement mobile money',
-      'Support prioritaire',
-    ],
-    primary: true,
-    cta: 'Choisir Pro',
-  },
-  {
-    name: 'Département',
-    price: 'Sur devis',
+    name: 'Gratuit',
+    badge: '',
+    tone: 'accent' as const,
+    price: '0',
+    unit: 'FCFA',
     period: '',
-    desc: 'Pour les équipes et départements',
+    desc: "Encadrant qui découvre l'outil",
     features: [
-      'Encadrants illimités',
-      'Administration centralisée',
-      'Rapports exportables',
-      'Intégration LMS sur demande',
-      'Account manager dédié',
+      { icon: 'users', label: '2 étudiants, 50 Mo' },
+      { icon: 'layout-dashboard', label: 'Cœur produit complet' },
+      { icon: 'archive', label: 'Archivage permanent' },
     ],
-    primary: false,
-    cta: 'Nous contacter',
+    excluded: ['Rappels groupés', 'Support prioritaire'],
+    reassurance: '',
+    recommended: false,
+    cta: 'Commencer gratuitement',
+  },
+  {
+    name: 'Essentiel',
+    badge: 'Offre Or',
+    tone: 'gold' as const,
+    price: '5 900',
+    unit: 'FCFA',
+    period: '/ mois',
+    desc: 'Encadrant avec une cohorte active',
+    features: [
+      { icon: 'users', label: '20 étudiants, 100 Go' },
+      { icon: 'bell', label: 'Rappels groupés' },
+      { icon: 'phone', label: 'Support prioritaire 24h' },
+    ],
+    excluded: [],
+    reassurance: 'Paiement mobile money — sans engagement',
+    recommended: true,
+    cta: 'Choisir Essentiel',
   },
 ];
 
@@ -125,6 +141,10 @@ const MOCK_STUDENTS = [
 export default function LandingPage() {
   return (
     <div className="font-body bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       <MarketingNav />
 
       {/* HERO */}
@@ -146,10 +166,17 @@ export default function LandingPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/signup"
-              className="flex items-center justify-center gap-2 rounded-sm bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground transition-transform duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
+              className="flex items-center justify-center gap-2 rounded-sm bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground transition duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
             >
               <Icon i="arrow-right" size={14} />
               Commencer gratuitement
+            </Link>
+            <Link
+              href="/demo"
+              className="flex items-center justify-center gap-2 rounded-sm border border-border px-6 py-3.5 text-sm font-medium text-foreground"
+            >
+              <Icon i="user" size={14} />
+              Voir la démo
             </Link>
           </div>
           <div className="mt-8 flex items-center gap-4">
@@ -159,8 +186,7 @@ export default function LandingPage() {
               <Avatar name="Joseph Atangana" className="h-8 w-8 border-2 border-background" />
             </div>
             <div className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">+340 encadrants</span> au Sénégal,
-              Côte d&apos;Ivoire &amp; Cameroun
+              <span className="font-semibold text-foreground">+340 encadrants</span>
             </div>
           </div>
         </div>
@@ -196,7 +222,10 @@ export default function LandingPage() {
                   <div className="text-xs text-muted-foreground">{s.stage}</div>
                 </div>
                 <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-input sm:block">
-                  <div className="h-full bg-primary" style={{ width: `${s.progress}%` }} />
+                  <div
+                    className="h-full bg-primary transition-[width] duration-500 ease-out"
+                    style={{ width: `${s.progress}%` }}
+                  />
                 </div>
                 <div className="w-8 text-right text-xs text-muted-foreground">{s.progress}%</div>
               </div>
@@ -291,74 +320,98 @@ export default function LandingPage() {
             Paiement par mobile money (Orange Money, Wave, MTN). Sans engagement.
           </p>
         </div>
-        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 md:grid-cols-2">
           {PLANS.map((p) => (
             <div
               key={p.name}
-              className={`flex flex-col gap-4 rounded-md p-6 transition-[translate,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
-                p.primary
-                  ? 'border-2 border-primary bg-primary text-primary-foreground'
-                  : 'border border-border bg-background'
+              className={`relative flex flex-col gap-5 rounded-md bg-surface p-6 pt-8 transition-[translate,box-shadow] duration-150 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-md ${
+                p.recommended ? 'border-2 border-gold' : 'border border-border'
               }`}
             >
-              <div>
-                <div
-                  className={`mb-1 text-xs font-medium uppercase tracking-widest ${
-                    p.primary ? 'text-primary-foreground opacity-75' : 'text-muted-foreground'
+              {p.badge && (
+                <span
+                  className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-widest ${
+                    p.tone === 'gold'
+                      ? 'bg-gold text-gold-foreground'
+                      : 'bg-accent text-accent-foreground'
                   }`}
                 >
+                  {p.badge}
+                </span>
+              )}
+
+              <div>
+                <div className="mb-3 font-headings text-xl font-semibold text-foreground">
                   {p.name}
                 </div>
-                <div className="flex items-baseline gap-1">
+                <div className="flex items-baseline gap-1.5">
                   <span
                     className={`font-headings text-3xl font-semibold ${
-                      p.primary ? 'text-primary-foreground' : 'text-foreground'
+                      p.tone === 'gold' ? 'text-gold' : 'text-accent'
                     }`}
                   >
                     {p.price}
                   </span>
-                  {p.period && (
+                  <span className="text-xs text-muted-foreground">
+                    {p.unit}
+                    {p.period && ` ${p.period}`}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{p.desc}</p>
+              </div>
+
+              <div className="flex flex-1 flex-col border-t border-border">
+                {p.features.map((feat) => (
+                  <div
+                    key={feat.label}
+                    className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0"
+                  >
                     <span
-                      className={`text-sm ${
-                        p.primary ? 'text-primary-foreground opacity-75' : 'text-muted-foreground'
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        p.tone === 'gold' ? 'bg-gold/15 text-gold' : 'bg-accent/15 text-accent'
                       }`}
                     >
-                      {p.period}
+                      <Icon i={feat.icon} size={15} />
                     </span>
-                  )}
-                </div>
-                <p
-                  className={`mt-1 text-xs ${
-                    p.primary ? 'text-primary-foreground opacity-75' : 'text-muted-foreground'
-                  }`}
-                >
-                  {p.desc}
-                </p>
-              </div>
-              <div className="flex flex-1 flex-col gap-2">
-                {p.features.map((feat) => (
-                  <div key={feat} className="flex items-center gap-2 text-xs">
-                    <Icon
-                      i="check"
-                      size={12}
-                      className={p.primary ? 'text-primary-foreground' : 'text-primary'}
-                    />
-                    <span className={p.primary ? 'text-primary-foreground' : 'text-foreground'}>
-                      {feat}
+                    <span className="flex-1 text-sm text-foreground">{feat.label}</span>
+                    <Icon i="check-circle" size={16} className="shrink-0 text-success" />
+                  </div>
+                ))}
+                {p.excluded.map((label) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-3 border-b border-border/60 py-2.5 opacity-60 last:border-0"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <Icon i="x" size={15} />
                     </span>
+                    <span className="flex-1 text-sm text-muted-foreground line-through">
+                      {label}
+                    </span>
+                    <Icon i="x" size={16} className="shrink-0 text-danger" />
                   </div>
                 ))}
               </div>
-              <Link
-                href="/signup"
-                className={`mt-2 rounded-sm py-2.5 text-center text-sm font-medium transition-transform duration-150 motion-safe:active:scale-[0.98] ${
-                  p.primary
-                    ? 'bg-primary-foreground text-primary'
-                    : 'bg-primary text-primary-foreground'
-                }`}
-              >
-                {p.cta}
-              </Link>
+
+              <div className="flex flex-col gap-3">
+                <PricingCTA
+                  href="/signup"
+                  loggedInHref={p.name === 'Essentiel' ? '/settings?tab=abonnement' : undefined}
+                  className={`rounded-sm py-2.5 text-center text-sm font-medium transition duration-150 motion-safe:active:scale-[0.98] ${
+                    p.recommended
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-border text-foreground hover:bg-input'
+                  }`}
+                >
+                  {p.cta}
+                </PricingCTA>
+                {p.reassurance && (
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Icon i="lock" size={11} />
+                    {p.reassurance}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -377,14 +430,11 @@ export default function LandingPage() {
         </p>
         <Link
           href="/signup"
-          className="inline-flex items-center gap-2 rounded-sm bg-primary px-8 py-4 text-sm font-medium text-primary-foreground transition-transform duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
+          className="inline-flex items-center gap-2 rounded-sm bg-primary px-8 py-4 text-sm font-medium text-primary-foreground transition duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
         >
           <Icon i="arrow-right" size={14} />
           Créer mon compte gratuitement
         </Link>
-        <p className="mt-4 text-xs text-muted-foreground">
-          14 jours d&apos;essai · Aucune carte requise · Mobile money accepté
-        </p>
       </section>
 
       <MarketingFooter />

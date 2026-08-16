@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 export type SettingItemType = 'toggle' | 'select' | 'text' | 'button';
 
@@ -22,6 +23,9 @@ export interface SettingItem {
   checked?: boolean;
   onToggle?: () => void;
   onAction?: () => void;
+  /** `select` items only — presence of both makes the select a real, interactive <select>. */
+  options?: { value: string; label: string }[];
+  onChange?: (value: string) => void;
   disabled?: boolean;
   disabledTitle?: string;
 }
@@ -50,83 +54,111 @@ export function SettingSection({ title, icon, items, defaultOpen = true }: Setti
         <Icon
           i={open ? 'chevron-up' : 'chevron-down'}
           size={16}
-          className="text-muted-foreground"
+          className={`text-muted-foreground transition duration-300 ${open ? '' : '-rotate-90'}`}
         />
       </button>
 
-      {open && (
-        <div className="divide-y divide-border">
-          {items.map((item) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between gap-4 px-5 py-3 flex-wrap sm:flex-nowrap"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground">{item.label}</div>
-                {item.description && (
-                  <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+      >
+        <div className="overflow-hidden">
+          <div className="divide-y divide-border">
+            {items.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center justify-between gap-4 px-5 py-3 flex-wrap sm:flex-nowrap"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground">{item.label}</div>
+                  {item.description && (
+                    <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
+                  )}
+                </div>
+
+                {item.type === 'toggle' && (
+                  <Tooltip label={item.disabled ? item.disabledTitle : undefined}>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={item.checked ?? false}
+                      disabled={item.disabled}
+                      onClick={item.onToggle}
+                      className={`shrink-0 relative w-10 h-6 rounded-full border transition-colors ${
+                        item.disabled
+                          ? 'bg-muted border-border opacity-50 cursor-not-allowed'
+                          : item.checked
+                            ? 'bg-primary border-primary'
+                            : 'bg-muted border-border'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-surface transition duration-150 ${
+                          item.checked ? 'translate-x-4' : ''
+                        }`}
+                      />
+                    </button>
+                  </Tooltip>
+                )}
+
+                {item.type === 'select' &&
+                  (!item.disabled && item.options && item.onChange ? (
+                    <div className="relative shrink-0">
+                      <select
+                        value={item.value}
+                        onChange={(e) => item.onChange?.(e.target.value)}
+                        aria-label={item.label}
+                        className="appearance-none rounded-sm border border-border bg-surface py-1 pl-2 pr-6 text-xs text-foreground outline-none focus:border-primary"
+                      >
+                        {item.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Icon
+                        i="chevron-down"
+                        size={12}
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      />
+                    </div>
+                  ) : (
+                    <Tooltip label={item.disabled ? item.disabledTitle : undefined}>
+                      <div
+                        className={`shrink-0 flex items-center gap-2 text-xs rounded-sm px-2 py-1 border text-muted-foreground bg-surface border-border ${
+                          item.disabled ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {item.value}
+                        <Icon i="chevron-down" size={12} />
+                      </div>
+                    </Tooltip>
+                  ))}
+
+                {item.type === 'text' && (
+                  <div className="shrink-0 text-sm text-foreground font-medium">{item.value}</div>
+                )}
+
+                {item.type === 'button' && (
+                  <Tooltip label={item.disabled ? item.disabledTitle : undefined}>
+                    <button
+                      type="button"
+                      disabled={item.disabled}
+                      onClick={item.onAction}
+                      className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-sm border ${
+                        item.disabled
+                          ? 'text-muted-foreground border-border opacity-50 cursor-not-allowed'
+                          : 'text-primary border-primary'
+                      }`}
+                    >
+                      {item.action}
+                    </button>
+                  </Tooltip>
                 )}
               </div>
-
-              {item.type === 'toggle' && (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={item.checked ?? false}
-                  disabled={item.disabled}
-                  title={item.disabled ? item.disabledTitle : undefined}
-                  onClick={item.onToggle}
-                  className={`shrink-0 relative w-10 h-6 rounded-full border transition-colors ${
-                    item.disabled
-                      ? 'bg-muted border-border opacity-50 cursor-not-allowed'
-                      : item.checked
-                        ? 'bg-primary border-primary'
-                        : 'bg-muted border-border'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-surface transition-transform ${
-                      item.checked ? 'translate-x-4' : ''
-                    }`}
-                  />
-                </button>
-              )}
-
-              {item.type === 'select' && (
-                <div
-                  title={item.disabled ? item.disabledTitle : undefined}
-                  className={`shrink-0 flex items-center gap-2 text-xs rounded-sm px-2 py-1 border text-muted-foreground bg-surface border-border ${
-                    item.disabled ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  {item.value}
-                  <Icon i="chevron-down" size={12} />
-                </div>
-              )}
-
-              {item.type === 'text' && (
-                <div className="shrink-0 text-sm text-foreground font-medium">{item.value}</div>
-              )}
-
-              {item.type === 'button' && (
-                <button
-                  type="button"
-                  disabled={item.disabled}
-                  title={item.disabled ? item.disabledTitle : undefined}
-                  onClick={item.onAction}
-                  className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-sm border ${
-                    item.disabled
-                      ? 'text-muted-foreground border-border opacity-50 cursor-not-allowed'
-                      : 'text-primary border-primary'
-                  }`}
-                >
-                  {item.action}
-                </button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

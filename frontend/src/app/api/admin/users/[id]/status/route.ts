@@ -23,6 +23,7 @@ import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
+import { clientIp } from '@/lib/server/middleware/rate-limit-by-email';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const Body = z.object({
@@ -57,6 +58,18 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'VALIDATION_FAILED', message: 'Invalid request body' },
         { status: 400 },
+      );
+    }
+
+    // Can't-fire-yourself guard — not a privilege check (applies even to
+    // SUPERADMIN), just prevents an admin from locking themselves out.
+    if (id === auth.admin.id && parsed.data.status === 'SUSPENDED') {
+      return NextResponse.json(
+        {
+          error: 'CANNOT_SUSPEND_SELF',
+          message: 'Vous ne pouvez pas suspendre votre propre compte.',
+        },
+        { status: 403 },
       );
     }
 
@@ -100,6 +113,7 @@ export async function PATCH(
         select: { id: true, status: true },
       });
 
+      const userAgent = req.headers.get('user-agent');
       await logAdminAction(tx, {
         actorId: auth.admin.id,
         action: isRestore ? 'user.restore' : 'user.suspend',
@@ -110,6 +124,8 @@ export async function PATCH(
           to: parsed.data.status,
           ...(parsed.data.reason ? { reason: parsed.data.reason } : {}),
         },
+        ip: clientIp(req),
+        ...(userAgent ? { userAgent } : {}),
       });
 
       return { kind: 'OK' as const, user: updated };

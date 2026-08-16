@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/ui/Icon';
 import { AuthBrandingPanel } from '@/components/marketing/AuthBrandingPanel';
+import { AuthModeToggle } from '@/components/marketing/AuthModeToggle';
 
 const googleSignInHref = '/api/auth/oauth/google/start?next=/onboarding/profile';
 
@@ -65,188 +66,180 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen font-body bg-background">
+    <div className="flex h-dvh overflow-hidden font-body bg-background">
       <AuthBrandingPanel />
 
-      {/* Form panel */}
-      <div className="flex flex-1 items-center justify-center px-4 py-14 sm:px-8 lg:px-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-              <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
+      {/* Form panel — its own scroll container (not the whole page): with 6
+          required fields this can still need an internal scroll on very
+          short viewports, but never a page-level scrollbar or clipped
+          content. `min-h-full` on the inner wrapper (not `items-center
+          justify-center` on the scroll container itself) matters — centering
+          the scroll container directly clips the TOP of overflowing content
+          with no way to scroll back up to it. */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-12">
+        <div className="flex min-h-full items-center justify-center">
+          <div className="w-full max-w-sm py-2">
+            <div className="mb-4 lg:hidden">
+              <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
             </div>
-            <span className="font-headings text-base font-semibold text-foreground">
-              ThèseFacile
-            </span>
-          </div>
 
-          <div className="mb-8">
-            <h1 className="mb-1 font-headings text-2xl font-semibold text-foreground">
-              Créer un compte
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Rejoignez ThèseFacile pour gérer vos mémoires
-            </p>
-          </div>
-
-          <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Nom et prénom
-              </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
-                <Icon i="user" size={14} className="shrink-0 text-muted-foreground" />
-                <input
-                  type="text"
-                  required
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Amadou Diallo"
-                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </div>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Établissement / Université
-              </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
-                <input
-                  type="text"
-                  required
-                  autoComplete="organization"
-                  value={institution}
-                  onChange={(e) => setInstitution(e.target.value)}
-                  placeholder="Ex. Université Cheikh Anta Diop de Dakar"
-                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </div>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Adresse email
-              </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
-                <Icon i="mail" size={14} className="shrink-0 text-muted-foreground" />
-                <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nom@universite.sn"
-                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </div>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Mot de passe
-              </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
-                <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
-                <input
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  minLength={10}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-transparent text-sm text-foreground outline-none"
-                />
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Au moins 10 caractères, avec une majuscule et un chiffre.
-              </span>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Confirmer le mot de passe
-              </span>
-              <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-3 transition-colors duration-150 focus-within:border-primary">
-                <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
-                <input
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-transparent text-sm text-foreground outline-none"
-                />
-              </div>
-              {passwordsMismatch && (
-                <span className="text-xs text-danger">Les mots de passe ne correspondent pas.</span>
-              )}
-            </label>
-
-            <label className="flex items-start gap-2.5">
-              <input
-                type="checkbox"
-                required
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-1 h-4 w-4 shrink-0 rounded-sm border-2 border-border"
-              />
-              <span className="text-xs text-muted-foreground">
-                J&apos;accepte les{' '}
-                <Link href="/terms" className="font-medium text-primary">
-                  conditions d&apos;utilisation
-                </Link>{' '}
-                et la{' '}
-                <Link href="/terms" className="font-medium text-primary">
-                  politique de confidentialité
-                </Link>
-              </span>
-            </label>
-
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
+            <div className="mb-5">
+              <h1 className="mb-1 font-headings text-2xl font-semibold text-foreground">
+                Créer un compte
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Rejoignez ThèseFacile pour gérer vos mémoires
               </p>
-            )}
+            </div>
 
-            <button
-              type="submit"
-              disabled={submitting || passwordsMismatch || !termsAccepted}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
+            <AuthModeToggle mode="signup" />
+
+            <a
+              href={googleSignInHref}
+              className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
             >
-              <Icon i="user-plus" size={14} />
-              {submitting ? 'Création…' : 'Créer mon compte'}
-            </button>
-          </form>
+              <Icon i="google" size={16} />
+              S&apos;inscrire avec Google
+            </a>
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">ou</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
+            <div className="my-3.5 flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">ou</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
 
-          <a
-            href={googleSignInHref}
-            className="flex w-full items-center justify-center gap-2.5 rounded-sm border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
-          >
-            <Icon i="chrome" size={16} className="text-muted-foreground" />
-            S&apos;inscrire avec Google
-          </a>
+            <form onSubmit={onSubmit} className="flex flex-col gap-2.5">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Nom et prénom
+                </span>
+                <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-2 transition-colors duration-150 focus-within:border-primary">
+                  <Icon i="user" size={14} className="shrink-0 text-muted-foreground" />
+                  <input
+                    type="text"
+                    required
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Amadou Diallo"
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+              </label>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Vous avez déjà un compte ?{' '}
-            <Link href="/login" className="font-medium text-primary">
-              Se connecter
-            </Link>
-          </p>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Établissement / Université
+                </span>
+                <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-2 transition-colors duration-150 focus-within:border-primary">
+                  <input
+                    type="text"
+                    required
+                    autoComplete="organization"
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                    placeholder="Ex. Université Cheikh Anta Diop de Dakar"
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+              </label>
 
-          <div className="mt-8 flex items-start gap-3 rounded-sm border border-border bg-input p-3">
-            <Icon i="info" size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Les Professeurs doivent s&apos;inscrire avec une adresse email institutionnelle. Les
-              Étudiants peuvent utiliser l&apos;email de leur université ou personnel.
-            </p>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Adresse email
+                </span>
+                <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-2 transition-colors duration-150 focus-within:border-primary">
+                  <Icon i="mail" size={14} className="shrink-0 text-muted-foreground" />
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nom@universite.sn"
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Mot de passe
+                </span>
+                <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-2 transition-colors duration-150 focus-within:border-primary">
+                  <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
+                  <input
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    minLength={10}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-transparent text-sm text-foreground outline-none"
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Au moins 10 caractères, avec une majuscule et un chiffre.
+                </span>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Confirmer le mot de passe
+                </span>
+                <div className="flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-2 transition-colors duration-150 focus-within:border-primary">
+                  <Icon i="lock" size={14} className="shrink-0 text-muted-foreground" />
+                  <input
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-transparent text-sm text-foreground outline-none"
+                  />
+                </div>
+                {passwordsMismatch && (
+                  <span className="text-xs text-danger">
+                    Les mots de passe ne correspondent pas.
+                  </span>
+                )}
+              </label>
+
+              <label className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  required
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 rounded-sm border-2 border-border"
+                />
+                <span className="text-xs text-muted-foreground">
+                  J&apos;accepte les{' '}
+                  <Link href="/terms" className="font-medium text-primary">
+                    conditions d&apos;utilisation
+                  </Link>{' '}
+                  et la{' '}
+                  <Link href="/terms" className="font-medium text-primary">
+                    politique de confidentialité
+                  </Link>
+                </span>
+              </label>
+
+              {error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting || passwordsMismatch || !termsAccepted}
+                className="mt-1 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
+              >
+                <Icon i="user-plus" size={14} />
+                {submitting ? 'Création…' : 'Créer mon compte'}
+              </button>
+            </form>
           </div>
         </div>
       </div>

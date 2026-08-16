@@ -17,11 +17,14 @@ const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 const params = Promise.resolve({ id: 'thesis-1' });
 
-function thesisRow(overrides: Partial<{ studentId: string; encadrantId: string }> = {}) {
+function thesisRow(
+  overrides: Partial<{ studentId: string; encadrantId: string; stage: string }> = {},
+) {
   return {
     id: 'thesis-1',
     studentId: overrides.studentId ?? 'stu-1',
     encadrantId: overrides.encadrantId ?? 'enc-1',
+    stage: overrides.stage ?? 'Rédaction',
   };
 }
 
@@ -91,6 +94,27 @@ describe('POST /api/theses/[id]/comments', () => {
     expect(res.status).toBe(400);
   });
 
+  it('blocked thesis, student poster → 403 THESIS_BLOCKED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    const res = await POST(makePost({ body: 'salut' }), { params });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('THESIS_BLOCKED');
+    expect(prismaMock.comment.create).not.toHaveBeenCalled();
+  });
+
+  it('blocked thesis, encadrant poster → still allowed', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ encadrantId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    prismaMock.comment.create.mockResolvedValue({ id: 'c-4', thesisId: 'thesis-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost({ body: 'salut' }), { params });
+    expect(res.status).toBe(201);
+  });
+
   it('parentId from a different thesis → 404 PARENT_NOT_FOUND', async () => {
     prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
     prismaMock.comment.findUnique.mockResolvedValue({
@@ -143,5 +167,44 @@ describe('POST /api/theses/[id]/comments', () => {
     prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
     const res = await POST(makePost({ body: 'x', priority: 'urgent' }), { params });
     expect(res.status).toBe(400);
+  });
+
+  it('page without documentId → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    const res = await POST(makePost({ body: 'x', page: 3 }), { params });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.comment.create).not.toHaveBeenCalled();
+  });
+
+  it('page with parentId → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    prismaMock.comment.findUnique.mockResolvedValue({
+      id: 'c-parent',
+      thesisId: 'thesis-1',
+    } as never);
+    const res = await POST(
+      makePost({ body: 'reply', documentId: 'doc-1', parentId: 'c-parent', page: 2 }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.comment.create).not.toHaveBeenCalled();
+  });
+
+  it('creates a document comment with page persisted', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.comment.create.mockResolvedValue({ id: 'c-6', thesisId: 'thesis-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost({ body: 'Voir p. 3', documentId: 'doc-1', page: 3 }), {
+      params,
+    });
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.comment.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.page).toBe(3);
   });
 });

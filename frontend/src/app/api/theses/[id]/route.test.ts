@@ -95,6 +95,18 @@ describe('GET /api/theses/[id]', () => {
     const res = await GET(makeGet(), { params });
     expect(res.status).toBe(200);
   });
+
+  it('excludes validated (completedAt) deadlines from the next-deadline slot', async () => {
+    prismaMock.thesis.findUnique
+      .mockResolvedValueOnce(thesisRow({ studentId: 'user-1' }) as never)
+      .mockResolvedValueOnce(thesisRow({ studentId: 'user-1' }) as never);
+    await GET(makeGet(), { params });
+    const detailArgs = prismaMock.thesis.findUnique.mock.calls[1]?.[0];
+    const deadlines = detailArgs?.include?.deadlines as
+      | { where?: { completedAt?: unknown } }
+      | undefined;
+    expect(deadlines?.where?.completedAt).toBeNull();
+  });
 });
 
 describe('PATCH /api/theses/[id]', () => {

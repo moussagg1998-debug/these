@@ -3,6 +3,7 @@
 // submission) but swaps the "Ouvrir" link for a checkbox.
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 import {
   URGENCY_DOT,
   displayName,
@@ -46,7 +47,7 @@ export function ReminderRecipientRow({ thesis, selected, onToggle }: ReminderRec
       </span>
 
       <span className="relative shrink-0">
-        <Avatar name={name} className="h-8 w-8" />
+        <Avatar name={name} src={thesis.student.avatarUrl} className="h-8 w-8" />
         <span
           className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-surface ${dotClass}`}
           aria-hidden="true"
@@ -62,5 +63,19 @@ export function ReminderRecipientRow({ thesis, selected, onToggle }: ReminderRec
         Dernière soumission : {lastDoc ? relativeTime(lastDoc.uploadedAt) : 'Aucune'}
       </span>
     </label>
+  );
+}
+
+export function ReminderRecipientRowSkeleton() {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 border-b border-border last:border-0">
+      <Skeleton className="h-5 w-5 sm:h-4 sm:w-4 rounded-sm" />
+      <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <Skeleton className="h-3.5 w-28" />
+        <Skeleton className="h-3 w-40" />
+      </div>
+      <Skeleton className="hidden sm:block h-3 w-32" />
+    </div>
   );
 }

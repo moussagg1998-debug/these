@@ -13,11 +13,13 @@ import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { StatCard } from '@/components/dashboard/StatCard';
-import { StudentRow } from '@/components/dashboard/StudentRow';
-import { ActivityItem } from '@/components/dashboard/ActivityItem';
+import { StatCard, StatCardSkeleton } from '@/components/dashboard/StatCard';
+import { StudentRow, StudentRowSkeleton } from '@/components/dashboard/StudentRow';
+import { ActivityItem, ActivityItemSkeleton } from '@/components/dashboard/ActivityItem';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { AddStudentForm } from '@/components/dashboard/AddStudentForm';
 import { FilterBar, STAGE_FILTERS, type StageFilterId } from '@/components/dashboard/FilterBar';
 import { StudentDashboardContent } from '@/components/student/StudentDashboardContent';
@@ -33,6 +35,10 @@ interface ProfileResponse {
   profileType: 'ENCADRANT' | 'ETUDIANT' | null;
   name: string | null;
   email: string;
+}
+
+interface AdminMeResponse {
+  admin: { id: string; email: string; role: 'ADMIN' | 'SUPERADMIN' };
 }
 
 interface ThesesResponse {
@@ -52,6 +58,12 @@ export default function DashboardEncadrantPage() {
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
   });
+  // Admin visibility, not profile visibility: role (ADMIN/SUPERADMIN) is
+  // orthogonal to profileType. /api/admin/me 403s for non-admins — that's
+  // the real server-side gate /admin itself enforces, so this button only
+  // ever appears for accounts that can actually get past it.
+  const { data: adminMe } = useApi<AdminMeResponse>('/api/admin/me', { skip: !user });
+  const isAdmin = !!adminMe;
   const {
     data: theses,
     loading: thesesLoading,
@@ -105,6 +117,8 @@ export default function DashboardEncadrantPage() {
     return { soutenance, withComments, totalComments, submittedThisWeek, urgent };
   }, [items]);
 
+  const initialLoading = thesesLoading && !theses;
+
   const upcomingDeadlines = useMemo(
     () =>
       items
@@ -131,19 +145,11 @@ export default function DashboardEncadrantPage() {
   );
 
   if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType === null) {
@@ -177,36 +183,58 @@ export default function DashboardEncadrantPage() {
           eyebrow="Encadrement"
           title={`Bonjour, ${name}`}
           search={{ value: search, onChange: setSearch, placeholder: 'Rechercher un étudiant…' }}
+          actions={
+            isAdmin ? (
+              <Link
+                href="/admin"
+                className="flex items-center gap-1.5 rounded-sm border border-primary px-3 py-2 text-xs font-medium text-primary transition-colors duration-150 hover:bg-primary hover:text-primary-foreground"
+              >
+                <Icon i="shield" size={12} />
+                Admin
+              </Link>
+            ) : undefined
+          }
         />
       }
     >
       <div className="flex flex-1 flex-col lg:flex-row gap-0 min-w-0">
         <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8 gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              label="Étudiants suivis"
-              value={String(theses?.total ?? items.length)}
-              sub={`${stats.soutenance} en soutenance`}
-              icon="users"
-            />
-            <StatCard
-              label="Discussions actives"
-              value={String(stats.withComments)}
-              sub={`${stats.totalComments} commentaire${stats.totalComments > 1 ? 's' : ''} au total`}
-              icon="message-square"
-            />
-            <StatCard
-              label="Soumissions récentes"
-              value={String(stats.submittedThisWeek)}
-              sub="Cette semaine"
-              icon="file-up"
-            />
-            <StatCard
-              label="Échéances urgentes"
-              value={String(stats.urgent.length)}
-              sub={stats.urgent.length > 0 ? 'À moins de 3 jours' : 'Aucune'}
-              icon="alert-triangle"
-            />
+            {initialLoading ? (
+              <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </>
+            ) : (
+              <>
+                <StatCard
+                  label="Étudiants suivis"
+                  value={String(theses?.total ?? items.length)}
+                  sub={`${stats.soutenance} en soutenance`}
+                  icon="users"
+                />
+                <StatCard
+                  label="Discussions actives"
+                  value={String(stats.withComments)}
+                  sub={`${stats.totalComments} commentaire${stats.totalComments > 1 ? 's' : ''} au total`}
+                  icon="message-square"
+                />
+                <StatCard
+                  label="Soumissions récentes"
+                  value={String(stats.submittedThisWeek)}
+                  sub="Cette semaine"
+                  icon="file-up"
+                />
+                <StatCard
+                  label="Échéances urgentes"
+                  value={String(stats.urgent.length)}
+                  sub={stats.urgent.length > 0 ? 'À moins de 3 jours' : 'Aucune'}
+                  icon="alert-triangle"
+                />
+              </>
+            )}
           </div>
 
           <div>
@@ -216,15 +244,22 @@ export default function DashboardEncadrantPage() {
               </h2>
               <div className="flex items-center gap-2">
                 <Link
+                  href="/students/kanban"
+                  className="text-xs font-medium text-muted-foreground border border-border rounded-sm px-3 py-1.5 flex items-center gap-1.5 transition-colors duration-150 hover:bg-input"
+                >
+                  <Icon i="layout-dashboard" size={12} />
+                  Kanban
+                </Link>
+                <Link
                   href="/students"
-                  className="text-xs font-medium text-muted-foreground border border-border rounded-sm px-3 py-1.5"
+                  className="text-xs font-medium text-muted-foreground border border-border rounded-sm px-3 py-1.5 transition-colors duration-150 hover:bg-input"
                 >
                   Voir tout
                 </Link>
                 <button
                   type="button"
                   onClick={() => setModalOpen(true)}
-                  className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm flex items-center gap-1.5"
+                  className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm flex items-center gap-1.5 transition duration-150 hover:bg-primary/5 motion-safe:active:scale-[0.98]"
                 >
                   <Icon i="plus" size={12} />
                   Ajouter un étudiant
@@ -236,10 +271,14 @@ export default function DashboardEncadrantPage() {
               <FilterBar active={activeFilter} onChange={setActiveFilter} counts={counts} />
             </div>
 
-            {thesesLoading && !theses ? (
-              <p className="text-sm text-muted-foreground">Chargement…</p>
+            {initialLoading ? (
+              <div className="border border-border rounded-md overflow-hidden">
+                <StudentRowSkeleton />
+                <StudentRowSkeleton />
+                <StudentRowSkeleton />
+              </div>
             ) : visibleItems.length === 0 ? (
-              <div className="border border-dashed border-border rounded-md p-8 text-center">
+              <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
                 <p className="text-sm text-muted-foreground">
                   {items.length === 0
                     ? "Aucun étudiant pour l'instant — ajoutez-en un pour commencer le suivi."
@@ -286,14 +325,23 @@ export default function DashboardEncadrantPage() {
             </h3>
             <p className="text-xs text-muted-foreground">Dernières soumissions</p>
           </div>
-          <div className="flex flex-col">
-            {recentActivity.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Aucune activité pour l&apos;instant.</p>
+          <div className="flex flex-col max-h-72 overflow-y-scroll overflow-x-hidden">
+            {initialLoading ? (
+              <>
+                <ActivityItemSkeleton />
+                <ActivityItemSkeleton />
+                <ActivityItemSkeleton />
+              </>
+            ) : recentActivity.length === 0 ? (
+              <p className="text-xs text-muted-foreground motion-safe:animate-fade-in">
+                Aucune activité pour l&apos;instant.
+              </p>
             ) : (
               recentActivity.map((thesis) => (
                 <ActivityItem
                   key={thesis.id}
                   name={displayName(thesis.student)}
+                  avatarUrl={thesis.student.avatarUrl}
                   action="a soumis un document"
                   time={relativeTime(thesis.documents[0]!.uploadedAt)}
                   type="submit"
@@ -312,8 +360,27 @@ export default function DashboardEncadrantPage() {
               </Link>
             </div>
             <div className="flex flex-col gap-2">
-              {upcomingDeadlines.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Aucune échéance à venir.</p>
+              {initialLoading ? (
+                <>
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <div className="flex flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                    <Skeleton className="h-5 w-14" />
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                    <Skeleton className="h-5 w-14" />
+                  </div>
+                </>
+              ) : upcomingDeadlines.length === 0 ? (
+                <p className="text-xs text-muted-foreground motion-safe:animate-fade-in">
+                  Aucune échéance à venir.
+                </p>
               ) : (
                 upcomingDeadlines.map((thesis) => {
                   const deadline = thesis.deadlines[0]!;

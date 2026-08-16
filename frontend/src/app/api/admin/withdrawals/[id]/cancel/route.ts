@@ -28,6 +28,7 @@ import { requireSuperadmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
+import { clientIp } from '@/lib/server/middleware/rate-limit-by-email';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { lockUserTx } from '@/lib/server/withdrawals/lock';
 
@@ -114,6 +115,7 @@ export async function POST(
           },
         });
 
+        const userAgent = req.headers.get('user-agent');
         await logAdminAction(tx, {
           actorId: auth.admin.id,
           action: 'withdrawal.cancel',
@@ -126,6 +128,8 @@ export async function POST(
             reason: parsed.data.reason,
             previousStatus: w.status,
           },
+          ip: clientIp(req),
+          ...(userAgent ? { userAgent } : {}),
         });
 
         return { kind: 'OK' as const, withdrawal: updated };

@@ -8,6 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { displayName, documentDisplayName, relativeTime, type CommentListItem } from '@/lib/theses';
@@ -27,7 +28,6 @@ export function CommentThread({ comment, onResolvedChange }: CommentThreadProps)
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const priorityClass = PRIORITY_BORDER[comment.priority] || 'border-l-4 border-border';
-  const statusBg = comment.resolved ? 'bg-secondary' : 'bg-muted';
   const student = displayName(comment.thesis.student);
 
   async function toggleResolved(e: React.MouseEvent) {
@@ -50,7 +50,7 @@ export function CommentThread({ comment, onResolvedChange }: CommentThreadProps)
     <div
       className={`flex gap-4 p-4 border border-border rounded-md bg-surface transition-shadow duration-150 motion-safe:hover:shadow-md ${priorityClass}`}
     >
-      <Avatar name={student} className="h-9 w-9 shrink-0" />
+      <Avatar name={student} src={comment.thesis.student.avatarUrl} className="h-9 w-9 shrink-0" />
 
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
@@ -79,14 +79,12 @@ export function CommentThread({ comment, onResolvedChange }: CommentThreadProps)
             type="button"
             onClick={toggleResolved}
             disabled={busy}
-            title={comment.resolved ? 'Marquer non résolu' : 'Marquer résolu'}
-            className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full transition duration-150 motion-safe:active:scale-90 ${statusBg} disabled:opacity-50`}
+            className={`shrink-0 flex items-center gap-1.5 text-xs font-medium transition duration-150 motion-safe:active:scale-[0.97] disabled:opacity-50 ${
+              comment.resolved ? 'text-secondary-foreground' : 'text-muted-foreground'
+            }`}
           >
-            <Icon
-              i={comment.resolved ? 'check-circle' : 'circle'}
-              size={12}
-              className={comment.resolved ? 'text-secondary-foreground' : 'text-muted-foreground'}
-            />
+            <Icon i={comment.resolved ? 'check-circle' : 'circle'} size={12} />
+            {comment.resolved ? 'Résolu' : 'Marquer résolu'}
           </button>
         </div>
 
@@ -100,6 +98,26 @@ export function CommentThread({ comment, onResolvedChange }: CommentThreadProps)
             </Link>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function CommentThreadSkeleton() {
+  return (
+    <div className="flex gap-4 p-4 border border-border border-l-4 rounded-md bg-surface">
+      <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3 w-36" />
+          </div>
+          <Skeleton className="h-5 w-5 rounded-full" />
+        </div>
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-2/3" />
+        <Skeleton className="h-3 w-16" />
       </div>
     </div>
   );

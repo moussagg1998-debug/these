@@ -11,21 +11,29 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { LogoutButton } from '@/components/ui/LogoutButton';
 import { NotificationBell } from './NotificationBell';
+import { useUser } from '@/contexts/AuthContext';
 
 interface StudentNavProps {
   name: string;
-  active?: 'dashboard' | 'documents' | 'comments' | 'deadlines';
+  active?: 'dashboard' | 'documents' | 'comments' | 'deadlines' | 'settings';
 }
 
-const NAV_LINKS: { id: 'documents' | 'comments' | 'deadlines'; href: string; label: string }[] = [
+const NAV_LINKS: {
+  id: 'documents' | 'comments' | 'deadlines' | 'settings';
+  href: string;
+  label: string;
+}[] = [
   { id: 'documents', href: '/documents', label: 'Documents' },
   { id: 'comments', href: '/comments', label: 'Commentaires' },
   { id: 'deadlines', href: '/deadlines', label: 'Calendrier' },
+  { id: 'settings', href: '/settings', label: 'Paramètres' },
 ];
 
 export function StudentNav({ name, active }: StudentNavProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const user = useUser();
 
   return (
     <nav className="flex items-center justify-between px-4 py-4 sm:px-8 bg-surface border-b border-border">
@@ -34,17 +42,12 @@ export function StudentNav({ name, active }: StudentNavProps) {
           type="button"
           onClick={() => setDrawerOpen(true)}
           aria-label="Ouvrir le menu"
-          className="md:hidden text-foreground"
+          className="md:hidden text-foreground transition duration-150 motion-safe:active:scale-90"
         >
           <Icon i="menu" size={20} />
         </button>
-        <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
-          <div className="w-7 h-7 bg-primary rounded-sm flex items-center justify-center">
-            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-          </div>
-          <span className="hidden sm:inline text-base font-semibold font-headings text-foreground">
-            ThèseFacile
-          </span>
+        <Link href="/dashboard" className="flex items-center shrink-0">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </Link>
       </div>
 
@@ -77,37 +80,37 @@ export function StudentNav({ name, active }: StudentNavProps) {
       <div className="flex items-center gap-3">
         <NotificationBell />
         <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-border">
-          <Avatar name={name} className="h-8 w-8" />
+          <Avatar name={name} src={user?.avatarUrl} className="h-8 w-8" />
           <div className="text-xs font-semibold text-foreground">{name}</div>
         </div>
+        <LogoutButton
+          iconOnly
+          className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
+        />
       </div>
 
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="w-64 bg-primary flex flex-col motion-safe:animate-slide-in-left">
-            <div
-              className="flex items-center justify-between px-5 py-4 border-b"
-              style={{ borderColor: 'rgba(245,243,238,0.15)' }}
-            >
-              <span className="font-headings font-semibold text-primary-foreground">
-                ThèseFacile
-              </span>
+          <div className="w-64 bg-surface flex flex-col motion-safe:animate-slide-in-left">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Fermer le menu"
+                className="transition duration-150 motion-safe:active:scale-90"
               >
-                <Icon i="x" size={18} className="text-primary-foreground" />
+                <Icon i="x" size={18} className="text-foreground" />
               </button>
             </div>
-            <nav className="flex flex-col gap-1 px-3 py-4">
+            <nav className="flex flex-col gap-1 px-3 py-4 flex-1">
               <Link
                 href="/dashboard"
                 onClick={() => setDrawerOpen(false)}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition duration-150 ${
                   active === 'dashboard'
-                    ? 'bg-primary-foreground text-primary'
-                    : 'text-primary-foreground opacity-70 hover:opacity-100'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground opacity-70 hover:opacity-100'
                 }`}
               >
                 Mon mémoire
@@ -119,14 +122,17 @@ export function StudentNav({ name, active }: StudentNavProps) {
                   onClick={() => setDrawerOpen(false)}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition duration-150 ${
                     active === link.id
-                      ? 'bg-primary-foreground text-primary'
-                      : 'text-primary-foreground opacity-70 hover:opacity-100'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground opacity-70 hover:opacity-100'
                   }`}
                 >
                   {link.label}
                 </Link>
               ))}
             </nav>
+            <div className="px-3 py-4 border-t border-border">
+              <LogoutButton className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground opacity-70 transition-opacity duration-150 hover:opacity-100" />
+            </div>
           </div>
           <button
             type="button"

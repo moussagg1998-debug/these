@@ -60,13 +60,8 @@ function ResetPasswordForm() {
 
       <div className="flex flex-1 items-center justify-center px-4 py-14 sm:px-8 lg:px-12">
         <div className="w-full max-w-sm">
-          <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-              <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-            </div>
-            <span className="font-headings text-base font-semibold text-foreground">
-              ThèseFacile
-            </span>
+          <div className="mb-6 lg:hidden">
+            <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
           </div>
 
           <div className="mb-8">
@@ -141,7 +136,7 @@ function ResetPasswordForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
             >
               {submitting ? 'Réinitialisation…' : 'Réinitialiser le mot de passe'}
             </button>

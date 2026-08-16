@@ -76,6 +76,11 @@ describe('POST /api/auth/login', () => {
     expect(__cookieStore.has('app-token')).toBe(true);
     expect(__cookieStore.has('app-refresh')).toBe(true);
     expect(__cookieStore.has('app-csrf')).toBe(true);
+    expect(prismaMock.securityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type: 'LOGIN_SUCCESS', userId: 'u1', email: 'a@b.com' }),
+      }),
+    );
   });
 
   it('Test 2: no user — INVALID_CREDENTIALS, dummy compare called, no recordFailure', async () => {
@@ -87,6 +92,16 @@ describe('POST /api/auth/login', () => {
     expect((await res.json()).error).toBe('INVALID_CREDENTIALS');
     expect(dummyBcryptCompare).toHaveBeenCalledWith('longenough');
     expect(recordFailure).not.toHaveBeenCalled();
+    expect(prismaMock.securityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: 'LOGIN_FAILED',
+          userId: null,
+          email: 'noone@b.com',
+          metadata: { reason: 'no_such_user' },
+        }),
+      }),
+    );
   });
 
   it('Test 3: wrong password — INVALID_CREDENTIALS + recordFailure called', async () => {
@@ -105,6 +120,16 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('INVALID_CREDENTIALS');
     expect(recordFailure).toHaveBeenCalledWith('a@b.com');
+    expect(prismaMock.securityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: 'LOGIN_FAILED',
+          userId: 'u1',
+          email: 'a@b.com',
+          metadata: { reason: 'invalid_password' },
+        }),
+      }),
+    );
   });
 
   it('Test 4: lockout already active — 423 LOCKED_OUT, no bcrypt', async () => {

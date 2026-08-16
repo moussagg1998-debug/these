@@ -119,11 +119,11 @@ export class EmailQueue extends JobQueue<EmailJobPayload> {
         };
         if (row.text !== null) sendInput.text = row.text;
 
-        await this.mailer.send(sendInput);
+        const { id: resendId } = await this.mailer.send(sendInput);
 
         await this.prisma.emailJob.update({
           where: { id: row.id },
-          data: { status: 'SENT', sentAt: new Date(), attempts: row.attempts + 1 },
+          data: { status: 'SENT', sentAt: new Date(), attempts: row.attempts + 1, resendId },
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

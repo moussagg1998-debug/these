@@ -49,12 +49,17 @@ describe('GET /api/auth/me', () => {
       id: 'u1',
       email: 'a@b.com',
       tokenVersion: 0,
+      avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1/u1/abc.jpg',
     } as never);
 
     const res = await GET(makeReq({ bearer: 'valid-access-token' }));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      user: { sub: 'u1', email: 'a@b.com' },
+      user: {
+        sub: 'u1',
+        email: 'a@b.com',
+        avatarUrl: 'https://res.cloudinary.com/demo/image/upload/v1/u1/abc.jpg',
+      },
     });
   });
 

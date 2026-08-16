@@ -15,10 +15,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
+import { useSlidingIndicator } from '@/lib/useSlidingIndicator';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { DeadlineCard } from '@/components/dashboard/DeadlineCard';
+import { DeadlineCard, DeadlineCardSkeleton } from '@/components/dashboard/DeadlineCard';
 import { AddDeadlineForm } from '@/components/dashboard/AddDeadlineForm';
 import { StudentCalendarContent } from '@/components/student/StudentCalendarContent';
 import {
@@ -86,6 +88,14 @@ const SECTIONS: {
     badgeClass: 'text-secondary-foreground bg-secondary',
     iconClass: 'text-secondary-foreground',
   },
+  {
+    buckets: ['done'],
+    icon: 'check-circle',
+    label: 'Respectées',
+    headingClass: 'text-success',
+    badgeClass: 'text-success bg-success/10',
+    iconClass: 'text-success',
+  },
 ];
 
 function DeadlineCalendarContent() {
@@ -96,6 +106,8 @@ function DeadlineCalendarContent() {
   const studentIdFilter = searchParams.get('studentId');
   const [activeFilter, setActiveFilter] = useState<FilterId>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [completedOverrides, setCompletedOverrides] = useState<Record<string, boolean>>({});
+  const { containerRef, registerItem, style, ready } = useSlidingIndicator(activeFilter);
 
   const { data: profile, loading: profileLoading } = useApi<ProfileResponse>('/api/profile', {
     skip: !user,
@@ -116,22 +128,35 @@ function DeadlineCalendarContent() {
 
   const withBucket = useMemo(() => {
     const items = deadlinesRes?.items ?? [];
-    return items.map((deadline) => ({
-      deadline,
-      daysLeft: daysUntil(deadline.dueAt),
-      bucket: deadlineUrgencyBucket(deadline.dueAt),
-    }));
-  }, [deadlinesRes]);
+    return items.map((deadline) => {
+      const completedAt =
+        deadline.id in completedOverrides
+          ? completedOverrides[deadline.id]
+            ? (deadline.completedAt ?? new Date().toISOString())
+            : null
+          : deadline.completedAt;
+      return {
+        deadline,
+        daysLeft: daysUntil(deadline.dueAt),
+        bucket: deadlineUrgencyBucket(deadline.dueAt, completedAt),
+      };
+    });
+  }, [deadlinesRes, completedOverrides]);
 
   const counts = useMemo(() => {
-    const result = { critical: 0, urgent: 0, upcoming: 0 };
+    const result = { critical: 0, urgent: 0, upcoming: 0, done: 0 };
     for (const { bucket } of withBucket) {
       if (bucket === 'critical') result.critical++;
       else if (bucket === 'urgent') result.urgent++;
+      else if (bucket === 'done') result.done++;
       else result.upcoming++;
     }
     return result;
   }, [withBucket]);
+
+  function onCompletedChange(id: string, completed: boolean) {
+    setCompletedOverrides((prev) => ({ ...prev, [id]: completed }));
+  }
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -155,11 +180,7 @@ function DeadlineCalendarContent() {
   }
 
   if (!user || profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType === null) {
@@ -189,7 +210,7 @@ function DeadlineCalendarContent() {
             <button
               type="button"
               onClick={() => router.push('/deadlines')}
-              className="text-primary font-medium"
+              className="text-primary font-medium transition-colors duration-150 hover:text-primary/80"
             >
               Retirer le filtre
             </button>
@@ -204,43 +225,55 @@ function DeadlineCalendarContent() {
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
                 {counts.critical} en retard · {counts.urgent} urgent{counts.urgent > 1 ? 's' : ''} ·{' '}
-                {counts.upcoming} à venir
+                {counts.upcoming} à venir · {counts.done} respectée{counts.done > 1 ? 's' : ''}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm flex items-center gap-1.5"
+              className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm flex items-center gap-1.5 transition duration-150 hover:bg-primary/5 motion-safe:active:scale-[0.98]"
             >
               <Icon i="plus" size={12} />
               Ajouter une échéance
             </button>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setActiveFilter(f.id)}
-                className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm ${
-                  f.id === activeFilter
-                    ? 'bg-primary text-primary-foreground'
-                    : f.id === 'critical'
-                      ? 'bg-danger/10 text-danger border border-danger'
-                      : 'bg-surface border border-border text-foreground'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <div ref={containerRef} className="relative flex items-center gap-2 w-fit">
+              <div
+                aria-hidden
+                className={`absolute inset-y-0 rounded-sm bg-primary transition-[left,width] duration-250 ease-out ${ready ? 'opacity-100' : 'opacity-0'}`}
+                style={{ left: style.left, width: style.width }}
+              />
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  ref={registerItem(f.id)}
+                  type="button"
+                  onClick={() => setActiveFilter(f.id)}
+                  className={`relative z-10 shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm transition duration-150 motion-safe:active:scale-[0.97] ${
+                    f.id === activeFilter
+                      ? 'text-primary-foreground'
+                      : f.id === 'critical'
+                        ? 'bg-danger/10 text-danger border border-danger hover:bg-danger/20'
+                        : 'bg-surface border border-border text-foreground hover:bg-input'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {deadlinesLoading && !deadlinesRes ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <div className="flex flex-col gap-2">
+            <DeadlineCardSkeleton />
+            <DeadlineCardSkeleton />
+            <DeadlineCardSkeleton />
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="border border-dashed border-border rounded-md p-8 text-center">
+          <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
             <p className="text-sm text-muted-foreground">Aucune échéance dans cette catégorie.</p>
           </div>
         ) : (
@@ -268,6 +301,7 @@ function DeadlineCalendarContent() {
                         deadline={deadline}
                         daysLeft={daysLeft}
                         bucket={bucket}
+                        onCompletedChange={onCompletedChange}
                       />
                     ))}
                   </div>

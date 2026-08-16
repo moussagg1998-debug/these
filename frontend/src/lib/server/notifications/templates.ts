@@ -50,3 +50,67 @@ export function paymentReceived(
     dedupeKey: `payment-received:${orderId}`,
   };
 }
+
+export function planActivated(
+  userId: string,
+  orderId: string,
+  plan: string,
+  expiresAt: string,
+): CreateNotificationInput {
+  const formatted = new Date(expiresAt).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  return {
+    userId,
+    type: 'PLAN_ACTIVATED',
+    title: 'Abonnement activé',
+    body: `Votre plan ${plan} est actif jusqu'au ${formatted}.`,
+    data: { orderId, plan, expiresAt },
+    dedupeKey: `plan-activated:${orderId}`,
+  };
+}
+
+export function planExpired(userId: string, expiredAt: string): CreateNotificationInput {
+  return {
+    userId,
+    type: 'PLAN_EXPIRED',
+    title: 'Abonnement expiré',
+    body: 'Votre plan Essentiel a expiré — vous êtes repassé au plan Gratuit.',
+    data: { expiredAt },
+    dedupeKey: `plan-expired:${userId}:${expiredAt}`,
+  };
+}
+
+export function documentSubmitted(
+  encadrantId: string,
+  thesisId: string,
+  documentId: string,
+  chapter: string | null,
+): CreateNotificationInput {
+  return {
+    userId: encadrantId,
+    type: 'DOCUMENT_SUBMITTED',
+    title: 'Nouveau document déposé',
+    body: chapter ? `Nouveau dépôt : ${chapter}` : 'Nouveau document déposé',
+    data: { thesisId, documentId },
+    dedupeKey: `document-submitted:${documentId}`,
+  };
+}
+
+export function documentReceived(
+  studentId: string,
+  thesisId: string,
+  documentId: string,
+  chapter: string | null,
+): CreateNotificationInput {
+  return {
+    userId: studentId,
+    type: 'DOCUMENT_RECEIVED',
+    title: 'Nouveau fichier de votre encadrant',
+    body: chapter ? `Correction reçue : ${chapter}` : 'Votre encadrant vous a envoyé un fichier',
+    data: { thesisId, documentId },
+    dedupeKey: `document-received:${documentId}`,
+  };
+}

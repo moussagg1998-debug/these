@@ -26,9 +26,10 @@ import {
 } from '@/lib/server/auth';
 import { isLockedOut, recordFailure, recordSuccess } from '@/lib/server/auth/lockout';
 import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
-import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
+import { createEmailLimiter, clientIp } from '@/lib/server/middleware/rate-limit-by-email';
 import { getRedis } from '@/lib/server/redis';
 import { prisma } from '@/lib/server/prisma';
+import { logSecurityEvent } from '@/lib/server/security/log-event';
 import { zEmail } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
@@ -108,6 +109,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     //    emails by guessing).
     if (!user || !user.passwordHash) {
       await dummyBcryptCompare(password);
+      // Admin-only audit row — does not affect the response or the lockout
+      // counter, so it doesn't reintroduce the D-24 enumeration risk that
+      // keeps recordFailure() out of this branch.
+      await logSecurityEvent(prisma, {
+        type: 'LOGIN_FAILED',
+        email,
+        ip: clientIp(req),
+        userAgent: req.headers.get('user-agent'),
+        metadata: { reason: 'no_such_user' },
+      });
       return NextResponse.json(
         { error: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' },
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
@@ -118,6 +129,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) {
       const r = await recordFailure(email);
+      await logSecurityEvent(prisma, {
+        type: 'LOGIN_FAILED',
+        userId: user.id,
+        email,
+        ip: clientIp(req),
+        userAgent: req.headers.get('user-agent'),
+        metadata: { reason: 'invalid_password' },
+      });
       if (r.locked) {
         return NextResponse.json(
           { error: 'LOCKED_OUT', message: 'Account temporarily locked.' },
@@ -164,6 +183,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // 8. Reset failure count and issue cookies.
     await recordSuccess(email);
+    await logSecurityEvent(prisma, {
+      type: 'LOGIN_SUCCESS',
+      userId: user.id,
+      email,
+      ip: clientIp(req),
+      userAgent: req.headers.get('user-agent'),
+    });
 
     const accessToken = await createAccessToken({
       sub: user.id,

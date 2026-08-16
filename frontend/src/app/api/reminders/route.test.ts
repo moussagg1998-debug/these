@@ -59,6 +59,8 @@ beforeEach(() => {
     profileType: 'ENCADRANT',
     name: 'Pr. Diallo',
     email: 'enc@example.com',
+    plan: 'ESSENTIEL',
+    planExpiresAt: null,
   } as never);
 });
 
@@ -84,6 +86,43 @@ describe('POST /api/reminders', () => {
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toBe('PROFILE_TYPE_FORBIDDEN');
+  });
+
+  it('FREE plan → 403 PLAN_UPGRADE_REQUIRED, no message created', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      profileType: 'ENCADRANT',
+      name: 'Pr. Diallo',
+      email: 'enc@example.com',
+      plan: 'FREE',
+      planExpiresAt: null,
+    } as never);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toBe('PLAN_UPGRADE_REQUIRED');
+    expect(prismaMock.message.create).not.toHaveBeenCalled();
+  });
+
+  it('expired ESSENTIEL plan (not yet swept by the expiration cron) → 403 PLAN_UPGRADE_REQUIRED', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      profileType: 'ENCADRANT',
+      name: 'Pr. Diallo',
+      email: 'enc@example.com',
+      plan: 'ESSENTIEL',
+      planExpiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    } as never);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toBe('PLAN_UPGRADE_REQUIRED');
+  });
+
+  it('active ESSENTIEL plan → allowed, 201', async () => {
+    prismaMock.thesis.findMany.mockResolvedValue([studentThesis()] as never);
+    prismaMock.message.create.mockResolvedValue({ id: 'msg-1' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(201);
   });
 
   it('empty thesisIds → 400 VALIDATION_FAILED', async () => {

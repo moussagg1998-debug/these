@@ -2,15 +2,17 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { StudentRow } from '@/components/dashboard/StudentRow';
+import { StudentRow, StudentRowSkeleton } from '@/components/dashboard/StudentRow';
 import { FilterBar, STAGE_FILTERS, type StageFilterId } from '@/components/dashboard/FilterBar';
 import { AddStudentForm } from '@/components/dashboard/AddStudentForm';
 import { displayName, type ThesisListItem } from '@/lib/theses';
@@ -101,11 +103,7 @@ export default function StudentListPage() {
   }, [items, activeFilter, search]);
 
   if (!user || profileLoading || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile.profileType === null) {
@@ -153,23 +151,37 @@ export default function StudentListPage() {
               {(theses?.total ?? items.length) > 1 ? 's' : ''} en encadrement
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm flex items-center gap-1.5"
-          >
-            <Icon i="plus" size={12} />
-            Ajouter un étudiant
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/students/kanban"
+              className="text-xs font-medium text-muted-foreground border border-border rounded-sm px-3 py-1.5 flex items-center gap-1.5"
+            >
+              <Icon i="layout-dashboard" size={12} />
+              Kanban
+            </Link>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="text-xs font-medium text-primary border border-primary px-3 py-1.5 rounded-sm flex items-center gap-1.5 transition duration-150 hover:bg-primary/5 motion-safe:active:scale-[0.98]"
+            >
+              <Icon i="plus" size={12} />
+              Ajouter un étudiant
+            </button>
+          </div>
         </div>
 
         <FilterBar active={activeFilter} onChange={setActiveFilter} counts={counts} />
 
         <div className="mt-5">
           {thesesLoading && !theses ? (
-            <p className="text-sm text-muted-foreground">Chargement…</p>
+            <div className="border border-border rounded-md overflow-hidden">
+              <StudentRowSkeleton />
+              <StudentRowSkeleton />
+              <StudentRowSkeleton />
+              <StudentRowSkeleton />
+            </div>
           ) : filtered.length === 0 ? (
-            <div className="border border-dashed border-border rounded-md p-8 text-center">
+            <div className="border border-dashed border-border rounded-md p-8 text-center motion-safe:animate-fade-in">
               <p className="text-sm text-muted-foreground">Aucun étudiant dans cette catégorie.</p>
             </div>
           ) : (
@@ -208,7 +220,7 @@ export default function StudentListPage() {
                 type="button"
                 onClick={() => void loadMore()}
                 disabled={loadingMore}
-                className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50"
+                className="text-xs font-medium text-primary border border-primary px-4 py-2 rounded-sm disabled:opacity-50 transition duration-150 hover:bg-primary/5 motion-safe:active:scale-[0.98]"
               >
                 {loadingMore ? 'Chargement…' : 'Charger plus'}
               </button>

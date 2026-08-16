@@ -15,9 +15,11 @@
 //   ?cursor      — opaque base64 cursor from a prior page's nextCursor
 //   ?limit       — 1..50 (default 20)
 //
-// Field select returns the full row shape (id, actorId, action, targetType,
-// targetId, metadata, ip, userAgent, createdAt) — admins need everything
-// during incident response.
+// Field select returns the full row shape (id, actorId, actorEmail, action,
+// targetType, targetId, metadata, ip, userAgent, createdAt) — admins need
+// everything during incident response. `actorEmail` is a small join onto
+// `actor.email` so the UI can show a human-readable actor instead of a raw
+// cuid (Admin → Audit Log).
 //
 // Rate-limited per-userId (D-ADMIN-05 / T-03-03-04) so a polling UI can't
 // burn the back-office's request budget.
@@ -79,6 +81,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       select: {
         id: true,
         actorId: true,
+        actor: { select: { email: true } },
         action: true,
         targetType: true,
         targetId: true,
@@ -89,7 +92,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
     });
 
-    return NextResponse.json(buildPage(rows, limit), {
+    const flattened = rows.map(({ actor, ...rest }) => ({
+      ...rest,
+      actorEmail: actor?.email ?? null,
+    }));
+
+    return NextResponse.json(buildPage(flattened, limit), {
       headers: { 'x-request-id': ctx.requestId },
     });
   });

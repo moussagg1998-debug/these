@@ -9,7 +9,8 @@ import { useMemo } from 'react';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { StudentShell } from './StudentShell';
-import { StudentDocumentRow } from './StudentDocumentRow';
+import { StudentDocumentRow, StudentDocumentRowSkeleton } from './StudentDocumentRow';
+import { Skeleton } from '@/components/ui/Skeleton';
 import type { ThesisDocument, ThesisListItem } from '@/lib/theses';
 
 interface ThesesResponse {
@@ -55,7 +56,17 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
   if (thesesLoading && !thesesRes) {
     return (
       <StudentShell name={name} active="documents">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="px-4 py-6 sm:px-8">
+          <div className="border border-border rounded-md overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-7 w-32" />
+            </div>
+            <StudentDocumentRowSkeleton />
+            <StudentDocumentRowSkeleton />
+            <StudentDocumentRowSkeleton />
+          </div>
+        </div>
       </StudentShell>
     );
   }
@@ -63,7 +74,7 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
   if (!thesis) {
     return (
       <StudentShell name={name} active="documents">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center motion-safe:animate-fade-in">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
@@ -75,7 +86,17 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
   if (!docsRes && !docsError) {
     return (
       <StudentShell name={name} active="documents">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="px-4 py-6 sm:px-8">
+          <div className="border border-border rounded-md overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-7 w-32" />
+            </div>
+            <StudentDocumentRowSkeleton />
+            <StudentDocumentRowSkeleton />
+            <StudentDocumentRowSkeleton />
+          </div>
+        </div>
       </StudentShell>
     );
   }
@@ -95,7 +116,7 @@ export function StudentDocumentsContent({ name }: StudentDocumentsContentProps) 
             </Link>
           </div>
           {documents.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
+            <p className="px-5 py-6 text-sm text-muted-foreground motion-safe:animate-fade-in">
               Aucun document déposé pour l&apos;instant.
             </p>
           ) : (

@@ -3,6 +3,8 @@
 // pages and their shared components (StudentRow, ActivityItem, …) agree on
 // the shape returned by GET /api/theses(/[id]).
 
+import { getDatePreferences } from '@/lib/datePreferences';
+
 export interface ThesisPerson {
   id: string;
   name: string | null;
@@ -19,6 +21,10 @@ export interface ThesisDocument {
   fileName: string | null;
   sizeBytes: number | null;
   uploadedAt: string;
+  /** "Programmer le dépôt" — set + in the future while pending release. */
+  scheduledAt: string | null;
+  /** Set only on an encadrant correction — the student deposit it replies to. */
+  replyToDocumentId: string | null;
 }
 
 /** Cross-thesis row from GET /api/documents ("Bibliothèque de documents"). */
@@ -54,6 +60,10 @@ export interface ThesisDeadline {
   description: string | null;
   dueAt: string;
   urgency: string;
+  /** Set by the encadrant (PATCH /api/deadlines/[id]) once genuinely met. */
+  completedAt: string | null;
+  /** Opt out of the automatic "3 jours avant" reminder for this deadline. */
+  remindEnabled: boolean;
 }
 
 /** Cross-thesis row from GET /api/deadlines ("Échéances — Calendrier"). */
@@ -137,18 +147,22 @@ export function urgencyFromDueDate(dueAt: string): 'low' | 'medium' | 'high' {
 
 /**
  * Days-until-due bucket for `DeadlineCard`'s timeline grouping ("En retard" /
- * "Urgent" / "À venir"). Distinct from the stored `Deadline.urgency` field
- * (an encadrant-set priority) — a "low priority" deadline that's overdue
- * still needs to render as critical. Boundaries match Banani's own example
- * data (-15/-8/-2 critical, 3/5/7 urgent, 32/42 upcoming, 195 future).
+ * "Urgent" / "À venir" / "Respectées"). Distinct from the stored
+ * `Deadline.urgency` field (an encadrant-set priority) — a "low priority"
+ * deadline that's overdue still needs to render as critical. Boundaries
+ * match Banani's own example data (-15/-8/-2 critical, 3/5/7 urgent, 32/42
+ * upcoming, 195 future). `done` short-circuits every other bucket — an
+ * encadrant-validated deadline never shows as late again, no matter how
+ * overdue its `dueAt` is.
  */
-export type DeadlineBucket = 'critical' | 'urgent' | 'upcoming' | 'future';
+export type DeadlineBucket = 'critical' | 'urgent' | 'upcoming' | 'future' | 'done';
 
 export function daysUntil(dueAt: string): number {
   return Math.ceil((new Date(dueAt).getTime() - Date.now()) / 86_400_000);
 }
 
-export function deadlineUrgencyBucket(dueAt: string): DeadlineBucket {
+export function deadlineUrgencyBucket(dueAt: string, completedAt?: string | null): DeadlineBucket {
+  if (completedAt) return 'done';
   const days = daysUntil(dueAt);
   if (days < 0) return 'critical';
   if (days <= 7) return 'urgent';
@@ -157,11 +171,32 @@ export function deadlineUrgencyBucket(dueAt: string): DeadlineBucket {
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
+  const { dateFormat, timezone } = getDatePreferences();
+  const date = new Date(iso);
+
+  if (dateFormat === 'long') {
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: timezone,
+    });
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
     year: 'numeric',
-  });
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const yyyy = get('year');
+  const mm = get('month');
+  const dd = get('day');
+
+  if (dateFormat === 'DD/MM/YYYY') return `${dd}/${mm}/${yyyy}`;
+  if (dateFormat === 'MM/DD/YYYY') return `${mm}/${dd}/${yyyy}`;
+  return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
 }
 
 /** French relative time for "Dernière soumission" / activity feeds. */

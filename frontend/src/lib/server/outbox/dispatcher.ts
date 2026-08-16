@@ -21,7 +21,7 @@
  */
 import type { PrismaClient } from '@prisma/client';
 import { createNotification } from '../notifications/index';
-import { paymentReceived } from '../notifications/templates';
+import { paymentReceived, planActivated, planExpired } from '../notifications/templates';
 import type { EmailQueue } from '../queues/email-queue';
 import { createLogger } from '../logger';
 import type { OutboxEvent } from './types';
@@ -128,6 +128,16 @@ async function dispatchEvent(deps: OutboxDispatcherDeps, event: OutboxEvent): Pr
     case 'notification.payment_received': {
       const { userId, orderId, amount, currency } = event.payload;
       await createNotification(deps.prisma, paymentReceived(userId, orderId, amount, currency));
+      return;
+    }
+    case 'notification.plan_activated': {
+      const { userId, orderId, plan, expiresAt } = event.payload;
+      await createNotification(deps.prisma, planActivated(userId, orderId, plan, expiresAt));
+      return;
+    }
+    case 'notification.plan_expired': {
+      const { userId, expiredAt } = event.payload;
+      await createNotification(deps.prisma, planExpired(userId, expiredAt));
       return;
     }
     case 'email.payment_confirmation': {

@@ -45,7 +45,11 @@ export async function GET(req: NextRequest, { params }: RouteParams): Promise<Ne
         encadrant: { select: { id: true, name: true, email: true, avatarUrl: true } },
         // Same enrichment as GET /api/theses — see that route's comments for
         // why "pendingComments" is a total count, not a resolved/unresolved one.
-        deadlines: { where: { dueAt: { gte: new Date() } }, orderBy: { dueAt: 'asc' }, take: 1 },
+        deadlines: {
+          where: { dueAt: { gte: new Date() }, completedAt: null },
+          orderBy: { dueAt: 'asc' },
+          take: 1,
+        },
         _count: { select: { comments: true } },
       },
     });

@@ -1,6 +1,7 @@
 // Banani `ActivityItem.jsx` — one line in the recent-activity feed.
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export type ActivityType = 'submit' | 'comment' | 'deadline' | 'revision';
 
@@ -20,15 +21,16 @@ const TYPE_COLOR: Record<ActivityType, string> = {
 
 interface ActivityItemProps {
   name: string;
+  avatarUrl?: string | null;
   action: string;
   time: string;
   type: ActivityType;
 }
 
-export function ActivityItem({ name, action, time, type }: ActivityItemProps) {
+export function ActivityItem({ name, avatarUrl, action, time, type }: ActivityItemProps) {
   return (
     <div className="flex items-start gap-3 py-3 px-2 -mx-2 border-b border-border last:border-b-0 rounded-sm transition-colors duration-150 hover:bg-input/40">
-      <Avatar name={name} className="h-8 w-8 shrink-0 mt-0.5" />
+      <Avatar name={name} src={avatarUrl} className="h-8 w-8 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-semibold text-foreground">{name}</span>
@@ -38,6 +40,18 @@ export function ActivityItem({ name, action, time, type }: ActivityItemProps) {
           <Icon i={TYPE_ICON[type]} size={12} className={TYPE_COLOR[type]} />
           <span className="text-xs text-muted-foreground">{time}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function ActivityItemSkeleton() {
+  return (
+    <div className="flex items-start gap-3 py-3 px-2 -mx-2 border-b border-border last:border-b-0">
+      <Skeleton className="h-8 w-8 shrink-0 mt-0.5 rounded-full" />
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <Skeleton className="h-3.5 w-32" />
+        <Skeleton className="h-3 w-20" />
       </div>
     </div>
   );

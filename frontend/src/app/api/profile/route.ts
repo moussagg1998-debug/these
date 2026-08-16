@@ -20,6 +20,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { DATE_FORMAT_VALUES, LOCALE_VALUES, TIMEZONE_VALUES } from '@/lib/datePreferences';
 
 const PatchBody = z
   .object({
@@ -29,6 +30,13 @@ const PatchBody = z
     academicGrade: z.string().trim().max(200).optional(),
     specialties: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
     bio: z.string().trim().max(1000).optional(),
+    // Set via Settings → camera button, after POST /api/upload returns a
+    // Cloudinary secure_url — same pattern OAuth first-sign-in already uses.
+    avatarUrl: z.string().trim().url().max(2000).optional(),
+    // Settings → "Général" display preferences.
+    locale: z.enum(LOCALE_VALUES).optional(),
+    timezone: z.enum(TIMEZONE_VALUES).optional(),
+    dateFormat: z.enum(DATE_FORMAT_VALUES).optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
 
@@ -46,11 +54,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         name: true,
         email: true,
         emailVerifiedAt: true,
+        avatarUrl: true,
         department: true,
         academicGrade: true,
         specialties: true,
         bio: true,
         institution: { select: { id: true, name: true } },
+        locale: true,
+        timezone: true,
+        dateFormat: true,
       },
     });
 
@@ -61,11 +73,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         name: user?.name ?? null,
         email: user?.email ?? null,
         emailVerified: user?.emailVerifiedAt != null,
+        avatarUrl: user?.avatarUrl ?? null,
         department: user?.department ?? null,
         academicGrade: user?.academicGrade ?? null,
         specialties: user?.specialties ?? [],
         bio: user?.bio ?? null,
         institution: user?.institution ?? null,
+        locale: user?.locale ?? 'fr',
+        timezone: user?.timezone ?? 'Africa/Dakar',
+        dateFormat: user?.dateFormat ?? 'long',
       },
       { headers: { 'x-request-id': ctx.requestId } },
     );
@@ -106,7 +122,18 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const { profileType, name, department, academicGrade, specialties, bio } = parsed.data;
+    const {
+      profileType,
+      name,
+      department,
+      academicGrade,
+      specialties,
+      bio,
+      avatarUrl,
+      locale,
+      timezone,
+      dateFormat,
+    } = parsed.data;
     const user = await prisma.user.update({
       where: { id: auth.user.sub },
       data: {
@@ -116,6 +143,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         ...(academicGrade !== undefined ? { academicGrade } : {}),
         ...(specialties !== undefined ? { specialties } : {}),
         ...(bio !== undefined ? { bio } : {}),
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+        ...(locale !== undefined ? { locale } : {}),
+        ...(timezone !== undefined ? { timezone } : {}),
+        ...(dateFormat !== undefined ? { dateFormat } : {}),
       },
       select: {
         profileType: true,
@@ -124,6 +155,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         academicGrade: true,
         specialties: true,
         bio: true,
+        avatarUrl: true,
+        locale: true,
+        timezone: true,
+        dateFormat: true,
       },
     });
 

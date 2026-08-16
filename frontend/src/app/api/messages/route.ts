@@ -40,7 +40,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       include: {
         student: { select: { id: true, name: true, email: true, avatarUrl: true } },
         messages: { orderBy: { createdAt: 'desc' }, take: 1 },
-        deadlines: { where: { dueAt: { gte: new Date() } }, orderBy: { dueAt: 'asc' }, take: 1 },
+        deadlines: {
+          where: { dueAt: { gte: new Date() }, completedAt: null },
+          orderBy: { dueAt: 'asc' },
+          take: 1,
+        },
         documents: { orderBy: { uploadedAt: 'desc' }, take: 2 },
       },
     });

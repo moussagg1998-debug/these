@@ -26,30 +26,45 @@
 //        guard refusing to leave the user without any sign-in method).
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
+import { uploadFile } from '@/lib/uploadFile';
 import { useAuth, useUser, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/lib/useApi';
+import { useSlidingIndicator } from '@/lib/useSlidingIndicator';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { SettingSection, type SettingItem } from '@/components/dashboard/SettingSection';
 import { PasswordSettingsModal } from '@/components/dashboard/PasswordSettingsModal';
 import { ProfileTab } from '@/components/dashboard/ProfileTab';
+import { SubscriptionTab } from '@/components/dashboard/SubscriptionTab';
+import { StudentShell } from '@/components/student/StudentShell';
+import {
+  DATE_FORMAT_OPTIONS,
+  LOCALE_OPTIONS,
+  TIMEZONE_OPTIONS,
+  setDatePreferences,
+} from '@/lib/datePreferences';
 
 interface ProfileResponse {
   profileType: 'ENCADRANT' | 'ETUDIANT' | null;
   name: string | null;
   email: string;
   emailVerified: boolean;
+  avatarUrl: string | null;
   department: string | null;
   academicGrade: string | null;
   specialties: string[];
   bio: string | null;
   institution: { id: string; name: string } | null;
+  locale: string;
+  timezone: string;
+  dateFormat: string;
 }
 
 type ChannelPrefs = { email?: boolean; inApp?: boolean };
@@ -71,6 +86,13 @@ function isEnabled(
   return value !== false;
 }
 
+const AVATAR_ERROR_MESSAGES: Record<string, string> = {
+  FILE_TOO_LARGE: 'Fichier trop volumineux.',
+  INVALID_MIME: 'Format non supporté — utilisez une image JPEG, PNG ou WebP.',
+  MAGIC_BYTE_MISMATCH: 'Le fichier ne correspond pas au format déclaré.',
+  STORAGE_NOT_CONFIGURED: "Le stockage d'images n'est pas configuré.",
+};
+
 function EncadrantSettingsContent({
   name,
   user,
@@ -85,8 +107,31 @@ function EncadrantSettingsContent({
   const { refresh } = useAuth();
   const { toast } = useToast();
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [overrides, setOverrides] = useState<NotificationPrefs>({});
-  const [activeTab, setActiveTab] = useState<'profil' | 'parametres'>('profil');
+  const [activeTab, setActiveTab] = useState<'profil' | 'parametres' | 'abonnement'>('profil');
+  const { containerRef, registerItem, style, ready } = useSlidingIndicator(activeTab);
+
+  // Deep-link support for the landing page's Essentiel CTA
+  // (`/settings?tab=abonnement`). Read via plain URLSearchParams on mount
+  // instead of next/navigation's useSearchParams() — the latter requires a
+  // Suspense boundary this file doesn't otherwise need, for one query param
+  // read that only matters on first paint.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'abonnement' || tab === 'parametres') setActiveTab(tab);
+  }, []);
+  const [locale, setLocale] = useState(profile.locale);
+  const [timezone, setTimezone] = useState(profile.timezone);
+  const [dateFormat, setDateFormat] = useState(profile.dateFormat);
+
+  useEffect(() => {
+    setLocale(profile.locale);
+    setTimezone(profile.timezone);
+    setDateFormat(profile.dateFormat);
+    setDatePreferences({ timezone: profile.timezone, dateFormat: profile.dateFormat });
+  }, [profile]);
 
   const { data: prefsRes, refresh: refreshPrefs } = useApi<NotificationPrefsResponse>(
     '/api/notifications/prefs',
@@ -117,8 +162,34 @@ function EncadrantSettingsContent({
     }
   }
 
+  // Settings → "Général". Applies immediately (setDatePreferences) so
+  // formatDate() reflects the change on this page without a reload, then
+  // persists it — optimistic update with rollback on failure, same pattern
+  // as patchPrefs above.
+  async function patchGeneral(
+    field: 'locale' | 'timezone' | 'dateFormat',
+    value: string,
+    rollback: string,
+    setLocal: (v: string) => void,
+  ) {
+    setLocal(value);
+    if (field === 'timezone' || field === 'dateFormat') {
+      setDatePreferences({ [field]: value });
+    }
+    try {
+      await api('/api/profile', { method: 'PATCH', body: { [field]: value } });
+    } catch {
+      toast('Impossible de mettre à jour la préférence.', 'error');
+      setLocal(rollback);
+      if (field === 'timezone' || field === 'dateFormat') {
+        setDatePreferences({ [field]: rollback });
+      }
+    }
+  }
+
   const documentSubmittedInApp = isEnabled(effectivePrefs, 'DOCUMENT_SUBMITTED', 'inApp');
   const commentAddedInApp = isEnabled(effectivePrefs, 'COMMENT_ADDED', 'inApp');
+  const deadlineReminderInApp = isEnabled(effectivePrefs, 'DEADLINE_REMINDER', 'inApp');
   const emailChannel = isEnabled(effectivePrefs, 'DOCUMENT_SUBMITTED', 'email');
 
   const googleLinked = user.linkedProviders.includes('google');
@@ -133,30 +204,52 @@ function EncadrantSettingsContent({
     toast(message, 'success');
   }
 
+  async function onAvatarSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const uploaded = await uploadFile(file);
+      await api('/api/profile', { method: 'PATCH', body: { avatarUrl: uploaded.url } });
+      await Promise.all([refreshProfile(), refresh()]);
+      toast('Photo de profil mise à jour.', 'success');
+    } catch (err) {
+      toast(
+        err instanceof ApiError
+          ? (AVATAR_ERROR_MESSAGES[err.code] ?? err.message)
+          : 'Une erreur est survenue.',
+        'error',
+      );
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   const generalItems: SettingItem[] = [
     {
       label: 'Langue',
-      description: "Langue de l'interface",
+      description: "Langue de l'interface — seul le français est disponible pour l'instant",
       type: 'select',
-      value: 'Français',
-      disabled: true,
-      disabledTitle: 'Bientôt disponible',
+      value: locale,
+      options: LOCALE_OPTIONS,
+      onChange: (v) => void patchGeneral('locale', v, locale, setLocale),
     },
     {
       label: 'Fuseau horaire',
       description: 'Pour les rappels et notifications',
       type: 'select',
-      value: 'UTC+0 (Dakar)',
-      disabled: true,
-      disabledTitle: 'Bientôt disponible',
+      value: timezone,
+      options: TIMEZONE_OPTIONS,
+      onChange: (v) => void patchGeneral('timezone', v, timezone, setTimezone),
     },
     {
       label: 'Format de date',
       description: 'Date et heure par défaut',
       type: 'select',
-      value: 'JJ/MM/AAAA',
-      disabled: true,
-      disabledTitle: 'Bientôt disponible',
+      value: dateFormat,
+      options: DATE_FORMAT_OPTIONS,
+      onChange: (v) => void patchGeneral('dateFormat', v, dateFormat, setDateFormat),
     },
   ];
 
@@ -172,8 +265,8 @@ function EncadrantSettingsContent({
       label: "Rappels d'échéances",
       description: '3 jours avant une échéance critique',
       type: 'toggle',
-      disabled: true,
-      disabledTitle: 'Bientôt disponible',
+      checked: deadlineReminderInApp,
+      onToggle: () => void patchPrefs({ DEADLINE_REMINDER: { inApp: !deadlineReminderInApp } }),
     },
     {
       label: 'Réponses aux commentaires',
@@ -191,6 +284,7 @@ function EncadrantSettingsContent({
         void patchPrefs({
           DOCUMENT_SUBMITTED: { email: !emailChannel },
           COMMENT_ADDED: { email: !emailChannel },
+          DEADLINE_REMINDER: { email: !emailChannel },
         }),
     },
   ];
@@ -288,14 +382,25 @@ function EncadrantSettingsContent({
       <div className="flex-1 flex flex-col min-w-0 px-4 py-6 sm:px-8">
         <div className="flex flex-col sm:flex-row items-start gap-6 pb-8 border-b border-border mb-8">
           <div className="relative">
-            <Avatar name={name} className="h-24 w-24 text-2xl" />
+            <Avatar name={name} src={profile.avatarUrl} className="h-24 w-24 text-2xl" />
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => void onAvatarSelected(e)}
+            />
             <button
               type="button"
-              disabled
-              title="Bientôt disponible"
-              className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background opacity-70 cursor-not-allowed"
+              disabled={avatarUploading}
+              onClick={() => avatarInputRef.current?.click()}
+              className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background transition duration-150 hover:opacity-90 disabled:opacity-50 motion-safe:active:scale-90"
             >
-              <Icon i="camera" size={12} />
+              <Icon
+                i={avatarUploading ? 'loader' : 'camera'}
+                size={12}
+                className={avatarUploading ? 'animate-spin' : undefined}
+              />
             </button>
           </div>
           <div>
@@ -319,33 +424,57 @@ function EncadrantSettingsContent({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 border-b border-border mb-8">
+        <div
+          ref={containerRef}
+          className="relative flex items-center gap-1 border-b border-border mb-8"
+        >
+          <div
+            aria-hidden
+            className={`absolute bottom-0 h-0.5 rounded-full bg-primary transition-[left,width] duration-250 ease-out ${ready ? 'opacity-100' : 'opacity-0'}`}
+            style={{ left: style.left, width: style.width }}
+          />
           <button
             type="button"
+            ref={registerItem('profil')}
             onClick={() => setActiveTab('profil')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+            className={`relative px-4 py-2.5 text-sm font-medium border-b-2 border-transparent -mb-px transition-colors duration-150 ${
               activeTab === 'profil'
-                ? 'text-primary border-primary'
-                : 'text-muted-foreground border-transparent'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Profil
           </button>
           <button
             type="button"
+            ref={registerItem('parametres')}
             onClick={() => setActiveTab('parametres')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+            className={`relative px-4 py-2.5 text-sm font-medium border-b-2 border-transparent -mb-px transition-colors duration-150 ${
               activeTab === 'parametres'
-                ? 'text-primary border-primary'
-                : 'text-muted-foreground border-transparent'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Paramètres
+          </button>
+          <button
+            type="button"
+            ref={registerItem('abonnement')}
+            onClick={() => setActiveTab('abonnement')}
+            className={`relative px-4 py-2.5 text-sm font-medium border-b-2 border-transparent -mb-px transition-colors duration-150 ${
+              activeTab === 'abonnement'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Abonnement
           </button>
         </div>
 
         {activeTab === 'profil' ? (
           <ProfileTab profile={profile} onSaved={() => void refreshProfile()} />
+        ) : activeTab === 'abonnement' ? (
+          <SubscriptionTab defaultName={name} />
         ) : (
           <div className="space-y-6">
             <SettingSection title="Général" icon="sliders" items={generalItems} />
@@ -384,6 +513,8 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const {
     data: profile,
@@ -394,11 +525,7 @@ export default function SettingsPage() {
   });
 
   if (!user || profileLoading) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-2 px-4">
-        <p className="text-sm text-gray-600">Chargement…</p>
-      </main>
-    );
+    return <LoadingScreen />;
   }
 
   if (profile?.profileType === 'ENCADRANT') {
@@ -415,6 +542,29 @@ export default function SettingsPage() {
 
   const hasPassword = user.hasPassword;
   const googleLinked = user.linkedProviders.includes('google');
+  const name = profile?.name || user.email.split('@')[0] || user.email;
+
+  async function onAvatarSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const uploaded = await uploadFile(file);
+      await api('/api/profile', { method: 'PATCH', body: { avatarUrl: uploaded.url } });
+      await Promise.all([refreshProfile(), refresh()]);
+      toast('Photo de profil mise à jour.', 'success');
+    } catch (err) {
+      toast(
+        err instanceof ApiError
+          ? (AVATAR_ERROR_MESSAGES[err.code] ?? err.message)
+          : 'Une erreur est survenue.',
+        'error',
+      );
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   async function onSubmitPassword(e: FormEvent) {
     e.preventDefault();
@@ -469,107 +619,139 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-8 px-4 py-12">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">Paramètres</h1>
-        <p className="text-sm text-gray-600">Connecté en tant que {user.email}</p>
-      </header>
+    <StudentShell name={name} active="settings">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-8 px-4 py-12">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+          <p className="text-sm text-muted-foreground">Connecté en tant que {user.email}</p>
+        </header>
 
-      {/* ── Password section ─────────────────────────────────────────── */}
-      <section className="flex flex-col gap-3 rounded-lg border border-gray-200 p-5">
-        <h2 className="text-lg font-semibold">
-          {hasPassword ? 'Changer le mot de passe' : 'Définir un mot de passe'}
-        </h2>
-        <p className="text-sm text-gray-600">
-          {hasPassword
-            ? 'Tu peux modifier ton mot de passe ici. Les autres sessions seront déconnectées.'
-            : 'Tu t’es connecté via Google. Définis un mot de passe pour pouvoir aussi te connecter par email.'}
-        </p>
-        <form onSubmit={onSubmitPassword} className="mt-2 flex flex-col gap-4">
-          {hasPassword && (
-            <label className="flex flex-col gap-1 text-sm">
-              Mot de passe actuel
+        {/* ── Avatar section ───────────────────────────────────────────── */}
+        <section className="flex items-center gap-4 rounded-lg border border-border bg-surface p-5">
+          <div className="relative shrink-0">
+            <Avatar name={name} src={profile?.avatarUrl} className="h-16 w-16 text-xl" />
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => void onAvatarSelected(e)}
+            />
+            <button
+              type="button"
+              disabled={avatarUploading}
+              onClick={() => avatarInputRef.current?.click()}
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center border-2 border-background transition duration-150 hover:opacity-90 disabled:opacity-50 motion-safe:active:scale-90"
+            >
+              <Icon
+                i={avatarUploading ? 'loader' : 'camera'}
+                size={11}
+                className={avatarUploading ? 'animate-spin' : undefined}
+              />
+            </button>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-foreground">Photo de profil</span>
+            <span className="text-xs text-muted-foreground">JPEG, PNG ou WebP.</span>
+          </div>
+        </section>
+
+        {/* ── Password section ─────────────────────────────────────────── */}
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
+          <h2 className="text-lg font-semibold text-foreground">
+            {hasPassword ? 'Changer le mot de passe' : 'Définir un mot de passe'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {hasPassword
+              ? 'Tu peux modifier ton mot de passe ici. Les autres sessions seront déconnectées.'
+              : 'Tu t’es connecté via Google. Définis un mot de passe pour pouvoir aussi te connecter par email.'}
+          </p>
+          <form onSubmit={onSubmitPassword} className="mt-2 flex flex-col gap-4">
+            {hasPassword && (
+              <label className="flex flex-col gap-1 text-sm text-foreground">
+                Mot de passe actuel
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="rounded-md border border-border bg-input px-3 py-2 text-foreground outline-none focus:border-primary"
+                />
+              </label>
+            )}
+            <label className="flex flex-col gap-1 text-sm text-foreground">
+              Nouveau mot de passe
               <input
                 type="password"
                 required
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="rounded-md border border-border bg-input px-3 py-2 text-foreground outline-none focus:border-primary"
               />
             </label>
-          )}
-          <label className="flex flex-col gap-1 text-sm">
-            Nouveau mot de passe
-            <input
-              type="password"
-              required
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Confirmer le nouveau mot de passe
-            <input
-              type="password"
-              required
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-          {error && (
-            <p role="alert" className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-black px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors duration-150"
-          >
-            {submitting
-              ? 'Enregistrement…'
-              : hasPassword
-                ? 'Changer le mot de passe'
-                : 'Définir le mot de passe'}
-          </button>
-        </form>
-      </section>
-
-      {/* ── Linked providers section ────────────────────────────────── */}
-      <section className="flex flex-col gap-3 rounded-lg border border-gray-200 p-5">
-        <h2 className="text-lg font-semibold">Comptes liés</h2>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Google</span>
-            <span className="text-xs text-gray-500">
-              {googleLinked
-                ? 'Tu peux te connecter via Google.'
-                : 'Lie ton compte Google pour te connecter en un clic.'}
-            </span>
-          </div>
-          {googleLinked ? (
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-              Lié
-            </span>
-          ) : (
-            <a
-              href="/api/auth/oauth/google/start?next=/settings"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 transition-colors duration-150"
+            <label className="flex flex-col gap-1 text-sm text-foreground">
+              Confirmer le nouveau mot de passe
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="rounded-md border border-border bg-input px-3 py-2 text-foreground outline-none focus:border-primary"
+              />
+            </label>
+            {error && (
+              <p role="alert" className="text-sm text-danger">
+                {error}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
             >
-              Lier Google
-            </a>
-          )}
-        </div>
-      </section>
+              {submitting
+                ? 'Enregistrement…'
+                : hasPassword
+                  ? 'Changer le mot de passe'
+                  : 'Définir le mot de passe'}
+            </button>
+          </form>
+        </section>
 
-      <Link href="/dashboard" className="text-center text-sm text-gray-600 underline">
-        Retour au dashboard
-      </Link>
-    </main>
+        {/* ── Linked providers section ────────────────────────────────── */}
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
+          <h2 className="text-lg font-semibold text-foreground">Comptes liés</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">Google</span>
+              <span className="text-xs text-muted-foreground">
+                {googleLinked
+                  ? 'Tu peux te connecter via Google.'
+                  : 'Lie ton compte Google pour te connecter en un clic.'}
+              </span>
+            </div>
+            {googleLinked ? (
+              <span className="rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-medium text-success">
+                Lié
+              </span>
+            ) : (
+              <a
+                href="/api/auth/oauth/google/start?next=/settings"
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-input"
+              >
+                Lier Google
+              </a>
+            )}
+          </div>
+        </section>
+
+        <Link href="/dashboard" className="text-center text-sm text-muted-foreground underline">
+          Retour au dashboard
+        </Link>
+      </main>
+    </StudentShell>
   );
 }

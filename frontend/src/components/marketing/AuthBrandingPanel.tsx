@@ -6,27 +6,24 @@ import { Icon } from '@/components/ui/Icon';
 
 export function AuthBrandingPanel() {
   return (
-    <div className="hidden w-2/5 shrink-0 flex-col justify-between bg-foreground px-12 py-14 lg:flex">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-primary">
-          <Icon i="graduation-cap" size={18} className="text-primary-foreground" />
-        </div>
-        <span className="font-headings text-lg font-semibold text-background">ThèseFacile</span>
+    <div className="hidden w-2/5 shrink-0 flex-col justify-between bg-surface px-12 py-14 lg:flex">
+      <div className="flex items-center">
+        <img src="/logo.jpg" alt="ThèseFacile" className="h-9 w-auto" />
       </div>
 
       <div>
-        <h2 className="mb-5 font-headings text-4xl font-semibold leading-tight text-background">
+        <h2 className="mb-5 font-headings text-4xl font-semibold leading-tight text-foreground">
           Le suivi de thèses,
           <br />
           <span className="text-primary">enfin simple.</span>
         </h2>
-        <p className="max-w-xs text-sm leading-relaxed text-muted">
+        <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
           Suivez en temps réel l&apos;avancement de vos étudiants, annotez leurs documents et ne
           manquez plus aucune échéance.
         </p>
 
         <div className="mt-10 border-l-2 border-primary pl-4">
-          <p className="text-sm italic leading-relaxed text-muted">
+          <p className="text-sm italic leading-relaxed text-muted-foreground">
             &quot;ThèseFacile m&apos;a permis de diviser par deux le temps que je passais à relancer
             mes étudiants.&quot;
           </p>
@@ -35,16 +32,14 @@ export function AuthBrandingPanel() {
               <Icon i="user" size={14} className="text-muted-foreground" />
             </div>
             <div>
-              <div className="text-xs font-medium text-background">Pr. Koné Aboubakar</div>
+              <div className="text-xs font-medium text-foreground">Pr. Koné Aboubakar</div>
               <div className="text-xs text-muted-foreground">Université de Cocody, Abidjan</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="text-xs text-muted-foreground">
-        © 2025 ThèseFacile — Conçu pour l&apos;Afrique francophone
-      </div>
+      <div />
     </div>
   );
 }

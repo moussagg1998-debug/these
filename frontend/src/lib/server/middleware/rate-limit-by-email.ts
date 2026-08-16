@@ -60,7 +60,8 @@ export interface EmailLimiter {
   refund(req: NextRequest, email: string | null): Promise<void>;
 }
 
-function clientIp(req: NextRequest): string {
+/** The only IP-extraction logic in this codebase — reused by security-event logging. */
+export function clientIp(req: NextRequest): string {
   const xff = req.headers.get('x-forwarded-for');
   if (xff) return xff.split(',')[0]!.trim();
   const real = req.headers.get('x-real-ip');

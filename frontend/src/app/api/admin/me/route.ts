@@ -14,10 +14,11 @@
 // here too, so a polling UI cannot burn the back-office budget.
 //
 // CAPABILITY LIST CONTRACT (D-ADMIN-04 — locked):
-//   ADMIN sees 8 capabilities: users:read, users:status:suspend,
-//     orders:read, withdrawals:read, audit-log:read, outbox:read,
-//     email-queue:read, rate-limits:read.
-//   SUPERADMIN sees 11: same 8 + users:role + users:status:restore +
+//   ADMIN sees 14 capabilities: users:read, users:status:suspend,
+//     users:password_reset, orders:read, withdrawals:read, audit-log:read,
+//     outbox:read, email-queue:read, alerts:read, alerts:acknowledge,
+//     alerts:resolve, security:read, documents:read, rate-limits:read.
+//   SUPERADMIN sees 17: same 14 + users:role + users:status:restore +
 //     withdrawals:cancel.
 //
 // Front-end teams can pivot off this shape; changing the list is a
@@ -34,11 +35,17 @@ const CAPABILITIES_BY_ROLE: Record<'ADMIN' | 'SUPERADMIN', readonly string[]> = 
   ADMIN: [
     'users:read',
     'users:status:suspend',
+    'users:password_reset',
     'orders:read',
     'withdrawals:read',
     'audit-log:read',
     'outbox:read',
     'email-queue:read',
+    'alerts:read',
+    'alerts:acknowledge',
+    'alerts:resolve',
+    'security:read',
+    'documents:read',
     'rate-limits:read',
   ],
   SUPERADMIN: [
@@ -46,12 +53,18 @@ const CAPABILITIES_BY_ROLE: Record<'ADMIN' | 'SUPERADMIN', readonly string[]> = 
     'users:role',
     'users:status:suspend',
     'users:status:restore',
+    'users:password_reset',
     'orders:read',
     'withdrawals:read',
     'withdrawals:cancel',
     'audit-log:read',
     'outbox:read',
     'email-queue:read',
+    'alerts:read',
+    'alerts:acknowledge',
+    'alerts:resolve',
+    'security:read',
+    'documents:read',
     'rate-limits:read',
   ],
 } as const;

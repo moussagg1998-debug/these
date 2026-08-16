@@ -75,6 +75,15 @@ describe('GET /api/messages', () => {
     expect(args?.where?.archivedAt).toBeNull();
   });
 
+  it('excludes validated (completedAt) deadlines from the next-deadline slot', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
+    prismaMock.thesis.findMany.mockResolvedValue([] as never);
+    await GET(makeGet());
+    const args = prismaMock.thesis.findMany.mock.calls[0]?.[0];
+    const deadlines = args?.include?.deadlines as { where?: { completedAt?: unknown } } | undefined;
+    expect(deadlines?.where?.completedAt).toBeNull();
+  });
+
   it('maps thesis + lastMessage + nextDeadline + recentDocuments through', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ profileType: 'ENCADRANT' } as never);
     prismaMock.thesis.findMany.mockResolvedValue([

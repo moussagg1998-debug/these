@@ -84,4 +84,98 @@ describe('/api/admin/users/[id] — detail', () => {
     expect(res.status).toBe(403);
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
   });
+
+  it('GET includes profile fields (profileType/institution/department/academicGrade/specialties/bio)', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      email: 'u1@test.local',
+      name: null,
+      avatarUrl: null,
+      role: 'USER',
+      status: 'ACTIVE',
+      emailVerifiedAt: null,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      profileType: 'ETUDIANT',
+      institution: { name: 'UCAD' },
+      department: 'Informatique',
+      academicGrade: null,
+      specialties: [],
+      bio: 'Bio text',
+    } as never);
+    prismaMock.message.findFirst.mockResolvedValueOnce(null);
+    prismaMock.comment.findFirst.mockResolvedValueOnce(null);
+    prismaMock.fileUpload.findFirst.mockResolvedValueOnce(null);
+    prismaMock.thesis.findFirst.mockResolvedValueOnce(null);
+
+    const res = await GET(makeGet('http://test/api/admin/users/u1'), ctxWith('u1'));
+    const body = (await res.json()) as {
+      user: { profileType: string; institution: { name: string }; department: string; bio: string };
+    };
+    expect(body.user.profileType).toBe('ETUDIANT');
+    expect(body.user.institution).toEqual({ name: 'UCAD' });
+    expect(body.user.department).toBe('Informatique');
+    expect(body.user.bio).toBe('Bio text');
+  });
+
+  it('GET derives lastActivityAt as the max of message/comment/upload/thesis timestamps', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      email: 'u1@test.local',
+      name: null,
+      avatarUrl: null,
+      role: 'USER',
+      status: 'ACTIVE',
+      emailVerifiedAt: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      profileType: null,
+      institution: null,
+      department: null,
+      academicGrade: null,
+      specialties: [],
+      bio: null,
+    } as never);
+    prismaMock.message.findFirst.mockResolvedValueOnce({
+      createdAt: new Date('2026-06-01T00:00:00Z'),
+    } as never);
+    prismaMock.comment.findFirst.mockResolvedValueOnce({
+      createdAt: new Date('2026-08-01T00:00:00Z'), // most recent — should win
+    } as never);
+    prismaMock.fileUpload.findFirst.mockResolvedValueOnce({
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+    } as never);
+    prismaMock.thesis.findFirst.mockResolvedValueOnce({
+      updatedAt: new Date('2026-07-01T00:00:00Z'),
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/admin/users/u1'), ctxWith('u1'));
+    const body = (await res.json()) as { user: { lastActivityAt: string | null } };
+    expect(body.user.lastActivityAt).toBe(new Date('2026-08-01T00:00:00Z').toISOString());
+  });
+
+  it('GET returns lastActivityAt: null when the user has no recorded activity', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: 'u1',
+      email: 'u1@test.local',
+      name: null,
+      avatarUrl: null,
+      role: 'USER',
+      status: 'ACTIVE',
+      emailVerifiedAt: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      profileType: null,
+      institution: null,
+      department: null,
+      academicGrade: null,
+      specialties: [],
+      bio: null,
+    } as never);
+    prismaMock.message.findFirst.mockResolvedValueOnce(null);
+    prismaMock.comment.findFirst.mockResolvedValueOnce(null);
+    prismaMock.fileUpload.findFirst.mockResolvedValueOnce(null);
+    prismaMock.thesis.findFirst.mockResolvedValueOnce(null);
+
+    const res = await GET(makeGet('http://test/api/admin/users/u1'), ctxWith('u1'));
+    const body = (await res.json()) as { user: { lastActivityAt: string | null } };
+    expect(body.user.lastActivityAt).toBeNull();
+  });
 });

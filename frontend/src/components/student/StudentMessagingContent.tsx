@@ -6,14 +6,18 @@
 // récents" reuses real documents, notifications/report stay inert).
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
+import { uploadFile } from '@/lib/uploadFile';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { StudentShell } from './StudentShell';
 import { AddToCalendarModal } from './AddToCalendarModal';
+import { ThesisBlockedBanner } from './ThesisBlockedBanner';
 import {
   displayName,
   documentDisplayName,
@@ -31,8 +35,24 @@ interface MessageRow {
   id: string;
   senderId: string;
   body: string;
+  attachmentUrl: string | null;
+  attachmentFilename: string | null;
+  attachmentMimeType: string | null;
   createdAt: string;
 }
+
+interface PendingAttachment {
+  url: string;
+  filename: string;
+  mimeType: string;
+}
+
+const ATTACHMENT_ERROR_MESSAGES: Record<string, string> = {
+  FILE_TOO_LARGE: 'Fichier trop volumineux.',
+  INVALID_MIME: 'Format non supporté — utilisez une image JPEG, PNG ou WebP.',
+  MAGIC_BYTE_MISMATCH: 'Le fichier ne correspond pas au format déclaré.',
+  STORAGE_NOT_CONFIGURED: "Le stockage d'images n'est pas configuré.",
+};
 
 interface MessagesResponse {
   items: MessageRow[];
@@ -51,10 +71,15 @@ interface StudentMessagingContentProps {
 
 export function StudentMessagingContent({ name, thesis }: StudentMessagingContentProps) {
   const user = useUser();
+  const blocked = thesis.stage === 'Bloqué';
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [attaching, setAttaching] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: messagesRes, refresh: refreshMessages } = useApi<MessagesResponse>(
@@ -64,7 +89,12 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
   const { data: docsRes } = useApi<DocumentsResponse>(`/api/theses/${thesis.id}/documents`);
 
   const messages = useMemo(() => messagesRes?.items ?? [], [messagesRes]);
-  const nextDeadline = deadlinesRes?.items[0] ?? null;
+  // A deadline the encadrant has validated ("respectée") frees up this slot
+  // for whichever deadline is next.
+  const nextDeadline = useMemo(
+    () => deadlinesRes?.items.find((d) => !d.completedAt) ?? null,
+    [deadlinesRes],
+  );
   const recentDocs = useMemo(() => (docsRes?.items ?? []).slice(0, 2), [docsRes]);
 
   // Periodic refetch, not real-time — decided in IMPLEMENTATION-PLAN.md §6
@@ -80,18 +110,57 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages.length]);
 
+  async function onAttachmentSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || blocked) return;
+    setAttaching(true);
+    setError(null);
+    try {
+      const uploaded = await uploadFile(file);
+      setPendingAttachment({ url: uploaded.url, filename: file.name, mimeType: uploaded.mimeType });
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? (ATTACHMENT_ERROR_MESSAGES[err.code] ?? err.message)
+          : 'Une erreur est survenue.',
+      );
+    } finally {
+      setAttaching(false);
+    }
+  }
+
   async function onSend(e: FormEvent) {
     e.preventDefault();
     const body = draft.trim();
-    if (!body) return;
+    if ((!body && !pendingAttachment) || blocked) return;
     setSending(true);
     setError(null);
     try {
-      await api(`/api/theses/${thesis.id}/messages`, { method: 'POST', body: { body } });
+      await api(`/api/theses/${thesis.id}/messages`, {
+        method: 'POST',
+        body: {
+          body,
+          ...(pendingAttachment
+            ? {
+                attachmentUrl: pendingAttachment.url,
+                attachmentFilename: pendingAttachment.filename,
+                attachmentMimeType: pendingAttachment.mimeType,
+              }
+            : {}),
+        },
+      });
       setDraft('');
+      setPendingAttachment(null);
       await refreshMessages();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      if (err instanceof ApiError && err.code === 'THESIS_BLOCKED') {
+        setError(
+          'Votre encadrant a bloqué votre mémoire — vous ne pouvez plus envoyer de message.',
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      }
     } finally {
       setSending(false);
     }
@@ -104,31 +173,17 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
         <div className="flex-1 flex flex-col min-w-0 border border-border rounded-md bg-background overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 bg-surface border-b border-border">
             <div className="flex items-center gap-3">
-              <Avatar name={displayName(thesis.encadrant)} className="h-10 w-10" />
+              <Avatar
+                name={displayName(thesis.encadrant)}
+                src={thesis.encadrant.avatarUrl}
+                className="h-10 w-10"
+              />
               <div>
                 <div className="text-sm font-semibold text-foreground">
                   {displayName(thesis.encadrant)}
                 </div>
                 <div className="text-xs text-muted-foreground">{thesis.encadrant.email}</div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled
-                title="Bientôt disponible"
-                className="w-8 h-8 rounded-sm border border-border flex items-center justify-center text-muted-foreground opacity-50 cursor-not-allowed"
-              >
-                <Icon i="phone" size={14} />
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Bientôt disponible"
-                className="w-8 h-8 rounded-sm border border-border flex items-center justify-center text-muted-foreground opacity-50 cursor-not-allowed"
-              >
-                <Icon i="info" size={14} />
-              </button>
             </div>
           </div>
 
@@ -137,7 +192,7 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
             className="flex-1 flex flex-col gap-4 px-6 py-6 overflow-y-auto max-h-[60vh]"
           >
             {messages.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
+              <p className="text-sm text-muted-foreground text-center py-8 motion-safe:animate-fade-in">
                 Aucun message pour l&apos;instant — envoyez le premier message à votre encadrant.
               </p>
             ) : (
@@ -147,15 +202,33 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
                   <div key={msg.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
                     <Avatar
                       name={isOwn ? name : displayName(thesis.encadrant)}
+                      src={isOwn ? null : thesis.encadrant.avatarUrl}
                       className="h-8 w-8 shrink-0"
                     />
                     <div className={`flex flex-col gap-1 max-w-sm ${isOwn ? 'items-end' : ''}`}>
                       <div
-                        className={`px-4 py-2.5 rounded-md ${
+                        className={`overflow-hidden rounded-md ${
                           isOwn ? 'bg-primary text-primary-foreground' : 'bg-input text-foreground'
                         }`}
                       >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.body}</p>
+                        {msg.attachmentUrl && msg.attachmentMimeType?.startsWith('image/') && (
+                          <button
+                            type="button"
+                            onClick={() => setLightboxUrl(msg.attachmentUrl)}
+                            className="block w-full"
+                          >
+                            <img
+                              src={msg.attachmentUrl}
+                              alt={msg.attachmentFilename ?? 'Pièce jointe'}
+                              className="max-h-60 w-full object-cover"
+                            />
+                          </button>
+                        )}
+                        {msg.body && (
+                          <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                            {msg.body}
+                          </p>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {relativeTime(msg.createdAt)}
@@ -167,39 +240,70 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
             )}
           </div>
 
-          <form onSubmit={onSend} className="border-t border-border px-6 py-4 bg-surface">
-            {error && (
-              <p role="alert" className="text-xs text-danger mb-2">
-                {error}
-              </p>
-            )}
-            <div className="flex items-end gap-3">
-              <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input transition-colors duration-150 focus-within:border-primary">
-                <input
-                  type="text"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Votre message…"
-                  className="flex-1 text-sm text-foreground bg-transparent outline-none"
-                />
+          {blocked ? (
+            <div className="border-t border-border px-6 py-4 bg-surface">
+              <ThesisBlockedBanner />
+            </div>
+          ) : (
+            <form onSubmit={onSend} className="border-t border-border px-6 py-4 bg-surface">
+              {error && (
+                <p role="alert" className="text-xs text-danger mb-2">
+                  {error}
+                </p>
+              )}
+              {pendingAttachment && (
+                <div className="mb-2 flex items-center gap-2 rounded-sm border border-border bg-input px-3 py-1.5 text-xs text-foreground">
+                  <Icon i="paperclip" size={12} className="shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate">{pendingAttachment.filename}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingAttachment(null)}
+                    aria-label="Retirer la pièce jointe"
+                    className="shrink-0 text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
+                  >
+                    <Icon i="x" size={12} />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-end gap-3">
+                <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-3 py-2.5 bg-input transition-colors duration-150 focus-within:border-primary">
+                  <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Votre message…"
+                    className="flex-1 text-sm text-foreground bg-transparent outline-none"
+                  />
+                  <input
+                    ref={attachmentInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => void onAttachmentSelected(e)}
+                  />
+                  <button
+                    type="button"
+                    disabled={attaching}
+                    onClick={() => attachmentInputRef.current?.click()}
+                    className="text-muted-foreground transition duration-150 hover:text-foreground disabled:opacity-50 motion-safe:active:scale-90"
+                  >
+                    <Icon
+                      i={attaching ? 'loader' : 'paperclip'}
+                      size={16}
+                      className={attaching ? 'animate-spin' : undefined}
+                    />
+                  </button>
+                </div>
                 <button
-                  type="button"
-                  disabled
-                  title="Bientôt disponible"
-                  className="text-muted-foreground opacity-50 cursor-not-allowed"
+                  type="submit"
+                  disabled={sending || (!draft.trim() && !pendingAttachment)}
+                  className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
                 >
-                  <Icon i="paperclip" size={16} />
+                  <Icon i="send" size={16} />
                 </button>
               </div>
-              <button
-                type="submit"
-                disabled={sending || !draft.trim()}
-                className="w-9 h-9 bg-primary text-primary-foreground rounded-sm flex items-center justify-center shrink-0 disabled:opacity-50 transition-transform duration-150 motion-safe:active:scale-[0.98]"
-              >
-                <Icon i="send" size={16} />
-              </button>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
 
         {/* RIGHT sidebar */}
@@ -209,7 +313,11 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
               Profil
             </div>
             <div className="flex flex-col items-center text-center mb-4">
-              <Avatar name={displayName(thesis.encadrant)} className="h-16 w-16 mb-3" />
+              <Avatar
+                name={displayName(thesis.encadrant)}
+                src={thesis.encadrant.avatarUrl}
+                className="h-16 w-16 mb-3"
+              />
               <div className="text-sm font-semibold text-foreground">
                 {displayName(thesis.encadrant)}
               </div>
@@ -247,7 +355,9 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
                 </button>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">Aucune échéance à venir.</p>
+              <p className="text-xs text-muted-foreground motion-safe:animate-fade-in">
+                Aucune échéance à venir.
+              </p>
             )}
           </div>
 
@@ -256,7 +366,9 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
               Fichiers récents
             </div>
             {recentDocs.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Aucun document déposé.</p>
+              <p className="text-xs text-muted-foreground motion-safe:animate-fade-in">
+                Aucun document déposé.
+              </p>
             ) : (
               <div className="flex flex-col gap-2">
                 {recentDocs.map((doc) => (
@@ -284,30 +396,36 @@ export function StudentMessagingContent({ name, thesis }: StudentMessagingConten
           </div>
 
           <div className="flex flex-col gap-2 text-xs">
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="flex items-center gap-2 p-2.5 border border-border rounded-sm text-muted-foreground font-medium opacity-50 cursor-not-allowed"
-            >
-              <Icon i="bell-off" size={12} />
-              Désactiver les notifications
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="flex items-center gap-2 p-2.5 border border-border rounded-sm text-muted-foreground font-medium opacity-50 cursor-not-allowed"
-            >
-              <Icon i="flag" size={12} />
-              Signaler
-            </button>
+            <Tooltip label="Bientôt disponible" className="w-full">
+              <button
+                type="button"
+                disabled
+                className="w-full flex items-center gap-2 p-2.5 border border-border rounded-sm text-muted-foreground font-medium opacity-50 cursor-not-allowed"
+              >
+                <Icon i="bell-off" size={12} />
+                Désactiver les notifications
+              </button>
+            </Tooltip>
+            <Tooltip label="Bientôt disponible" className="w-full">
+              <button
+                type="button"
+                disabled
+                className="w-full flex items-center gap-2 p-2.5 border border-border rounded-sm text-muted-foreground font-medium opacity-50 cursor-not-allowed"
+              >
+                <Icon i="flag" size={12} />
+                Signaler
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
 
       {calendarOpen && nextDeadline && (
         <AddToCalendarModal deadline={nextDeadline} onClose={() => setCalendarOpen(false)} />
+      )}
+
+      {lightboxUrl && (
+        <ImageLightbox src={lightboxUrl} alt="Pièce jointe" onClose={() => setLightboxUrl(null)} />
       )}
     </StudentShell>
   );

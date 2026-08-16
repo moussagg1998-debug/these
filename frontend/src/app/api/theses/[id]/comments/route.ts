@@ -22,6 +22,7 @@ const CreateBody = z.object({
   documentId: z.string().min(1).optional(),
   parentId: z.string().min(1).optional(),
   priority: z.enum(['low', 'medium', 'high']).optional(),
+  page: z.number().int().positive().optional(),
 });
 
 interface RouteParams {
@@ -63,6 +64,12 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     const { id } = await params;
     const access = await resolveThesisAccess(prisma, id, auth.user.sub);
     if (access instanceof NextResponse) return access;
+    if (access.stage === 'Bloqué' && access.studentId === auth.user.sub) {
+      return NextResponse.json(
+        { error: 'THESIS_BLOCKED', message: 'The encadrant has blocked this thesis' },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
 
     const parsed = CreateBody.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
@@ -71,6 +78,26 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
           error: 'VALIDATION_FAILED',
           message: 'Invalid request body',
           issues: parsed.error.issues,
+        },
+        { status: 400, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    if (parsed.data.page !== undefined && parsed.data.documentId === undefined) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message:
+            'page requires documentId — a page number is meaningless without a document to anchor it to',
+        },
+        { status: 400, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+    if (parsed.data.page !== undefined && parsed.data.parentId !== undefined) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message: 'A reply cannot set its own page — it inherits the page from its thread.',
         },
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
       );
@@ -94,6 +121,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         ...(parsed.data.documentId !== undefined ? { documentId: parsed.data.documentId } : {}),
         ...(parsed.data.parentId !== undefined ? { parentId: parsed.data.parentId } : {}),
         ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
+        ...(parsed.data.page !== undefined ? { page: parsed.data.page } : {}),
       },
     });
 

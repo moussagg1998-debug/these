@@ -33,6 +33,7 @@ pnpm db:migrate:deploy                           # applique les migrations versi
 pnpm dev                                         # http://localhost:3000
 # dans un autre terminal, après le premier signup :
 pnpm db:make-superadmin you@example.com
+pnpm db:seed-coupon-thesis                       # crée le coupon THESIS (-95%, ThèseFacile) — idempotent
 pnpm smoke:auth                                  # vérifie le happy path auth de bout en bout
 ```
 
@@ -65,6 +66,7 @@ Groupes optionnels (set les vars pour activer ; absent = inerte) :
 | Storage (Cloudinary) | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_PRESET?` | `/api/upload` renvoie 503 ; les URLs retournées sont des `secure_url` Cloudinary servies directement par leur CDN. **⚠️ Ces URLs sont publiques — quiconque a l'URL peut lire le fichier. OK pour avatars / posts publics ; pour KYC / factures, ajoute Cloudinary signed delivery ou un proxy auth.** |
 | Email (Resend) | `RESEND_API_KEY`, `EMAIL_FROM` | Les lignes en queue email s'accumulent mais ne partent jamais (drainage au cron suivant dès que la clé arrive) |
 | Paiements (Bictorys) | `BICTORYS_API_KEY`, `BICTORYS_PRIVATE_KEY`, `BICTORYS_WEBHOOK_SECRET`, `BICTORYS_MERCHANT_SECRET_CODE` | `/api/orders` et `/api/webhooks/bictorys` renvoient 404 ; circuit breaker reste CLOSED |
+| Abonnement Essentiel (Chariow) | `CHARIOW_API_KEY`, `CHARIOW_PRODUCT_ID_ESSENTIEL`, `CHARIOW_WEBHOOK_SECRET` | `/api/subscriptions/checkout` et `/verify` renvoient 503 ; `/api/webhooks/chariow` renvoie 401 ; le cron `chariow-reconcile` saute son tick (log `warn`) ; `subscription-expiration` continue de tourner sans être affecté (simple vérification de date en DB, aucun appel Chariow) |
 | Google OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | `/api/auth/oauth/google/*` renvoient 404 |
 | Sentry | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE?`, ... | No-op silencieux (zéro coût perf) |
 | Upstash Redis | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Fallback rate-limit en mémoire avec `logger.warn` au boot — NE PAS lancer en prod sans Upstash |
@@ -121,7 +123,7 @@ Les fichiers uploadés renvoient un `secure_url` Cloudinary servi directement pa
 |---|---|---|
 | POST | `/api/webhooks/bictorys` | HMAC provider + replay window 60s |
 
-### Handlers cron — 5 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
+### Handlers cron — 8 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
 | Path | Schedule (`vercel.json`) |
 |---|---|
 | `/api/cron/outbox-drain` | toutes les minutes |
@@ -129,6 +131,9 @@ Les fichiers uploadés renvoient un `secure_url` Cloudinary servi directement pa
 | `/api/cron/verification-cleanup` | toutes les heures |
 | `/api/cron/order-expiration` | toutes les 5 min |
 | `/api/cron/webhook-log-purge` | quotidien |
+| `/api/cron/email-job-purge` | quotidien |
+| `/api/cron/deadline-reminder` | quotidien (8h UTC) |
+| `/api/cron/scheduled-deposits` | toutes les 5 min |
 
 ### Admin (`/api/admin/*`) — 12 routes
 | Méthode | Path | Auth |
@@ -207,7 +212,7 @@ izikit/
 ├── frontend/                    L'app Next.js 16 (full-stack)
 │   ├── prisma/                  schema.prisma + migrations
 │   ├── scripts/                 make-superadmin.ts, seed-dev.ts, smoke-auth.ts (via tsx)
-│   ├── vercel.json              schedules cron (5 entrées)
+│   ├── vercel.json              schedules cron (8 entrées)
 │   ├── .env.example             référence env
 │   └── src/
 │       ├── app/api/             route handlers

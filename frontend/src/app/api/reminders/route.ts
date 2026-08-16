@@ -26,6 +26,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { requireProfileType } from '@/lib/server/theses/guards';
+import { requireFeature } from '@/lib/server/subscriptions/require-feature';
 import { createNotification } from '@/lib/server/notifications';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
 import { reminderEmail } from '@/lib/server/theses/reminder-email';
@@ -60,6 +61,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const profile = await requireProfileType(prisma, auth.user.sub, ['ENCADRANT']);
     if (profile instanceof NextResponse) return profile;
+
+    const gate = await requireFeature(prisma, auth.user.sub, 'BULK_REMINDERS');
+    if (gate instanceof NextResponse) return gate;
 
     const parsed = Body.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {

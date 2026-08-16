@@ -10,6 +10,7 @@ import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { relativeTime } from '@/lib/theses';
 
 interface NotificationCountResponse {
@@ -38,6 +39,7 @@ const TYPE_DESTINATION: Record<string, string> = {
   COMMENT_ADDED: '/comments',
   DEADLINE_ADDED: '/deadlines',
   DOCUMENT_SUBMITTED: '/documents',
+  DOCUMENT_RECEIVED: '/documents',
   MESSAGE_RECEIVED: '/messages',
   THESIS_ASSIGNED: '/dashboard',
   REMINDER: '/messages',
@@ -105,9 +107,9 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
         aria-expanded={open}
-        className="relative w-8 h-8 rounded-sm border border-border bg-surface flex items-center justify-center"
+        className="relative w-8 h-8 rounded-sm border border-border bg-surface flex items-center justify-center transition duration-150 hover:bg-input motion-safe:active:scale-90"
       >
-        <Icon i="bell" size={15} />
+        <Icon i="bell" size={15} className="text-primary" />
         {count > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
             {count > 9 ? '9+' : count}
@@ -123,7 +125,7 @@ export function NotificationBell() {
               <button
                 type="button"
                 onClick={() => void markRead('all')}
-                className="text-xs font-medium text-primary"
+                className="text-xs font-medium text-primary transition-colors duration-150 hover:text-primary/80"
               >
                 Tout marquer comme lu
               </button>
@@ -131,16 +133,31 @@ export function NotificationBell() {
           </div>
           <div className="max-h-96 overflow-y-auto">
             {listLoading && !listRes ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground">Chargement…</p>
+              <div>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 px-4 py-3 border-b border-border last:border-0"
+                  >
+                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : items.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground">Aucune notification.</p>
+              <p className="px-4 py-6 text-sm text-muted-foreground motion-safe:animate-fade-in">
+                Aucune notification.
+              </p>
             ) : (
               items.map((n) => (
                 <button
                   key={n.id}
                   type="button"
                   onClick={() => onNotificationClick(n)}
-                  className="w-full flex items-start gap-2 px-4 py-3 border-b border-border last:border-0 text-left hover:bg-input"
+                  className="w-full flex items-start gap-2 px-4 py-3 border-b border-border last:border-0 text-left transition-colors duration-150 hover:bg-input"
                 >
                   {n.readAt === null && (
                     <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />

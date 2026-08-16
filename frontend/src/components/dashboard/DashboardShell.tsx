@@ -10,6 +10,7 @@ import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { LogoutButton } from '@/components/ui/LogoutButton';
 import { Sidebar, NAV_ITEMS } from '@/components/dashboard/Sidebar';
 import { isNavItemActive } from '@/lib/nav-active';
 
@@ -30,23 +31,19 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
 
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="w-64 bg-primary flex flex-col motion-safe:animate-slide-in-left">
-            <div
-              className="flex items-center justify-between px-5 py-4 border-b"
-              style={{ borderColor: 'rgba(245,243,238,0.15)' }}
-            >
-              <span className="font-headings font-semibold text-primary-foreground">
-                ThèseFacile
-              </span>
+          <div className="w-64 bg-surface flex flex-col motion-safe:animate-slide-in-left">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Fermer le menu"
+                className="transition duration-150 motion-safe:active:scale-90"
               >
-                <Icon i="x" size={18} className="text-primary-foreground" />
+                <Icon i="x" size={18} className="text-foreground" />
               </button>
             </div>
-            <nav className="flex flex-col gap-1 px-3 py-4">
+            <nav className="flex flex-col gap-1 px-3 py-4 flex-1">
               {NAV_ITEMS.map((item) => {
                 const isActive = isNavItemActive(pathname, item.href);
                 return (
@@ -56,8 +53,8 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
                     onClick={() => setDrawerOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ${
                       isActive
-                        ? 'bg-primary-foreground text-primary'
-                        : 'text-primary-foreground opacity-70 hover:opacity-100'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground opacity-70 hover:opacity-100'
                     }`}
                   >
                     <Icon i={item.icon} size={16} />
@@ -66,6 +63,9 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
                 );
               })}
             </nav>
+            <div className="px-3 py-4 border-t border-border">
+              <LogoutButton className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground opacity-70 transition-opacity duration-150 hover:opacity-100" />
+            </div>
           </div>
           <button
             type="button"
@@ -77,13 +77,16 @@ export function DashboardShell({ name, subtitle, header, children }: DashboardSh
       )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex lg:hidden items-center justify-between px-4 py-3 bg-primary shrink-0">
-          <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Ouvrir le menu">
-            <Icon i="sliders" size={18} className="text-primary-foreground" />
+        <div className="flex lg:hidden items-center justify-between px-4 py-3 bg-surface border-b border-border shrink-0">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Ouvrir le menu"
+            className="transition duration-150 motion-safe:active:scale-90"
+          >
+            <Icon i="sliders" size={18} className="text-foreground" />
           </button>
-          <span className="font-headings font-semibold text-sm text-primary-foreground">
-            ThèseFacile
-          </span>
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-6 w-auto" />
           <div className="w-[18px]" />
         </div>
         {header && <div className="shrink-0">{header}</div>}

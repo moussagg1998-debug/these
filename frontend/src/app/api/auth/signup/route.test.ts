@@ -88,6 +88,7 @@ describe('POST /api/auth/signup', () => {
       name: 'Amadou Diallo',
       institutionId: 'inst-1',
     });
+    expect(userArg?.data).not.toHaveProperty('plan');
     expect(userArg?.data?.termsAcceptedAt).toBeInstanceOf(Date);
     expect(prismaMock.institution.create).not.toHaveBeenCalled();
     expect(prismaMock.verificationCode.create).toHaveBeenCalledTimes(1);

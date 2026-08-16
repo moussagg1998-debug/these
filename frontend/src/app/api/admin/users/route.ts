@@ -34,6 +34,11 @@ const USER_SELECT = {
   status: true,
   emailVerifiedAt: true,
   createdAt: true,
+  // ThèseFacile admin dashboard "Nouveaux inscrits" card — role label
+  // (Encadrant/Étudiant) + institution name. Both optional/nullable;
+  // pre-onboarding accounts (profileType null, no institution) still work.
+  profileType: true,
+  institution: { select: { name: true } },
 } as const satisfies Prisma.UserSelect;
 
 const Q_MAX = 200;
@@ -52,6 +57,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const q = (url.searchParams.get('q') ?? '').slice(0, Q_MAX).trim();
     const status = url.searchParams.get('status');
     const role = url.searchParams.get('role');
+    const profileType = url.searchParams.get('profileType');
     const cursor = decodeCursor(url.searchParams.get('cursor'));
 
     const where: Prisma.UserWhereInput = {
@@ -65,6 +71,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         : {}),
       ...(status ? { status } : {}),
       ...(role ? { role } : {}),
+      ...(profileType ? { profileType } : {}),
       ...cursorWhere(cursor),
     };
 

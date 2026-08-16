@@ -17,11 +17,14 @@ const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
 const params = Promise.resolve({ id: 'thesis-1' });
 
-function thesisRow(overrides: Partial<{ studentId: string; encadrantId: string }> = {}) {
+function thesisRow(
+  overrides: Partial<{ studentId: string; encadrantId: string; stage: string }> = {},
+) {
   return {
     id: 'thesis-1',
     studentId: overrides.studentId ?? 'stu-1',
     encadrantId: overrides.encadrantId ?? 'enc-1',
+    stage: overrides.stage ?? 'Rédaction',
   };
 }
 
@@ -64,6 +67,25 @@ describe('GET /api/theses/[id]/documents', () => {
     const body = await res.json();
     expect(body.items).toEqual([]);
   });
+
+  it('student viewer sees everything — no scheduledAt visibility filter', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ studentId: 'user-1' }) as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    await GET(makeGet(), { params });
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    expect(args?.where).toEqual({ thesisId: 'thesis-1' });
+  });
+
+  it('encadrant viewer excludes documents still scheduled for the future', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+    prismaMock.document.findMany.mockResolvedValue([] as never);
+    await GET(makeGet(), { params });
+    const args = prismaMock.document.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.OR).toEqual([
+      { scheduledAt: null },
+      { scheduledAt: { lte: expect.any(Date) } },
+    ]);
+  });
 });
 
 describe('POST /api/theses/[id]/documents', () => {
@@ -75,12 +97,15 @@ describe('POST /api/theses/[id]/documents', () => {
     expect(prismaMock.document.create).not.toHaveBeenCalled();
   });
 
-  it('encadrant (not student) attempting upload → 403 STUDENT_ONLY', async () => {
-    prismaMock.thesis.findUnique.mockResolvedValue(thesisRow({ encadrantId: 'user-1' }) as never);
+  it('thesis blocked → 403 THESIS_BLOCKED, no Prisma writes', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', stage: 'Bloqué' }) as never,
+    );
     const res = await POST(makePost({ fileUrl: 'https://x.com/a.pdf' }), { params });
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.error).toBe('STUDENT_ONLY');
+    expect(body.error).toBe('THESIS_BLOCKED');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
   });
 
   it('invalid fileUrl → 400 VALIDATION_FAILED', async () => {
@@ -126,5 +151,170 @@ describe('POST /api/theses/[id]/documents', () => {
     const createArg = prismaMock.document.create.mock.calls[0]?.[0];
     expect(createArg?.data?.fileName).toBe('Memoire_v4.docx');
     expect(createArg?.data?.sizeBytes).toBe(204800);
+  });
+
+  it('scheduledAt in the past → 400 SCHEDULED_AT_IN_PAST', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    const res = await POST(
+      makePost({
+        fileUrl: 'https://x.com/a.pdf',
+        scheduledAt: new Date(Date.now() - 60_000).toISOString(),
+      }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('SCHEDULED_AT_IN_PAST');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('scheduledAt in the future → creates with scheduledAt, does not notify yet', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    prismaMock.document.create.mockResolvedValue({ id: 'doc-1' } as never);
+    const futureIso = new Date(Date.now() + 60 * 60_000).toISOString();
+    const res = await POST(makePost({ fileUrl: 'https://x.com/a.pdf', scheduledAt: futureIso }), {
+      params,
+    });
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.document.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.scheduledAt).toEqual(new Date(futureIso));
+    expect(prismaMock.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('student sending replyToDocumentId → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'user-1', encadrantId: 'enc-1' }) as never,
+    );
+    const res = await POST(
+      makePost({ fileUrl: 'https://x.com/a.pdf', replyToDocumentId: 'doc-orig' }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('encadrant reply with missing replyToDocumentId → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    const res = await POST(makePost({ fileUrl: 'https://x.com/correction.pdf' }), { params });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('encadrant reply with scheduledAt → 400 VALIDATION_FAILED', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    const futureIso = new Date(Date.now() + 60 * 60_000).toISOString();
+    const res = await POST(
+      makePost({
+        fileUrl: 'https://x.com/correction.pdf',
+        replyToDocumentId: 'doc-orig',
+        scheduledAt: futureIso,
+      }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('encadrant reply target not found in this thesis → 400 INVALID_REPLY_TARGET', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.document.findFirst.mockResolvedValue(null);
+    const res = await POST(
+      makePost({ fileUrl: 'https://x.com/correction.pdf', replyToDocumentId: 'doc-missing' }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('INVALID_REPLY_TARGET');
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+    const findArgs = prismaMock.document.findFirst.mock.calls[0]?.[0];
+    expect(findArgs?.where).toEqual({
+      id: 'doc-missing',
+      thesisId: 'thesis-1',
+      replyToDocumentId: null,
+    });
+  });
+
+  it('encadrant reply target is itself a reply → 400 INVALID_REPLY_TARGET', async () => {
+    // The findFirst query filters `replyToDocumentId: null` on the target, so
+    // a reply-to-a-reply naturally resolves to null here — same code path as
+    // "not found", asserted separately to document the business rule.
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.document.findFirst.mockResolvedValue(null);
+    const res = await POST(
+      makePost({
+        fileUrl: 'https://x.com/correction.pdf',
+        replyToDocumentId: 'doc-already-a-reply',
+      }),
+      { params },
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('INVALID_REPLY_TARGET');
+  });
+
+  it('encadrant reply happy path → 201, persists replyToDocumentId, notifies the student', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1' }) as never,
+    );
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-orig',
+      replyToDocumentId: null,
+    } as never);
+    prismaMock.document.create.mockResolvedValue({
+      id: 'doc-correction',
+      thesisId: 'thesis-1',
+      replyToDocumentId: 'doc-orig',
+    } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(
+      makePost({
+        fileUrl: 'https://x.com/correction.pdf',
+        chapter: 'Chapitre 3',
+        replyToDocumentId: 'doc-orig',
+      }),
+      { params },
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.document.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.replyToDocumentId).toBe('doc-orig');
+    const notifArg = prismaMock.notification.create.mock.calls[0]?.[0];
+    expect(notifArg?.data?.userId).toBe('stu-1');
+    expect(notifArg?.data?.type).toBe('DOCUMENT_RECEIVED');
+    expect(notifArg?.data?.dedupeKey).toBe('document-received:doc-correction');
+  });
+
+  it('encadrant reply while thesis is Bloqué → still succeeds (guard is student-only)', async () => {
+    prismaMock.thesis.findUnique.mockResolvedValue(
+      thesisRow({ studentId: 'stu-1', encadrantId: 'user-1', stage: 'Bloqué' }) as never,
+    );
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-orig',
+      replyToDocumentId: null,
+    } as never);
+    prismaMock.document.create.mockResolvedValue({ id: 'doc-correction' } as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    const res = await POST(
+      makePost({ fileUrl: 'https://x.com/correction.pdf', replyToDocumentId: 'doc-orig' }),
+      { params },
+    );
+    expect(res.status).toBe(201);
   });
 });

@@ -20,6 +20,7 @@ const CreateBody = z.object({
   description: z.string().trim().max(2000).optional(),
   dueAt: z.coerce.date(),
   urgency: z.enum(['low', 'medium', 'high']).default('medium'),
+  remindEnabled: z.boolean().default(true),
 });
 
 interface RouteParams {
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         title: parsed.data.title,
         dueAt: parsed.data.dueAt,
         urgency: parsed.data.urgency,
+        remindEnabled: parsed.data.remindEnabled,
         ...(parsed.data.description ? { description: parsed.data.description } : {}),
       },
     });

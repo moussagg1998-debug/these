@@ -80,11 +80,8 @@ function VerifyEmailForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-14 font-body sm:px-8">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-6 flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary">
-            <Icon i="graduation-cap" size={14} className="text-primary-foreground" />
-          </div>
-          <span className="font-headings text-base font-semibold text-foreground">ThèseFacile</span>
+        <Link href="/" className="mb-6 flex items-center">
+          <img src="/logo.jpg" alt="ThèseFacile" className="h-8 w-auto" />
         </Link>
 
         <div className="mb-8">
@@ -140,7 +137,7 @@ function VerifyEmailForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
           >
             {submitting ? 'Vérification…' : 'Vérifier mon email'}
           </button>
@@ -158,7 +155,7 @@ function VerifyEmailForm() {
             type="button"
             onClick={onResend}
             disabled={resending || !email}
-            className="font-medium text-primary disabled:opacity-50"
+            className="font-medium text-primary disabled:opacity-50 transition-colors duration-150 hover:text-primary/80"
           >
             {resending ? 'Envoi…' : 'Renvoyer le code'}
           </button>

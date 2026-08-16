@@ -19,12 +19,14 @@ export const runtime = 'nodejs';
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { requireProfileType } from '@/lib/server/theses/guards';
+import { maxStudents } from '@/lib/server/subscriptions/entitlements';
+import { lockUserTx } from '@/lib/server/withdrawals/lock';
 import { deriveProgress, THESIS_STAGES } from '@/lib/theses';
 import { createNotification } from '@/lib/server/notifications';
 import { zEmail } from '@/lib/server/zod-helpers';
@@ -75,7 +77,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // timestamp and a next-deadline chip — both are derived from real
         // rows rather than modeled as columns on Thesis itself.
         documents: { orderBy: { uploadedAt: 'desc' }, take: 1 },
-        deadlines: { where: { dueAt: { gte: new Date() } }, orderBy: { dueAt: 'asc' }, take: 1 },
+        deadlines: {
+          where: { dueAt: { gte: new Date() }, completedAt: null },
+          orderBy: { dueAt: 'asc' },
+          take: 1,
+        },
         // Banani's "pendingComments" assumes a resolved/unresolved concept
         // the schema doesn't model yet (see Comment in schema.prisma) — this
         // MVP substitutes a plain total comment count per thesis.
@@ -142,44 +148,107 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const thesis = await prisma.thesis.create({
-      data: {
-        topic: parsed.data.topic,
-        studentId: student.id,
-        encadrantId: auth.user.sub,
-        ...(parsed.data.stage
-          ? { stage: parsed.data.stage, progress: deriveProgress(parsed.data.stage, 0) }
-          : {}),
-        ...(parsed.data.deadlineAt
-          ? {
-              deadlines: {
-                create: {
-                  title: 'Échéance initiale',
-                  dueAt: parsed.data.deadlineAt,
-                  urgency: 'medium',
-                },
-              },
-            }
-          : {}),
-      },
-      include: {
-        student: { select: { id: true, name: true, email: true, avatarUrl: true } },
-      },
+    const encadrant = await prisma.user.findUnique({
+      where: { id: auth.user.sub },
+      select: { plan: true, planExpiresAt: true },
     });
-
-    try {
-      await createNotification(prisma, {
-        userId: student.id,
-        type: 'THESIS_ASSIGNED',
-        title: 'Nouvel encadrant assigné',
-        body: `Vous avez été ajouté(e) comme étudiant(e) pour : ${thesis.topic}`,
-        data: { thesisId: thesis.id },
-        dedupeKey: `thesis-assigned:${thesis.id}`,
-      });
-    } catch {
-      // Notification is best-effort — the thesis is already committed.
+    if (!encadrant) {
+      return NextResponse.json(
+        { error: 'USER_NOT_FOUND' },
+        { status: 404, headers: { 'x-request-id': ctx.requestId } },
+      );
     }
+    try {
+      const result = await prisma.$transaction(
+        async (tx) => {
+          // lockUserTx MUST be the first awaited statement inside the tx —
+          // serializes concurrent POSTs from the same encadrant so the cap
+          // check below sees a consistent count (mirrors withdrawals/route.ts'
+          // check-then-insert race guard; CLAUDE.md calls the unguarded
+          // version of this shape a double-spend regression).
+          await lockUserTx(tx, auth.user.sub);
 
-    return NextResponse.json(thesis, { status: 201, headers: { 'x-request-id': ctx.requestId } });
+          const activeStudentCount = await tx.thesis.count({
+            where: { encadrantId: auth.user.sub, archivedAt: null },
+          });
+          if (activeStudentCount >= maxStudents(encadrant)) {
+            return { ok: false as const };
+          }
+
+          const thesis = await tx.thesis.create({
+            data: {
+              topic: parsed.data.topic,
+              studentId: student.id,
+              encadrantId: auth.user.sub,
+              ...(parsed.data.stage
+                ? { stage: parsed.data.stage, progress: deriveProgress(parsed.data.stage, 0) }
+                : {}),
+              ...(parsed.data.deadlineAt
+                ? {
+                    deadlines: {
+                      create: {
+                        title: 'Échéance initiale',
+                        dueAt: parsed.data.deadlineAt,
+                        urgency: 'medium',
+                      },
+                    },
+                  }
+                : {}),
+            },
+            include: {
+              student: { select: { id: true, name: true, email: true, avatarUrl: true } },
+            },
+          });
+
+          return { ok: true as const, thesis };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+      if (!result.ok) {
+        return NextResponse.json(
+          {
+            error: 'STUDENT_LIMIT_REACHED',
+            message: "Limite d'étudiants atteinte pour votre plan.",
+          },
+          { status: 403, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+
+      try {
+        await createNotification(prisma, {
+          userId: student.id,
+          type: 'THESIS_ASSIGNED',
+          title: 'Nouvel encadrant assigné',
+          body: `Vous avez été ajouté(e) comme étudiant(e) pour : ${result.thesis.topic}`,
+          data: { thesisId: result.thesis.id },
+          dedupeKey: `thesis-assigned:${result.thesis.id}`,
+        });
+      } catch {
+        // Notification is best-effort — the thesis is already committed.
+      }
+
+      return NextResponse.json(result.thesis, {
+        status: 201,
+        headers: { 'x-request-id': ctx.requestId },
+      });
+    } catch (err) {
+      // P2034 — Serializable isolation aborted due to a concurrent update.
+      // The advisory lock makes this rare; surface it as a transient 409 so
+      // the client can decide whether to retry (CLAUDE.md: frontend `api()`
+      // does NOT auto-retry POSTs).
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: unknown }).code === 'P2034'
+      ) {
+        return NextResponse.json(
+          { error: 'TRANSIENT_CONFLICT', message: 'Please retry' },
+          { status: 409, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      throw err;
+    }
   });
 }

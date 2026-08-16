@@ -34,12 +34,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const cursor = decodeCursor(url.searchParams.get('cursor'));
     const studentId = url.searchParams.get('studentId');
 
+    // AND-wrapped (not a bare top-level OR) so it composes safely with the
+    // cursor pagination's own top-level `OR` below — spreading two `OR` keys
+    // into the same object would silently drop this visibility filter.
     const baseWhere: Prisma.DocumentWhereInput = {
-      thesis: {
-        encadrantId: auth.user.sub,
-        archivedAt: null,
-        ...(studentId ? { studentId } : {}),
-      },
+      AND: [
+        {
+          thesis: {
+            encadrantId: auth.user.sub,
+            archivedAt: null,
+            ...(studentId ? { studentId } : {}),
+          },
+        },
+        // The encadrant doesn't see a scheduled deposit until it's released.
+        { OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }] },
+      ],
     };
     const where: Prisma.DocumentWhereInput = {
       ...baseWhere,

@@ -14,6 +14,8 @@ export interface User {
   updatedAt: string;
   /** false when the account was created via OAuth and never set a password. */
   hasPassword: boolean;
+  /** Set via Settings' avatar upload (or Google OAuth's picture claim). */
+  avatarUrl: string | null;
   /** Provider names already linked, e.g. ['google']. Empty for pure email/password accounts. */
   linkedProviders: string[];
 }

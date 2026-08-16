@@ -48,7 +48,7 @@ export function AddToCalendarModal({ deadline, onClose }: AddToCalendarModalProp
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground"
+            className="text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
             aria-label="Fermer"
           >
             <Icon i="x" size={20} />
@@ -94,14 +94,14 @@ export function AddToCalendarModal({ deadline, onClose }: AddToCalendarModalProp
           <button
             type="button"
             onClick={onDownload}
-            className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-md flex items-center justify-center"
+            className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-md flex items-center justify-center transition duration-150 motion-safe:active:scale-[0.98]"
           >
             Ajouter à mon calendrier
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-border text-foreground text-sm font-medium py-2.5 rounded-md flex items-center justify-center"
+            className="flex-1 border border-border text-foreground text-sm font-medium py-2.5 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-input"
           >
             Annuler
           </button>

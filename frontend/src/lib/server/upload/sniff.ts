@@ -91,6 +91,30 @@ function hasZipSignature(buf: Buffer): boolean {
   return buf.length >= 4 && buf.subarray(0, 4).equals(ZIP_SIGNATURE);
 }
 
+/**
+ * Canonical file extension per verified MIME — same keys as `SNIFFERS`
+ * (add a new entry here whenever a new sniffer is added). Used by the
+ * upload route to give the Cloudinary `public_id` a real extension:
+ * Cloudinary's raw-resource delivery URL is otherwise extensionless,
+ * which breaks external URL-based viewers that sniff the URL string
+ * itself (e.g. Microsoft's Office Online embed for DOCX — it reports the
+ * file "not found" for an extensionless URL even though it's perfectly
+ * fetchable). Keyed off the MIME confirmed by `verifyMagicBytes`, not the
+ * client-supplied filename, so a mislabeled "evil.docx" containing real
+ * PDF bytes still gets a truthful `.pdf` URL.
+ */
+export const MIME_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'application/pdf': '.pdf',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.oasis.opendocument.text': '.odt',
+};
+
 /** Returns true when sniffer for this mime exists. */
 export function hasMagicSniffer(mimeType: string): boolean {
   return mimeType in SNIFFERS;

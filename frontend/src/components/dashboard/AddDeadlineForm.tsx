@@ -5,9 +5,10 @@
 //   scoped per-thesis, not per-student).
 // - "Chapitre ou livrable" maps to `title`; "Priorité" (Normale/Haute/
 //   Urgente) maps 1:1 onto the existing `urgency` enum (low/medium/high).
-// - The reminder checkbox has no scheduler behind it yet — rendered
-//   disabled with a "Bientôt disponible" tooltip, same treatment as
-//   Phase 4's "Non lus" filter.
+// - The reminder checkbox maps to `Deadline.remindEnabled` (default true) —
+//   the deadline-reminder cron already scans every deadline due within 3
+//   days and notifies the encadrant; unchecking this opts this one deadline
+//   out of that scan.
 'use client';
 
 import { useState, type FormEvent } from 'react';
@@ -42,6 +43,7 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
   const [dueAt, setDueAt] = useState('');
   const [urgency, setUrgency] = useState<(typeof PRIORITIES)[number]['value']>('low');
   const [description, setDescription] = useState('');
+  const [remindEnabled, setRemindEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,6 +62,7 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
           title,
           dueAt: new Date(dueAt).toISOString(),
           urgency,
+          remindEnabled,
           ...(description.trim() ? { description: description.trim() } : {}),
         },
       });
@@ -86,7 +89,7 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground"
+            className="text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
             aria-label="Fermer"
           >
             <Icon i="x" size={18} />
@@ -132,13 +135,20 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Date d&apos;échéance
               </span>
-              <input
-                type="date"
-                required
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  required
+                  value={dueAt}
+                  onChange={(e) => setDueAt(e.target.value)}
+                  className="w-full border border-border rounded-sm px-3 py-2.5 pr-9 text-sm text-foreground bg-input outline-none"
+                />
+                <Icon
+                  i="calendar"
+                  size={14}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-primary"
+                />
+              </div>
             </label>
 
             <div className="flex flex-col gap-1.5">
@@ -151,10 +161,10 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
                     key={p.value}
                     type="button"
                     onClick={() => setUrgency(p.value)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-sm flex-1 text-center ${
+                    className={`px-3 py-1.5 text-xs font-medium rounded-sm flex-1 text-center transition duration-150 motion-safe:active:scale-[0.97] ${
                       urgency === p.value
                         ? p.selectedClass
-                        : 'bg-surface border border-border text-foreground'
+                        : 'bg-surface border border-border text-foreground hover:bg-input'
                     }`}
                   >
                     {p.label}
@@ -176,20 +186,15 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
               />
             </label>
 
-            <div className="flex items-center gap-3 py-2 border-t border-border mt-2">
+            <label className="w-full flex items-center gap-3 py-2 border-t border-border mt-2 cursor-pointer">
               <input
                 type="checkbox"
-                disabled
-                title="Bientôt disponible"
-                className="w-4 h-4 cursor-not-allowed"
+                checked={remindEnabled}
+                onChange={(e) => setRemindEnabled(e.target.checked)}
+                className="w-4 h-4 cursor-pointer accent-primary"
               />
-              <label
-                className="text-sm text-muted-foreground cursor-not-allowed"
-                title="Bientôt disponible"
-              >
-                Envoyer un rappel 3 jours avant
-              </label>
-            </div>
+              <span className="text-sm text-foreground">Envoyer un rappel 3 jours avant</span>
+            </label>
 
             {error && (
               <p role="alert" className="text-sm text-danger">
@@ -202,14 +207,14 @@ export function AddDeadlineForm({ theses, onClose, onCreated }: AddDeadlineFormP
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm transition-colors duration-150 hover:bg-surface"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
             >
               {submitting ? 'Création…' : "Créer l'échéance"}
             </button>

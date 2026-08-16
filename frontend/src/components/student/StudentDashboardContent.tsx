@@ -12,9 +12,11 @@ import Link from 'next/link';
 import { useApi } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StudentShell } from './StudentShell';
 import { StudentDocumentRow } from './StudentDocumentRow';
 import { StudentCommentItem } from './StudentCommentItem';
+import { ThesisBlockedBanner } from './ThesisBlockedBanner';
 import {
   STAGE_COLORS,
   displayName,
@@ -98,13 +100,65 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
     [encadrantComments],
   );
 
-  const nextDeadline = deadlinesRes?.items[0] ?? null;
-  const laterDeadlines = useMemo(() => (deadlinesRes?.items ?? []).slice(1, 3), [deadlinesRes]);
+  // A deadline the encadrant has validated ("respectée") frees up this slot
+  // for whichever deadline is next — it doesn't linger here just because
+  // its dueAt hasn't passed yet.
+  const upcomingDeadlines = useMemo(
+    () => (deadlinesRes?.items ?? []).filter((d) => !d.completedAt),
+    [deadlinesRes],
+  );
+  const nextDeadline = upcomingDeadlines[0] ?? null;
+  const laterDeadlines = useMemo(() => upcomingDeadlines.slice(1, 3), [upcomingDeadlines]);
 
   if (thesesLoading && !thesesRes) {
     return (
       <StudentShell name={name} active="dashboard">
-        <p className="p-8 text-sm text-muted-foreground">Chargement…</p>
+        <div className="flex flex-col lg:flex-row px-4 py-6 sm:px-8 gap-6">
+          <div className="flex-1 flex flex-col gap-6 min-w-0">
+            <div className="border border-border rounded-md p-6 bg-surface flex flex-col gap-3">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+            <div className="border border-border rounded-md p-5 bg-background flex flex-col gap-4">
+              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="border border-border rounded-md overflow-hidden">
+                <div className="px-5 py-4 border-b border-border bg-surface">
+                  <Skeleton className="h-3.5 w-24" />
+                </div>
+                <div className="flex flex-col gap-3 p-5">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              </div>
+              <div className="border border-border rounded-md overflow-hidden">
+                <div className="px-5 py-4 border-b border-border bg-surface">
+                  <Skeleton className="h-3.5 w-24" />
+                </div>
+                <div className="flex flex-col gap-3 p-5">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
+            <div className="border border-border rounded-md p-4 bg-surface flex flex-col gap-3">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+            <div className="border border-border rounded-md p-4 bg-surface flex flex-col gap-3">
+              <Skeleton className="h-3 w-24" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+          </div>
+        </div>
       </StudentShell>
     );
   }
@@ -112,7 +166,7 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
   if (!thesis) {
     return (
       <StudentShell name={name} active="dashboard">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-24 text-center motion-safe:animate-fade-in">
           <p className="text-sm text-muted-foreground">
             Aucun encadrant ne vous a encore assigné de mémoire.
           </p>
@@ -125,6 +179,11 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
 
   return (
     <StudentShell name={name} active="dashboard">
+      {thesis.stage === 'Bloqué' && (
+        <div className="px-4 pt-6 sm:px-8">
+          <ThesisBlockedBanner />
+        </div>
+      )}
       <div className="flex flex-col lg:flex-row px-4 py-6 sm:px-8 gap-6">
         {/* LEFT — main content */}
         <div className="flex-1 flex flex-col gap-6 min-w-0">
@@ -166,7 +225,10 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
               Avancement global — {thesis.progress}%
             </div>
             <div className="w-full h-2 bg-input rounded-full overflow-hidden">
-              <div className="h-full bg-primary" style={{ width: `${thesis.progress}%` }} />
+              <div
+                className="h-full bg-primary transition-[width] duration-500 ease-out"
+                style={{ width: `${thesis.progress}%` }}
+              />
             </div>
           </div>
 
@@ -188,7 +250,7 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
                 </Link>
               </div>
               {documents.length === 0 ? (
-                <p className="px-5 py-6 text-sm text-muted-foreground">
+                <p className="px-5 py-6 text-sm text-muted-foreground motion-safe:animate-fade-in">
                   Aucun document déposé pour l&apos;instant.
                 </p>
               ) : (
@@ -210,14 +272,9 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
                 <div className="text-sm font-semibold font-headings text-foreground">
                   Retours de mon encadrant
                 </div>
-                {unresolvedCount > 0 && (
-                  <div className="text-xs bg-danger text-danger-foreground px-2 py-0.5 rounded-sm font-medium">
-                    {unresolvedCount} à traiter
-                  </div>
-                )}
               </div>
               {encadrantComments.length === 0 ? (
-                <p className="px-5 py-6 text-sm text-muted-foreground">
+                <p className="px-5 py-6 text-sm text-muted-foreground motion-safe:animate-fade-in">
                   Aucun retour pour l&apos;instant.
                 </p>
               ) : (
@@ -268,7 +325,9 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Aucune échéance à venir.</p>
+              <p className="text-xs text-muted-foreground motion-safe:animate-fade-in">
+                Aucune échéance à venir.
+              </p>
             )}
             {laterDeadlines.map((deadline, i) => (
               <div
@@ -307,7 +366,11 @@ export function StudentDashboardContent({ name }: StudentDashboardContentProps) 
               Mon encadrant
             </div>
             <div className="flex items-center gap-3 mb-3">
-              <Avatar name={displayName(thesis.encadrant)} className="h-10 w-10" />
+              <Avatar
+                name={displayName(thesis.encadrant)}
+                src={thesis.encadrant.avatarUrl}
+                className="h-10 w-10"
+              />
               <div className="text-sm font-semibold text-foreground">
                 {displayName(thesis.encadrant)}
               </div>

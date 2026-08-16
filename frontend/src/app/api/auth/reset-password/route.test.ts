@@ -61,6 +61,17 @@ describe('POST /api/auth/reset-password', () => {
     const codeArg = prismaMock.verificationCode.updateMany.mock.calls[0]?.[0];
     expect(codeArg?.where?.usedAt).toBeNull();
     expect(codeArg?.data?.usedAt).toBeInstanceOf(Date);
+
+    expect(prismaMock.securityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: 'PASSWORD_CHANGED',
+          userId: 'u1',
+          email: 'happy@example.com',
+          metadata: { method: 'reset_code' },
+        }),
+      }),
+    );
   });
 
   it('WR-05 — race: when updateMany returns count=0, surfaces VERIFICATION_CODE_INVALID and skips user.update', async () => {

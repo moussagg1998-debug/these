@@ -10,6 +10,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/ui/Icon';
+import { UpgradeModal } from './UpgradeModal';
 import type { ThesisListItem } from '@/lib/theses';
 
 const STAGES = ['Rédaction', 'En attente', 'Révision', 'Bloqué', 'Soutenance'] as const;
@@ -35,6 +36,8 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
   const [deadlineAt, setDeadlineAt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,6 +46,7 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
       return;
     }
     setError(null);
+    setLimitReached(false);
     setSubmitting(true);
     try {
       const thesis = await api<
@@ -59,7 +63,11 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
       onCreated(thesis);
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(ERROR_MESSAGES[err.code] ?? err.message);
+        if (err.code === 'STUDENT_LIMIT_REACHED') {
+          setLimitReached(true);
+        } else {
+          setError(ERROR_MESSAGES[err.code] ?? err.message);
+        }
       } else {
         setError('Une erreur est survenue.');
       }
@@ -78,7 +86,7 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
           <button
             type="button"
             onClick={onClose}
-            className="text-muted-foreground"
+            className="text-muted-foreground transition duration-150 hover:text-foreground motion-safe:active:scale-90"
             aria-label="Fermer"
           >
             <Icon i="x" size={18} />
@@ -150,18 +158,41 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 Échéance estimée
               </span>
-              <input
-                type="date"
-                value={deadlineAt}
-                onChange={(e) => setDeadlineAt(e.target.value)}
-                className="border border-border rounded-sm px-3 py-2.5 text-sm text-foreground bg-input outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={deadlineAt}
+                  onChange={(e) => setDeadlineAt(e.target.value)}
+                  className="w-full border border-border rounded-sm px-3 py-2.5 pr-9 text-sm text-foreground bg-input outline-none"
+                />
+                <Icon
+                  i="calendar"
+                  size={14}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-primary"
+                />
+              </div>
             </label>
 
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
+            {limitReached ? (
+              <div className="flex flex-col gap-3 rounded-md border border-border bg-input p-4 text-center">
+                <p className="text-sm text-foreground">
+                  Limite d&apos;étudiants atteinte pour votre plan. Passez au plan Essentiel pour
+                  ajouter davantage d&apos;étudiants.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setUpgradeModalOpen(true)}
+                  className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  Voir l&apos;offre Essentiel
+                </button>
+              </div>
+            ) : (
+              error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )
             )}
           </div>
 
@@ -169,20 +200,26 @@ export function AddStudentForm({ onClose, onCreated }: AddStudentFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-sm transition-colors duration-150 hover:bg-surface"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm disabled:opacity-50 transition duration-150 motion-safe:active:scale-[0.98]"
             >
               {submitting ? 'Ajout…' : "Ajouter l'étudiant"}
             </button>
           </div>
         </form>
       </div>
+      {upgradeModalOpen && (
+        <UpgradeModal
+          onClose={() => setUpgradeModalOpen(false)}
+          onActivated={() => setLimitReached(false)}
+        />
+      )}
     </div>
   );
 }
