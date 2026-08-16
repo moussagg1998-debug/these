@@ -6,9 +6,10 @@ import { readFile } from 'node:fs/promises';
 // individual routes can override with their own opengraph-image.tsx).
 // Generated from the real logo asset (public/logo.jpg) via the Node.js
 // runtime + local-asset pattern documented for next/og (base64 data URI
-// embedded in an <img>). The logo sits in a white card since the source
-// JPEG carries its own white background — placing it directly on the dark
-// canvas would show a hard white rectangle with no visual framing.
+// embedded in an <img>). The logo sits in a brand-green card — the source
+// JPEG itself is still a white rectangle with almost no internal margin
+// (no transparency to remove it), so this shows as a green frame around
+// that white rectangle, not a full green fill behind the wordmark.
 export const runtime = 'nodejs';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
@@ -37,7 +38,7 @@ export default function OpengraphImage() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          background: '#ffffff',
+          background: '#4ade80',
           borderRadius: 16,
           padding: '20px 32px',
           marginBottom: 48,
