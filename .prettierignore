@@ -6,3 +6,16 @@ coverage
 pnpm-lock.yaml
 *.md
 backend/src/generated
+
+# Vendored third-party skills (installed via `npx skills add heygen-com/hyperframes`).
+# Keep byte-identical with upstream so skills-lock.json hashes stay valid.
+.claude/skills/figma
+.claude/skills/hyperframes
+.claude/skills/hyperframes-cli
+.claude/skills/hyperframes-registry
+.claude/skills/media-use
+.claude/skills/remotion-to-hyperframes
+.claude/skills/reverse-any-video
+.claude/skills/slideshow
+.claude/skills/style-sampling
+skills-lock.json
