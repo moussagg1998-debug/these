@@ -1,22 +1,20 @@
 import React from 'react';
-import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
+import { Camera } from './fx/Camera';
 
 type SceneProps = {
   children: React.ReactNode;
-  /** Durée de la scène, pour placer le fondu de sortie. */
+  /** Durée de la scène, pour le travelling de caméra. */
   durationInFrames: number;
-  fadeFrames?: number;
+  /** Images où la caméra donne un coup de zoom (temps forts). */
+  punches?: number[];
+  zoomFrom?: number;
+  zoomTo?: number;
 };
 
-/** Scène avec fondu d'entrée et de sortie. À placer dans une <Series.Sequence>. */
-export const Scene: React.FC<SceneProps> = ({ children, durationInFrames, fadeFrames = 10 }) => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(
-    frame,
-    [0, fadeFrames, durationInFrames - fadeFrames, durationInFrames],
-    [0, 1, 1, 0],
-    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
-  );
-
-  return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>;
-};
+/**
+ * Scène filmée par la caméra virtuelle (travelling avant + coups de zoom).
+ * Les transitions entre scènes sont gérées par <TransitionSeries> dans chaque Reel.
+ */
+export const Scene: React.FC<SceneProps> = ({ children, ...camera }) => (
+  <Camera {...camera}>{children}</Camera>
+);

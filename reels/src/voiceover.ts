@@ -1,6 +1,6 @@
 import type { CalculateMetadataFunction } from 'remotion';
 import { staticFile } from 'remotion';
-import { VIDEO } from './theme';
+import { TRANSITION_FRAMES, VIDEO } from './theme';
 import { hasStaticFile } from './utils/static-files';
 
 /**
@@ -15,9 +15,12 @@ export const VOICE = {
 } as const;
 
 /** Délai avant que la voix démarre dans une scène, en images. */
-export const VOICE_DELAY_FRAMES = 6;
-/** Temps laissé après la fin de la voix avant de changer de scène, en images. */
-const VOICE_TAIL_FRAMES = 12;
+export const VOICE_DELAY_FRAMES = 10;
+/**
+ * Temps laissé après la fin de la voix : la transition suivante (qui chevauche
+ * la fin de la scène) ne doit pas couper la phrase.
+ */
+const VOICE_TAIL_FRAMES = TRANSITION_FRAMES + 6;
 
 export const voiceoverFile = (reelId: string, sceneKey: string): string =>
   `voiceover/${reelId}/${sceneKey}.mp3`;
@@ -43,8 +46,11 @@ export type SceneDurations<K extends string> = Record<K, number>;
 export const minSceneDurations = <K extends string>(scenes: SceneSpec<K>[]): SceneDurations<K> =>
   Object.fromEntries(scenes.map((s) => [s.key, s.minFrames])) as SceneDurations<K>;
 
-export const totalFrames = (durations: Record<string, number>): number =>
-  Object.values(durations).reduce((a, b) => a + b, 0);
+/** Durée totale : somme des scènes moins le chevauchement des transitions. */
+export const totalFrames = (durations: Record<string, number>): number => {
+  const values = Object.values(durations);
+  return values.reduce((a, b) => a + b, 0) - Math.max(0, values.length - 1) * TRANSITION_FRAMES;
+};
 
 /**
  * Allonge chaque scène pour que sa voix off tienne dedans,

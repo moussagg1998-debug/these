@@ -25,6 +25,11 @@ export const COLORS = {
   textMuted: 'rgba(255, 255, 255, 0.72)',
   surface: '#1B1B24',
   track: 'rgba(255, 255, 255, 0.12)',
+  /** Teintes dérivées pour les illustrations (pièces, ombres). */
+  gold: '#FFC24A',
+  goldDark: '#C25E00',
+  primaryDark: '#B85400',
+  secondaryDark: '#15803D',
 } as const;
 
 export const FONT_FAMILY = fontFamily;
@@ -60,13 +65,29 @@ export const SAFE_ZONE = {
   left: 80,
 } as const;
 
-/** Rectangle utilisable à l'intérieur des zones de sécurité (880 x 1270 px). */
+/**
+ * Marge intérieure supplémentaire : la caméra zoome jusqu'à CAMERA_MAX_ZOOM,
+ * ce qui agrandit le contenu. Cette marge garantit qu'il reste hors des zones de sécurité.
+ */
+export const SAFE_INSET = 32;
+export const CAMERA_MAX_ZOOM = 1.05;
+
+/** Rectangle où placer le texte (816 x 1206 px). */
 export const SAFE_AREA = {
-  x: SAFE_ZONE.left,
-  y: SAFE_ZONE.top,
-  width: VIDEO.width - SAFE_ZONE.left - SAFE_ZONE.right,
-  height: VIDEO.height - SAFE_ZONE.top - SAFE_ZONE.bottom,
+  x: SAFE_ZONE.left + SAFE_INSET,
+  y: SAFE_ZONE.top + SAFE_INSET,
+  width: VIDEO.width - SAFE_ZONE.left - SAFE_ZONE.right - 2 * SAFE_INSET,
+  height: VIDEO.height - SAFE_ZONE.top - SAFE_ZONE.bottom - 2 * SAFE_INSET,
 } as const;
+
+/** Centre de la zone sûre : point fixe des zooms de caméra. */
+export const SAFE_CENTER = {
+  x: SAFE_ZONE.left + (VIDEO.width - SAFE_ZONE.left - SAFE_ZONE.right) / 2,
+  y: SAFE_ZONE.top + (VIDEO.height - SAFE_ZONE.top - SAFE_ZONE.bottom) / 2,
+} as const;
+
+/** Durée des transitions entre scènes, en images. */
+export const TRANSITION_FRAMES = 14;
 
 /** Réglages de ressort (spring) partagés. */
 export const SPRINGS = {

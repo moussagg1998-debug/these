@@ -1,5 +1,7 @@
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame } from 'remotion';
+import { AbsoluteFill } from 'remotion';
+import { Backdrop } from './fx/Backdrop';
+import { FloatingCoins } from './fx/Particles';
 import { COLORS, FONT_FAMILY, MUSIC_VOLUME, MUSIC_VOLUME_UNDER_VOICE } from '../theme';
 import { BackgroundMusic } from './BackgroundMusic';
 import { SafeZoneGuides } from './SafeArea';
@@ -21,19 +23,12 @@ export const ReelLayout: React.FC<ReelLayoutProps> = ({
   music = true,
   duckMusic = false,
 }) => {
-  const frame = useCurrentFrame();
-  const drift = Math.sin(frame / 60) * 40;
-
   return (
     <AbsoluteFill
       style={{ backgroundColor: COLORS.background, fontFamily: FONT_FAMILY, color: COLORS.text }}
     >
-      <AbsoluteFill
-        style={{
-          background: `radial-gradient(circle at ${20 + drift / 10}% ${15 + drift / 20}%, ${COLORS.primary}33 0%, transparent 45%),
-            radial-gradient(circle at ${85 - drift / 10}% ${80 - drift / 20}%, ${COLORS.secondary}26 0%, transparent 40%)`,
-        }}
-      />
+      <Backdrop />
+      <FloatingCoins />
       {children}
       {music ? (
         <BackgroundMusic volume={duckMusic ? MUSIC_VOLUME_UNDER_VOICE : MUSIC_VOLUME} />

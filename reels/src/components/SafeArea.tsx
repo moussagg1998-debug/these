@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill } from 'remotion';
-import { SAFE_ZONE } from '../theme';
+import { SAFE_INSET, SAFE_ZONE } from '../theme';
 
 type SafeAreaProps = {
   children: React.ReactNode;
@@ -19,10 +19,10 @@ export const SafeArea: React.FC<SafeAreaProps> = ({
 }) => (
   <AbsoluteFill
     style={{
-      paddingTop: SAFE_ZONE.top,
-      paddingBottom: SAFE_ZONE.bottom,
-      paddingLeft: SAFE_ZONE.left,
-      paddingRight: SAFE_ZONE.right,
+      paddingTop: SAFE_ZONE.top + SAFE_INSET,
+      paddingBottom: SAFE_ZONE.bottom + SAFE_INSET,
+      paddingLeft: SAFE_ZONE.left + SAFE_INSET,
+      paddingRight: SAFE_ZONE.right + SAFE_INSET,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: justify,

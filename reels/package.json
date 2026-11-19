@@ -16,6 +16,7 @@
     "@remotion/google-fonts": "4.0.545",
     "@remotion/renderer": "4.0.545",
     "@remotion/studio": "4.0.545",
+    "@remotion/transitions": "4.0.545",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "remotion": "4.0.545"
