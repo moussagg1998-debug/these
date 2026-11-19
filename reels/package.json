@@ -1,0 +1,28 @@
+{
+  "name": "reels",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reels Instagram / TikTok (1080x1920, 30 fps) générés avec Remotion",
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render",
+    "render:all": "node scripts/render-all.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.545",
+    "@remotion/cli": "4.0.545",
+    "@remotion/google-fonts": "4.0.545",
+    "@remotion/renderer": "4.0.545",
+    "@remotion/studio": "4.0.545",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.545"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.0",
+    "@types/react": "19.2.0",
+    "typescript": "5.9.3"
+  }
+}

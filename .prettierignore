@@ -19,3 +19,7 @@ backend/src/generated
 .claude/skills/slideshow
 .claude/skills/style-sampling
 skills-lock.json
+
+# Remotion Reels project (standalone npm project)
+reels/package-lock.json
+reels/out
