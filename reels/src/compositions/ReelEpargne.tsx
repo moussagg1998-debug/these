@@ -8,9 +8,24 @@ import {
   ReelLayout,
   SafeArea,
   Scene,
+  VoiceOver,
 } from '../components';
 import { COLORS, TYPOGRAPHY } from '../theme';
 import { formatFCFA } from '../utils/format';
+import type { SceneDurations, SceneSpec } from '../voiceover';
+import { fitScenesToVoiceover, hasVoiceover, minSceneDurations, totalFrames } from '../voiceover';
+
+export const REEL_EPARGNE_ID = 'Reel-Epargne';
+
+type SceneKey = 'hook' | 'goal' | 'progress' | 'cta';
+
+/** Durées minimales ; chaque scène s'allonge si sa voix off est plus longue. */
+const SCENES: SceneSpec<SceneKey>[] = [
+  { key: 'hook', minFrames: 90 },
+  { key: 'goal', minFrames: 120 },
+  { key: 'progress', minFrames: 120 },
+  { key: 'cta', minFrames: 120 },
+];
 
 export type ReelEpargneProps = {
   handle: string;
@@ -19,6 +34,8 @@ export type ReelEpargneProps = {
   /** Progression de chaque mois, de 0 à 100. */
   months: { label: string; progress: number }[];
   showSafeZones: boolean;
+  /** Calculé automatiquement à partir des clips de voix off. */
+  sceneDurations: SceneDurations<SceneKey>;
 };
 
 export const reelEpargneDefaults: ReelEpargneProps = {
@@ -30,10 +47,15 @@ export const reelEpargneDefaults: ReelEpargneProps = {
     { label: 'Mois 3', progress: 100 },
   ],
   showSafeZones: false,
+  sceneDurations: minSceneDurations(SCENES),
 };
 
-const SCENES = { hook: 90, goal: 120, progress: 120, cta: 120 } as const;
-export const REEL_EPARGNE_DURATION = Object.values(SCENES).reduce((a, b) => a + b, 0);
+export const REEL_EPARGNE_DURATION = totalFrames(reelEpargneDefaults.sceneDurations);
+
+export const calculateReelEpargneMetadata = fitScenesToVoiceover<SceneKey, ReelEpargneProps>(
+  REEL_EPARGNE_ID,
+  SCENES,
+);
 
 /** Exemple : objectif d'épargne mensuel, progression sur 3 mois, appel à l'action. */
 export const ReelEpargne: React.FC<ReelEpargneProps> = ({
@@ -41,14 +63,17 @@ export const ReelEpargne: React.FC<ReelEpargneProps> = ({
   monthlyGoal,
   months,
   showSafeZones,
+  sceneDurations: d,
 }) => {
   const perDay = Math.round(monthlyGoal / 30);
+  const voiced = SCENES.some((s) => hasVoiceover(REEL_EPARGNE_ID, s.key));
 
   return (
-    <ReelLayout showSafeZones={showSafeZones}>
+    <ReelLayout showSafeZones={showSafeZones} duckMusic={voiced}>
       <Series>
-        <Series.Sequence durationInFrames={SCENES.hook}>
-          <Scene durationInFrames={SCENES.hook}>
+        <Series.Sequence durationInFrames={d.hook}>
+          <Scene durationInFrames={d.hook}>
+            <VoiceOver reelId={REEL_EPARGNE_ID} sceneKey="hook" />
             <SafeArea>
               <KineticText
                 text={`Comment épargner ${formatFCFA(monthlyGoal)} par mois ?`}
@@ -58,14 +83,15 @@ export const ReelEpargne: React.FC<ReelEpargneProps> = ({
           </Scene>
         </Series.Sequence>
 
-        <Series.Sequence durationInFrames={SCENES.goal}>
-          <Scene durationInFrames={SCENES.goal}>
+        <Series.Sequence durationInFrames={d.goal}>
+          <Scene durationInFrames={d.goal}>
+            <VoiceOver reelId={REEL_EPARGNE_ID} sceneKey="goal" />
             <SafeArea gap={56}>
               <KineticText text="Ton objectif mensuel" {...TYPOGRAPHY.subtitle} />
               <AnimatedNumber value={monthlyGoal} startFrame={12} durationInFrames={50} />
               <KineticText
                 text={`soit seulement ${formatFCFA(perDay)} par jour`}
-                startFrame={70}
+                startFrame={80}
                 framesPerWord={3}
                 {...TYPOGRAPHY.body}
                 color={COLORS.textMuted}
@@ -76,8 +102,9 @@ export const ReelEpargne: React.FC<ReelEpargneProps> = ({
           </Scene>
         </Series.Sequence>
 
-        <Series.Sequence durationInFrames={SCENES.progress}>
-          <Scene durationInFrames={SCENES.progress}>
+        <Series.Sequence durationInFrames={d.progress}>
+          <Scene durationInFrames={d.progress}>
+            <VoiceOver reelId={REEL_EPARGNE_ID} sceneKey="progress" />
             <SafeArea gap={64}>
               <KineticText text="Ta progression" {...TYPOGRAPHY.title} fontSize={96} />
               {months.map((month, i) => (
@@ -85,7 +112,7 @@ export const ReelEpargne: React.FC<ReelEpargneProps> = ({
                   key={month.label}
                   label={month.label}
                   progress={month.progress}
-                  startFrame={20 + i * 18}
+                  startFrame={20 + i * 24}
                   color={month.progress >= 100 ? COLORS.secondary : COLORS.primary}
                 />
               ))}
@@ -93,8 +120,9 @@ export const ReelEpargne: React.FC<ReelEpargneProps> = ({
           </Scene>
         </Series.Sequence>
 
-        <Series.Sequence durationInFrames={SCENES.cta}>
-          <Scene durationInFrames={SCENES.cta}>
+        <Series.Sequence durationInFrames={d.cta}>
+          <Scene durationInFrames={d.cta}>
+            <VoiceOver reelId={REEL_EPARGNE_ID} sceneKey="cta" />
             <SafeArea>
               <CTA
                 handle={handle}

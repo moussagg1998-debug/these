@@ -7,3 +7,4 @@ export { ProgressBar } from './ProgressBar';
 export { ReelLayout } from './ReelLayout';
 export { SafeArea, SafeZoneGuides } from './SafeArea';
 export { Scene } from './Scene';
+export { VoiceOver } from './VoiceOver';

@@ -78,3 +78,6 @@ export const SPRINGS = {
 
 /** Volume par défaut de la musique de fond (0 à 1). */
 export const MUSIC_VOLUME = 0.15;
+
+/** Volume de la musique quand une voix off joue par-dessus. */
+export const MUSIC_VOLUME_UNDER_VOICE = 0.06;
